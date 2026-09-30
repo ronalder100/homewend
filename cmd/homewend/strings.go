@@ -116,6 +116,7 @@ Example:
 	"request":           "asking Google Takeout for an export",
 	"not offered":       "Google Takeout offers no export of %d. It offers these years: %s\nand these albums:\n  %s",
 	"waiting":           "Google is preparing the export: this can take hours.\nLeave this open, the download starts when it is ready.",
+	"ready":             "the export is ready: downloading %d parts, %s",
 	"stopped":           "stopped: run the same command again to carry on where it was",
 	"not requested":     "the export was not requested: %v",
 	"first download":    "a browser window is open on your export: click Download on the first part, and enter your password if Google asks. This is needed once for this account; the window closes by itself once the download starts",

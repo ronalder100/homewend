@@ -68,6 +68,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 
 	// The manifest is one more archive, and counted as one.
 	of := len(f.Export.Parts) + 1
+	emit.Emit(progress.Event{Stage: progress.Ready, Name: f.Export.Job, Of: of, Total: f.Export.Bytes})
 	for i, part := range f.Export.Parts {
 		path := filepath.Join(parts, part.Filename)
 		if !st.Unpacked[part.Filename] {

@@ -22,6 +22,17 @@ func TestTheWaitShowsHowLongItHasBeen(t *testing.T) {
 	}
 }
 
+// Once the export is ready the wait is over, and the spinner with it.
+func TestReadyEndsTheWait(t *testing.T) {
+	s := newStatus()
+	start := time.Now()
+	s.show(progress.Event{Stage: progress.Waiting}, start)
+	s.show(progress.Event{Stage: progress.Ready, Of: 4, Total: 1 << 30}, start.Add(time.Hour))
+	if line := s.line(start.Add(time.Hour)); line != "" {
+		t.Errorf("status line %q after ready, want none", line)
+	}
+}
+
 func TestADownloadShowsItsSpeedAndTimeLeft(t *testing.T) {
 	s := newStatus()
 	start := time.Now()

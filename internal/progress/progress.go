@@ -12,6 +12,7 @@ const (
 	FirstDownload = "first-download" // the browser is open on the export, for the user to download one part, once per account
 	Request       = "request"        // an export is being asked for
 	Waiting       = "waiting"        // Google is preparing the export; Name is its job
+	Ready         = "ready"          // the export is ready and its download starts; Of counts its parts, manifest included, Total their bytes
 	Download      = "download"       // a part starts or resumes; Done and Total are bytes
 	Receiving     = "receiving"      // bytes of a part are arriving, at most once a second; Done and Total are bytes
 	Downloaded    = "downloaded"     // a part is complete on disk

@@ -287,6 +287,8 @@ func (p printer) event(e progress.Event) {
 		p.say("%s", text["request"])
 	case progress.Waiting:
 		p.say("%s", text["waiting"])
+	case progress.Ready:
+		p.say(text["ready"], e.Of, size(e.Total))
 	case progress.FirstDownload:
 		p.say("%s", text["first download"])
 	case progress.Download:

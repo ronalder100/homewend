@@ -98,7 +98,8 @@ func (s *status) show(e progress.Event, now time.Time) {
 		s.current, s.lastAt, s.lastDone = e, now, e.Done
 	case progress.Place:
 		s.waiting, s.current = "", e
-	case progress.Downloaded, progress.Short, progress.Unpack:
+	case progress.Ready, progress.Downloaded, progress.Short, progress.Unpack:
+		s.waiting = ""
 		s.current = progress.Event{}
 	}
 }
