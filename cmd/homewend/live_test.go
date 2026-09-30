@@ -1,0 +1,41 @@
+// homewend — Copyright (C) 2026 Ron Alder
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package main
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/ronalder100/homewend/internal/progress"
+)
+
+// Hours spent waiting for Google must show that time is passing.
+func TestTheWaitShowsHowLongItHasBeen(t *testing.T) {
+	s := newStatus()
+	start := time.Now()
+	s.show(progress.Event{Stage: progress.Waiting, Name: "job"}, start)
+	line := s.line(start.Add(12*time.Minute + 3*time.Second))
+	if !strings.Contains(line, text["waiting status"]) || !strings.Contains(line, "12m3s") {
+		t.Errorf("status line %q", line)
+	}
+}
+
+func TestADownloadShowsItsSpeedAndTimeLeft(t *testing.T) {
+	s := newStatus()
+	start := time.Now()
+	const mib = 1 << 20
+	s.show(progress.Event{Stage: progress.Download, N: 1, Of: 2, Name: "a.zip", Total: 100 * mib}, start)
+	s.show(progress.Event{Stage: progress.Receiving, N: 1, Of: 2, Name: "a.zip", Done: 10 * mib, Total: 100 * mib}, start.Add(time.Second))
+	line := s.line(start.Add(time.Second))
+	for _, want := range []string{"[1/2] a.zip", "10 MiB of 100 MiB", "10 MiB/s", "9s left"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("status line %q lacks %q", line, want)
+		}
+	}
+	s.show(progress.Event{Stage: progress.Downloaded, N: 1, Of: 2, Name: "a.zip"}, start.Add(10*time.Second))
+	if line := s.line(start.Add(10 * time.Second)); line != "" {
+		t.Errorf("after the part: status line %q, want none", line)
+	}
+}

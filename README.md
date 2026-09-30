@@ -265,7 +265,7 @@ homewend get --year 2025 --library ~/Pictures/Homewend --json \
 
 | Line | When |
 |---|---|
-| `{"event": {...}}` | progress, by `stage`: `sign-in`, `first-download`, `request`, `waiting`, `download`, `downloaded`, `short`, `retry`, `unpack`, `place` |
+| `{"event": {...}}` | progress, by `stage`: `sign-in`, `first-download`, `request`, `waiting`, `download`, `receiving`, `downloaded`, `short`, `retry`, `unpack`, `place` |
 | `{"organized": {...}}` | photos placed, bytes, duplicates skipped, undated |
 | `{"verification": {...}}` | `declared`, `present`, `missing`, per-year counts |
 | `{"error": "...", "exit": N}` | what went wrong, and the exit code |

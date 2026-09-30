@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/dustin/go-humanize"
 
 	"github.com/ronalder100/homewend/internal/download"
@@ -94,7 +95,8 @@ func login(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	out := printer{json: *asJSON}
+	out := newPrinter(*asJSON)
+	defer out.close()
 
 	sess, err := openSession(*profile)
 	if err != nil {
@@ -107,9 +109,9 @@ func login(args []string) int {
 		return out.fail(err)
 	}
 	if already {
-		out.line("signed_in", true, text["already signed in"])
+		out.line("signed_in", true, "%s", text["already signed in"])
 	} else {
-		out.line("signed_in", true, text["signed in"])
+		out.line("signed_in", true, "%s", text["signed in"])
 	}
 	return exitOK
 }
@@ -125,7 +127,8 @@ func get(args []string) int {
 		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
 		return exitError
 	}
-	out := printer{json: *asJSON}
+	out := newPrinter(*asJSON)
+	defer out.close()
 
 	sess, err := openSession(*profile)
 	if err != nil {
@@ -163,7 +166,8 @@ func fetch(args []string) int {
 		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
 		return exitError
 	}
-	out := printer{json: *asJSON}
+	out := newPrinter(*asJSON)
+	defer out.close()
 
 	sess, err := openSession(*profile)
 	if err != nil {
@@ -228,15 +232,44 @@ func unset(flags map[string]string) string {
 	return strings.Join(missing, ", ")
 }
 
-// printer shows engine output either as text or as JSON lines.
-type printer struct{ json bool }
+// printer shows engine output either as text or as JSON lines. In a
+// terminal, text goes above a live status line.
+type printer struct {
+	json bool
+	live *tea.Program
+}
+
+func newPrinter(json bool) printer {
+	if json {
+		return printer{json: true}
+	}
+	return printer{live: startLive()}
+}
+
+// close takes the status line down. It can be called more than once.
+func (p printer) close() {
+	if p.live != nil {
+		p.live.Send(idle{})
+		p.live.Quit()
+		p.live.Wait()
+	}
+}
+
+// say prints one line of text for a person.
+func (p printer) say(format string, args ...any) {
+	if p.live != nil {
+		p.live.Printf(format, args...)
+		return
+	}
+	fmt.Printf(format+"\n", args...)
+}
 
 func (p printer) line(kind string, value any, format string, args ...any) {
 	if p.json {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{kind: value})
 		return
 	}
-	fmt.Printf(format+"\n", args...)
+	p.say(format, args...)
 }
 
 func (p printer) event(e progress.Event) {
@@ -244,30 +277,36 @@ func (p printer) event(e progress.Event) {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"event": e})
 		return
 	}
-	size := func(n int64) string { return humanize.IBytes(uint64(n)) }
+	if p.live != nil {
+		p.live.Send(e)
+	}
 	switch e.Stage {
 	case progress.SignIn:
-		fmt.Println(text["sign in"])
+		p.say("%s", text["sign in"])
 	case progress.Request:
-		fmt.Println(text["request"])
+		p.say("%s", text["request"])
 	case progress.Waiting:
-		fmt.Printf(text["waiting"]+"\n", e.Name)
+		p.say("%s", text["waiting"])
 	case progress.FirstDownload:
-		fmt.Println(text["first download"])
+		p.say("%s", text["first download"])
 	case progress.Download:
-		fmt.Printf(text["download"]+"\n", e.N, e.Of, e.Name, size(e.Done), size(e.Total))
+		// In a terminal the bar says it.
+		if p.live == nil {
+			p.say(text["download"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
+		}
 	case progress.Downloaded:
-		fmt.Printf(text["downloaded"]+"\n", e.N, e.Of, e.Name, size(e.Total))
+		p.say(text["downloaded"], e.N, e.Of, e.Name, size(e.Total))
 	case progress.Short:
-		fmt.Printf(text["short"]+"\n", e.N, e.Of, e.Name, size(e.Done), size(e.Total))
+		p.say(text["short"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
 	case progress.Retry:
-		fmt.Printf(text["retry"]+"\n", e.Note, e.N)
+		p.say(text["retry"], e.Note, e.N)
 	case progress.Unpack:
-		fmt.Printf(text["unpack"]+"\n", e.N, e.Of, e.Name)
+		p.say(text["unpack"], e.N, e.Of, e.Name)
 	case progress.Place:
-		// One line per photo would bury everything else: every thousandth.
-		if e.N == e.Of || e.N%1000 == 0 {
-			fmt.Printf(text["place"]+"\n", e.N, e.Of)
+		// One line per photo would bury everything else: every thousandth,
+		// unless the bar is there to count them.
+		if p.live == nil && (e.N == e.Of || e.N%1000 == 0) {
+			p.say(text["place"], e.N, e.Of)
 		}
 	}
 }
@@ -281,10 +320,10 @@ func (p printer) verification(v library.Verification) int {
 	p.line("verification", v, text["verified"], v.Declared, v.Present, len(v.Missing))
 	if !p.json {
 		for _, y := range v.Years {
-			fmt.Printf(text["year"]+"\n", y.Year, y.Present, y.Declared)
+			p.say(text["year"], y.Year, y.Present, y.Declared)
 		}
 		for _, name := range v.Missing {
-			fmt.Printf(text["missing file"]+"\n", name)
+			p.say(text["missing file"], name)
 		}
 	}
 	if !v.Complete() {
@@ -294,6 +333,7 @@ func (p printer) verification(v library.Verification) int {
 }
 
 func (p printer) fail(err error) int {
+	p.close()
 	code, message := exitError, fmt.Sprintf(text["error"], err)
 	var space engine.NoSpaceError
 	var notOffered *takeout.NotOfferedError
