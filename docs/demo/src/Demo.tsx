@@ -77,8 +77,9 @@ const show = (s: number, view: Status["view"]) => {
   t += s;
 };
 
-// One cut in and one out, on what nobody else does: every file counted.
-// Everything else is seen whole.
+// One cut in and one out, on the moment a first-time user must not miss:
+// Google takes hours, and the terminal stays open. Everything else is seen
+// whole.
 zoom(1);
 type("homewend login");
 print("a browser window is open: sign in to Google there");
@@ -91,12 +92,16 @@ wait(1);
 type("homewend get --year 2025 --library ~/Pictures/Homewend");
 print("asking Google Takeout for an export");
 show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
+zoom(1.25);
 print(
   "Google is preparing the export: this can take hours.",
   "Leave this open, the download starts when it is ready.",
 );
 wait(1.2);
 show(3.5, (p, f) => spinning(f, "waiting for Google", 47 * 60 * p));
+zoom(1);
+print("the export is ready: downloading 4 parts, 5.1 GiB");
+wait(0.8);
 
 const parts = [2 * GiB, 2 * GiB, 1.1 * GiB];
 const seconds = [5, 4, 3.5];
@@ -111,11 +116,7 @@ show(3.5, (p) => placing(Math.round(1812 * p), 1812));
 print("placed 1812 photos, 5.1 GiB: 4 duplicates, 0 undated, 212 in albums");
 wait(0.8);
 print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812");
-wait(0.8);
-zoom(1.6);
 wait(3);
-zoom(1);
-wait(2);
 const end = sec(t);
 export const duration = sec(t + 0.5);
 
