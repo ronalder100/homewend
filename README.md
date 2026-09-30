@@ -11,17 +11,12 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg" alt="Platform: macOS | Linux" />
 </p>
 
-<div align="center">
-  <strong>
-    <a href="https://homewend.app">Homewend</a> downloads your whole Google Photos library to your own disk,
-    and checks that every file arrived.
-  </strong>
-  <br /><br />
-  Command line today. Desktop app on its way.
-</div>
+<p align="center">
+  <strong>Google Photos, on your own disk.</strong><br />
+  The open-source Google Photos downloader.
+</p>
 
 <p align="center">
-  <br />
   <a href="https://homewend.app/guides/"><strong>Guides »</strong></a>
   ·
   <a href="https://homewend.app/faq/">FAQ</a>
