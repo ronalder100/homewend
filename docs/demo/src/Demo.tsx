@@ -53,6 +53,10 @@ const status: Status[] = [];
 
 // The browser window login opens, from one frame to another.
 const browser = { from: 0, to: 0 };
+
+// The wait for Google, which the camera moves in on: it is the moment a
+// first-time user must not miss.
+const waiting = { from: 0, to: 0 };
 let t = 0.4;
 
 const type = (text: string) => {
@@ -78,6 +82,7 @@ wait(5);
 browser.to = sec(t);
 print("signed in");
 wait(1);
+print("");
 type("homewend get --year 2025 --library ~/Pictures/Homewend");
 print("asking Google Takeout for an export");
 show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
@@ -86,7 +91,9 @@ print(
   "Leave this open, the download starts when it is ready.",
 );
 wait(1.2);
-show(3.5, (p, f) => spinning(f, "waiting for Google", 47 * 60 * p));
+waiting.from = sec(t);
+show(4, (p, f) => spinning(f, "waiting for Google", 47 * 60 * p, true));
+waiting.to = sec(t);
 print("the export is ready: downloading 4 parts, 5.1 GiB");
 wait(0.8);
 
@@ -102,10 +109,10 @@ print("[4/4] downloaded, 61 KiB");
 show(3.5, (p) => placing(Math.round(1812 * p), 1812));
 print("placed 1812 photos, 5.1 GiB: 4 duplicates, 0 undated, 212 in albums");
 wait(0.8);
-print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812", "download complete, congratulations 🎉");
-wait(3);
+print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812", "", "download complete, congratulations 🎉");
+wait(1.5);
 const end = sec(t);
-export const duration = sec(t + 0.5);
+export const duration = sec(t + 4);
 
 // Go's Duration.String, rounded to the second, as live.go prints it.
 function goDuration(seconds: number) {
@@ -133,12 +140,14 @@ function ibytes(n: number) {
 
 const spinnerFrames = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 
-function spinning(frame: number, what: string, elapsed: number) {
+function spinning(frame: number, what: string, elapsed: number, pulse = false) {
+  // A slow fade in and out, so a still screen still reads as alive.
+  const opacity = pulse ? 0.55 + 0.45 * Math.cos((frame / fps) * Math.PI * 1.2) : 1;
   return (
-  <>
+  <span style={{ opacity }}>
     <span style={{ color: color.prompt }}>{spinnerFrames[Math.floor(frame / (fps / 10)) % spinnerFrames.length]}</span>
     {` ${what} · ${goDuration(elapsed)}`}
-  </>
+  </span>
   );
 }
 
@@ -206,7 +215,8 @@ function linesAt(frame: number) {
   log.forEach((line) => {
     if (frame < line.at) return;
     if (!line.typed) {
-      lines.push(line.text);
+      // A blank line still takes its height.
+      lines.push(line.text || " ");
       return;
     }
     const shown = Math.floor(((frame - line.at) / fps) * typingSpeed);
@@ -223,13 +233,41 @@ function linesAt(frame: number) {
   return lines.slice(-rows);
 }
 
+// Where the text sits in the frame.
+const margin = 16;
+const textLeft = margin + 28;
+const textTop = margin + 20 + 13 + 14;
+const linePx = fontSize * lineHeight;
+const charPx = fontSize * 0.6;
+
+// The camera moves in on the waiting line, centred and close, and back out,
+// each in a fifth of a second.
+function camera(frame: number, lines: number) {
+  const cut = sec(0.2);
+  const k = Math.min(
+    interpolate(frame, [waiting.from, waiting.from + cut], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+    interpolate(frame, [waiting.to - cut, waiting.to], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+  );
+  if (k === 0) return {};
+  const ease = Easing.inOut(Easing.cubic)(k);
+  const fx = textLeft + 15 * charPx;
+  const fy = textTop + (lines - 0.5) * linePx;
+  return {
+    transformOrigin: `${fx - margin}px ${fy - margin}px`,
+    transform: `translate(${(width / 2 - fx) * ease}px, ${(height / 2 - fy) * ease}px) scale(${1 + 1.2 * ease})`,
+  };
+}
+
 export const Demo = () => {
   const frame = useCurrentFrame();
   const visible = linesAt(frame);
+  const ending = interpolate(frame, [end, end + sec(0.6)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
-    <AbsoluteFill style={{ background: "#0d0d0d", padding: 16, overflow: "hidden" }}>
+    <AbsoluteFill style={{ background: "#0d0d0d", padding: margin, overflow: "hidden" }}>
       <div
         style={{
+          ...camera(frame, visible.length),
+          opacity: 1 - ending,
           flex: 1,
           background: color.background,
           borderRadius: 12,
@@ -253,9 +291,29 @@ export const Demo = () => {
         ))}
       </div>
       <Browser frame={frame} />
+      {ending > 0 ? <Finale shown={ending} /> : null}
     </AbsoluteFill>
   );
 };
+
+// The last word, alone in the middle.
+const Finale = ({ shown }: { shown: number }) => (
+  <AbsoluteFill
+    style={{
+      alignItems: "center",
+      justifyContent: "center",
+      opacity: shown,
+      transform: `scale(${0.94 + 0.06 * shown})`,
+      color: color.text,
+      fontFamily,
+      textAlign: "center",
+    }}
+  >
+    <div style={{ fontSize: 72 }}>🎉</div>
+    <div style={{ fontSize: 40, marginTop: 24 }}>Download complete</div>
+    <div style={{ fontSize: 24, marginTop: 14, color: color.dim }}>1812 of 1812 photos, on your disk</div>
+  </AbsoluteFill>
+);
 
 // The browser window of homewend login, over the terminal: it opens, the
 // person signs in, it closes by itself.
