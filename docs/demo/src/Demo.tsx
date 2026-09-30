@@ -8,19 +8,25 @@
 // fast-forwarded: a real run is recorded once, not on every change.
 
 import { loadFont } from "@remotion/google-fonts/JetBrainsMono";
+import { loadFont as loadSans } from "@remotion/google-fonts/Roboto";
 import type { ReactNode } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
 const { fontFamily } = loadFont("normal", { weights: ["400"], subsets: ["latin"] });
+const { fontFamily: sansFamily } = loadSans("normal", { weights: ["400"], subsets: ["latin"] });
 
 export const fps = 30;
 export const width = 1000;
 export const height = 560;
-const fontSize = 23;
+// The longest line, 68 columns, fits the wide shot whole.
+const fontSize = 22;
 const lineHeight = 1.45;
 const rows = 13;
 
 const sec = (s: number) => Math.round(s * fps);
+
+// Characters a second, as a person types.
+const typingSpeed = 16;
 
 const color = {
   background: "#171717",
@@ -55,7 +61,7 @@ let t = 0.4;
 
 const type = (text: string) => {
   log.push({ at: sec(t), text, typed: true });
-  t += text.length / 26 + 0.5;
+  t += text.length / typingSpeed + 0.8;
 };
 const print = (...lines: string[]) => {
   for (const text of lines) log.push({ at: sec(t), text });
@@ -71,45 +77,47 @@ const show = (s: number, view: Status["view"]) => {
   t += s;
 };
 
-zoom(1.7);
+// One cut in and one out, on what nobody else does: every file counted.
+// Everything else is seen whole.
+zoom(1);
 type("homewend login");
 print("a browser window is open: sign in to Google there");
-wait(0.4);
+wait(0.6);
 browser.from = sec(t);
-wait(3.2);
+wait(5);
 browser.to = sec(t);
 print("signed in");
-wait(0.5);
-zoom(1.25);
+wait(1);
 type("homewend get --year 2025 --library ~/Pictures/Homewend");
 print("asking Google Takeout for an export");
-show(1.4, (p, f) => spinning(f, "asking Google for the export", 70 * p));
+show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
 print(
   "Google is preparing the export: this can take hours.",
   "Leave this open, the download starts when it is ready.",
 );
-zoom(1.8);
+wait(1.2);
 show(3.5, (p, f) => spinning(f, "waiting for Google", 47 * 60 * p));
-zoom(1);
 
 const parts = [2 * GiB, 2 * GiB, 1.1 * GiB];
-const seconds = [3, 2.2, 1.8];
+const seconds = [5, 4, 3.5];
 parts.forEach((total, i) => {
   show(seconds[i], (p) => downloading(i + 1, parts.length + 1, total * p, total, 41 * MiB));
   print(`[${i + 1}/${parts.length + 1}] downloaded, ${ibytes(total)}`);
   print(`[${i + 1}/${parts.length + 1}] unpacking`);
 });
-wait(0.3);
+wait(0.6);
 print("[4/4] downloaded, 61 KiB");
-show(2, (p) => placing(Math.round(1812 * p), 1812));
+show(3.5, (p) => placing(Math.round(1812 * p), 1812));
 print("placed 1812 photos, 5.1 GiB: 4 duplicates, 0 undated, 212 in albums");
-zoom(1.3);
-wait(0.4);
+wait(0.8);
 print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812");
-wait(1.6);
+wait(0.8);
+zoom(1.6);
+wait(3);
 zoom(1);
+wait(2);
 const end = sec(t);
-export const duration = sec(t + 3);
+export const duration = sec(t + 0.5);
 
 // Go's Duration.String, rounded to the second, as live.go prints it.
 function goDuration(seconds: number) {
@@ -213,7 +221,7 @@ function linesAt(frame: number) {
       lines.push(line.text);
       return;
     }
-    const shown = Math.floor(((frame - line.at) / fps) * 26);
+    const shown = Math.floor(((frame - line.at) / fps) * typingSpeed);
     lines.push(<Prompt cursor={shown < line.text.length}>{line.text.slice(0, shown)}</Prompt>);
   });
   const live = status.find((s) => frame >= s.from && frame < s.to);
@@ -227,7 +235,8 @@ function linesAt(frame: number) {
   return lines.slice(-rows);
 }
 
-const transition = sec(0.9);
+// A cut, not a drift: a few frames to land.
+const transition = 5;
 
 function scaleAt(frame: number) {
   let scale = shots[0].scale;
@@ -251,8 +260,8 @@ const linePx = fontSize * lineHeight;
 // written sits a little below the middle, never past the window's edges.
 function camera(frame: number) {
   const scale = scaleAt(frame);
-  // The last line jumps as lines arrive; half a second of it, averaged, glides.
-  const recent = Array.from({ length: sec(0.5) }, (_, k) => linesAt(Math.max(0, frame - k)).length - 1);
+  // The last line jumps as lines arrive; a few frames of it, averaged, soften the jump.
+  const recent = Array.from({ length: 3 }, (_, k) => linesAt(Math.max(0, frame - k)).length - 1);
   const active = recent.reduce((a, b) => a + b, 0) / recent.length;
   const y = textTop + (active + 0.5) * linePx;
   const closeness = Math.min(1, (scale - 1) / 0.3);
@@ -325,7 +334,7 @@ const Browser = ({ frame }: { frame: number }) => {
         overflow: "hidden",
         background: "#ffffff",
         boxShadow: "0 30px 80px rgba(0,0,0,0.6)",
-        fontFamily: "Helvetica, Arial, sans-serif",
+        fontFamily: sansFamily,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#e8eaed" }}>
@@ -359,12 +368,14 @@ const Browser = ({ frame }: { frame: number }) => {
             <div
               style={{
                 marginTop: 34,
-                padding: "14px 16px",
+                display: "flex",
+                alignItems: "center",
+                boxSizing: "border-box",
+                height: 54,
+                padding: "0 16px",
                 border: `2px solid ${typed ? "#1a73e8" : "#dadce0"}`,
                 borderRadius: 6,
                 fontSize: 18,
-                height: 24,
-                lineHeight: "24px",
               }}
             >
               {typed || <span style={{ color: "#80868b" }}>Email or phone</span>}
