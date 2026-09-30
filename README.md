@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  Command line today. <a href="https://homewend.app/?src=github#join">Desktop app on its way.</a>
+  Proudly in the terminal. <a href="https://homewend.app/?src=github#join">Desktop app soon.</a>
 </p>
 
 <p align="center">
