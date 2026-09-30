@@ -51,7 +51,7 @@ for one email when it is ready. The command line works today.
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ronalder100/homewend/main/install.sh | sh
+curl -fsSL https://homewend.app/install.sh | sh
 ```
 
 This downloads the latest release for your machine, checks it against the

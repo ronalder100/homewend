@@ -4,7 +4,7 @@
 
 # Installs the latest homewend release for this machine:
 #
-#   curl -fsSL https://raw.githubusercontent.com/ronalder100/homewend/main/install.sh | sh
+#   curl -fsSL https://homewend.app/install.sh | sh
 #
 # The binary goes to ~/.local/bin, or to HOMEWEND_INSTALL_DIR if set. Nothing
 # needs root, and the download is checked against the release's checksums
