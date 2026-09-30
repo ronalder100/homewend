@@ -56,7 +56,7 @@ type status struct {
 func newStatus() status {
 	return status{
 		spin: spinner.New(spinner.WithSpinner(spinner.Dot)),
-		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(24)),
+		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(18)),
 	}
 }
 
@@ -123,7 +123,8 @@ func (s status) line(now time.Time) string {
 		return fmt.Sprintf(text["place status"], s.bar.ViewAs(fraction(int64(e.N), int64(e.Of))), e.N, e.Of)
 	}
 	if s.waiting != "" {
-		return fmt.Sprintf("%s %s · %s", s.spin.View(), s.waiting, now.Sub(s.since).Round(time.Second))
+		// The spinner's frames carry their own trailing space.
+		return fmt.Sprintf("%s%s · %s", s.spin.View(), s.waiting, now.Sub(s.since).Round(time.Second))
 	}
 	return ""
 }

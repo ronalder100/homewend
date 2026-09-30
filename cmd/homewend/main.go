@@ -295,13 +295,13 @@ func (p printer) event(e progress.Event) {
 			p.say(text["download"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
 		}
 	case progress.Downloaded:
-		p.say(text["downloaded"], e.N, e.Of, e.Name, size(e.Total))
+		p.say(text["downloaded"], e.N, e.Of, size(e.Total))
 	case progress.Short:
 		p.say(text["short"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
 	case progress.Retry:
 		p.say(text["retry"], e.Note, e.N)
 	case progress.Unpack:
-		p.say(text["unpack"], e.N, e.Of, e.Name)
+		p.say(text["unpack"], e.N, e.Of)
 	case progress.Place:
 		// One line per photo would bury everything else: every thousandth,
 		// unless the bar is there to count them.
