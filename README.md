@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="homewend login, then homewend get, in a terminal" width="800" />
+  <img src="docs/demo.webp" alt="homewend login, then homewend get, in a terminal" width="800" />
 </p>
 
 ## Features
@@ -44,30 +44,48 @@
 
 ## Quick start
 
+Install Homewend (macOS or Linux):
+
 ```bash
 curl -fsSL https://homewend.app/install.sh | sh
-
-homewend login                                              # once
-homewend get --year 2025 --library ~/Pictures/Homewend      # start with one year
-homewend get --library ~/Pictures/Homewend                  # then everything
 ```
 
-- The first time, a browser window opens on your export: **click Download on the first part**. Once per account.
-- Google needs hours to prepare a whole library: leave the terminal open.
-- macOS or Linux, with Chrome, Chromium, Brave or Edge (Homewend drives it). Windows not yet.
-- Room for your library plus one archive; checked before starting.
-- The installer checks the release's checksums and puts `homewend` in `~/.local/bin` (or `$HOMEWEND_INSTALL_DIR`). No root.
+Sign in to Google. A browser window opens; you sign in there, once:
+
+```bash
+homewend login
+```
+
+Download one year of photos, to try it:
+
+```bash
+homewend get --year 2025 --library ~/Pictures/Homewend
+```
+
+Download everything:
+
+```bash
+homewend get --library ~/Pictures/Homewend
+```
+
+Good to know:
+
+- Google needs time to prepare your photos: minutes for a year, hours for everything. Leave the terminal open.
+- The first time, a browser window opens on your export: **click Download on the first part**. Only once.
+- You need Chrome, Chromium, Brave or Edge. Windows is not supported yet.
+- You need room for your library plus one zip. Homewend checks before it starts.
+- The installer checks the download and puts `homewend` in `~/.local/bin`. No root needed.
 - From source: `go build ./cmd/homewend` (Go 1.25+).
 
 ## Homewend vs. Takeout by hand
 
-| | Takeout by hand | Homewend |
+| | Google Takeout by hand | Homewend |
 |---|---|---|
-| **A large library** | a zip to click for every few GB: a 344 GB export came in 159 | one command |
-| **Five downloads per archive, in seven days** | each retry spends one | none, apart from one click on the first part, once per account |
-| **A dropped connection** | retry, and spend another | picks up at the byte where it stopped |
-| **What you get** | zips, photos and `.json` files mixed | photos by date and album; `.json` kept aside |
-| **Did everything arrive?** | compare `archive_browser.html` (100,000+ lines) by hand | counted against Google's manifest, missing files named |
+| **A big library** | A list of Download buttons, one per zip, to click by hand one by one. A 344 GB library came as 159 zips. | One command downloads them all, one after another. |
+| **Download limit** | Google lets you download each zip 5 times in 7 days. Every failed try uses one up. | Its downloads do not count against the limit, except your first click. |
+| **The connection drops** | No resume: you click Download again, and use up another of the 5. | It carries on from the byte where it stopped. |
+| **What you get** | Zips, with photos and Google's `.json` files mixed together. | Photos in folders by date, and by album. |
+| **Did everything arrive?** | Hard to tell: Google's list has over 100,000 lines. | Every file is checked against Google's list. Anything missing is named. |
 
 ## Commands
 
@@ -87,12 +105,21 @@ Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed 
 
 ```
 Homewend/
-├── 2019/07/IMG_1234.jpg
-├── 2019/unknown-month/
-├── albums/Greece 2019/IMG_1234.jpg    hard link: no extra space
+├── 2019/
+│   ├── 07/
+│   │   └── IMG_1234.jpg
+│   └── unknown-month/
+├── albums/
+│   └── Greece 2019/
+│       └── IMG_1234.jpg
 ├── undated/
-└── .homewend/                         Google's .json, catalogue, progress
+└── .homewend/
 ```
+
+- One folder per year and month. `unknown-month/` when Google knows only the year.
+- Albums link to the same photos: no extra space, where the disk allows links.
+- `undated/` for photos with no date at all.
+- `.homewend/` keeps Google's `.json` files, the catalogue and the progress.
 
 ## How Homewend works with Google
 
