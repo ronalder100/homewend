@@ -92,9 +92,9 @@ print(
 );
 wait(1.2);
 waiting.from = sec(t);
-show(4, (_, f) => <Pulse frame={f}>{spinning(f, "waiting for Google")}</Pulse>);
+show(4, (_, f) => <Pulse frame={f}>waiting for Google</Pulse>);
 waiting.to = sec(t);
-print("the export is ready: downloading 4 parts, 5.1 GiB");
+print("", "the export is ready: downloading 4 parts, 5.1 GiB");
 wait(0.8);
 
 const parts = [2 * GiB, 2 * GiB, 1.1 * GiB];
@@ -112,7 +112,7 @@ wait(0.8);
 print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812", "", "download complete, congratulations 🎉");
 wait(1.5);
 const end = sec(t);
-export const duration = sec(t + 4);
+export const duration = sec(t + 3);
 
 // Go's Duration.String, rounded to the second, as live.go prints it.
 function goDuration(seconds: number) {
@@ -140,11 +140,11 @@ function ibytes(n: number) {
 
 const spinnerFrames = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 
-function spinning(frame: number, what: string, elapsed?: number) {
+function spinning(frame: number, what: string, elapsed: number) {
   return (
     <>
       <span style={{ color: color.prompt }}>{spinnerFrames[Math.floor(frame / (fps / 10)) % spinnerFrames.length]}</span>
-      {elapsed === undefined ? ` ${what}` : ` ${what} · ${goDuration(elapsed)}`}
+      {` ${what} · ${goDuration(elapsed)}`}
     </>
   );
 }
@@ -264,13 +264,11 @@ function camera(frame: number, lines: number) {
 export const Demo = () => {
   const frame = useCurrentFrame();
   const visible = linesAt(frame);
-  const ending = interpolate(frame, [end, end + sec(0.6)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ background: "#0d0d0d", padding: margin, overflow: "hidden" }}>
       <div
         style={{
           ...camera(frame, visible.length),
-          opacity: 1 - ending,
           flex: 1,
           background: color.background,
           borderRadius: 12,
@@ -294,29 +292,9 @@ export const Demo = () => {
         ))}
       </div>
       <Browser frame={frame} />
-      {ending > 0 ? <Finale shown={ending} /> : null}
     </AbsoluteFill>
   );
 };
-
-// The last word, alone in the middle.
-const Finale = ({ shown }: { shown: number }) => (
-  <AbsoluteFill
-    style={{
-      alignItems: "center",
-      justifyContent: "center",
-      opacity: shown,
-      transform: `scale(${0.94 + 0.06 * shown})`,
-      color: color.text,
-      fontFamily,
-      textAlign: "center",
-    }}
-  >
-    <div style={{ fontSize: 72 }}>🎉</div>
-    <div style={{ fontSize: 40, marginTop: 24 }}>Download complete</div>
-    <div style={{ fontSize: 24, marginTop: 14, color: color.dim }}>1812 of 1812 photos, on your disk</div>
-  </AbsoluteFill>
-);
 
 // The browser window of homewend login, over the terminal: it opens, the
 // person signs in, it closes by itself.
