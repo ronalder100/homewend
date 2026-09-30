@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://homewend.app">
+  <a href="https://homewend.app/?src=github">
     <img src="docs/assets/logo.svg" alt="Homewend" width="96" />
   </a>
 </p>
@@ -17,11 +17,13 @@
 </p>
 
 <p align="center">
-  <a href="https://homewend.app/guides/"><strong>Guides »</strong></a>
+  Command line today. <a href="https://homewend.app/?src=github#join">Desktop app on its way.</a>
+</p>
+
+<p align="center">
+  <a href="https://homewend.app/guides/?src=github"><strong>Guides »</strong></a>
   ·
-  <a href="https://homewend.app/faq/">FAQ</a>
-  ·
-  <a href="https://homewend.app/#join">Desktop app waitlist</a>
+  <a href="https://homewend.app/faq/?src=github">FAQ</a>
 </p>
 
 <p align="center">
