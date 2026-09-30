@@ -92,7 +92,7 @@ print(
 );
 wait(1.2);
 waiting.from = sec(t);
-show(4, (p, f) => spinning(f, "waiting for Google", 47 * 60 * p, true));
+show(4, (_, f) => <Pulse frame={f}>{spinning(f, "waiting for Google")}</Pulse>);
 waiting.to = sec(t);
 print("the export is ready: downloading 4 parts, 5.1 GiB");
 wait(0.8);
@@ -140,16 +140,19 @@ function ibytes(n: number) {
 
 const spinnerFrames = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 
-function spinning(frame: number, what: string, elapsed: number, pulse = false) {
-  // A slow fade in and out, so a still screen still reads as alive.
-  const opacity = pulse ? 0.55 + 0.45 * Math.cos((frame / fps) * Math.PI * 1.2) : 1;
+function spinning(frame: number, what: string, elapsed?: number) {
   return (
-  <span style={{ opacity }}>
-    <span style={{ color: color.prompt }}>{spinnerFrames[Math.floor(frame / (fps / 10)) % spinnerFrames.length]}</span>
-    {` ${what} · ${goDuration(elapsed)}`}
-  </span>
+    <>
+      <span style={{ color: color.prompt }}>{spinnerFrames[Math.floor(frame / (fps / 10)) % spinnerFrames.length]}</span>
+      {elapsed === undefined ? ` ${what}` : ` ${what} · ${goDuration(elapsed)}`}
+    </>
   );
 }
+
+// A slow fade in and out, so a screen where nothing moves still reads as alive.
+const Pulse = ({ frame, children }: { frame: number; children: ReactNode }) => (
+  <span style={{ opacity: 0.6 + 0.4 * Math.cos((frame / fps) * Math.PI * 1.2) }}>{children}</span>
+);
 
 // The bubbles progress bar: 13 cells blended purple to pink, then the percent.
 function bar(fraction: number) {
