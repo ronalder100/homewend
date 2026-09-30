@@ -34,28 +34,63 @@ const (
 	exitSignIn     = 3
 )
 
+// version is set by the release build; a build from source says so.
+var version = "dev"
+
+// commands maps each subcommand to its shell. Every one has a help page,
+// text["help <name>"].
+var commands = map[string]func(args []string) int{
+	"login":  login,
+	"get":    get,
+	"fetch":  fetch,
+	"verify": verify,
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, text["usage"])
 		os.Exit(exitError)
 	}
-	switch os.Args[1] {
-	case "login":
-		os.Exit(login(os.Args[2:]))
-	case "get":
-		os.Exit(get(os.Args[2:]))
-	case "fetch":
-		os.Exit(fetch(os.Args[2:]))
-	case "verify":
-		os.Exit(verify(os.Args[2:]))
-	default:
+	name, args := os.Args[1], os.Args[2:]
+	switch name {
+	case "help", "-h", "--help":
+		os.Exit(help(args))
+	case "version", "--version":
+		fmt.Println(version)
+		os.Exit(exitOK)
+	}
+	run, ok := commands[name]
+	if !ok {
+		fmt.Fprintf(os.Stderr, text["unknown command"], name)
 		fmt.Fprintln(os.Stderr, text["usage"])
 		os.Exit(exitError)
 	}
+	os.Exit(run(args))
+}
+
+// help prints the overview, or the page of one command.
+func help(args []string) int {
+	if len(args) == 0 {
+		fmt.Println(text["usage"])
+		return exitOK
+	}
+	if _, ok := commands[args[0]]; !ok {
+		fmt.Fprintf(os.Stderr, text["unknown command"], args[0])
+		return exitError
+	}
+	fmt.Println(text["help "+args[0]])
+	return exitOK
+}
+
+// newFlags is the flag set of one command, whose -h shows its help page.
+func newFlags(name string) *flag.FlagSet {
+	flags := flag.NewFlagSet(name, flag.ExitOnError)
+	flags.Usage = func() { fmt.Fprintln(flags.Output(), text["help "+name]) }
+	return flags
 }
 
 func login(args []string) int {
-	flags := flag.NewFlagSet("login", flag.ExitOnError)
+	flags := newFlags("login")
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
@@ -80,7 +115,7 @@ func login(args []string) int {
 }
 
 func get(args []string) int {
-	flags := flag.NewFlagSet("get", flag.ExitOnError)
+	flags := newFlags("get")
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	year := flags.Int("year", 0, "the year whose photos to get (default: all of them)")
 	libraryDir := flags.String("library", "", "library directory")
@@ -119,7 +154,7 @@ func openSession(profile string) (*session.Session, error) {
 }
 
 func fetch(args []string) int {
-	flags := flag.NewFlagSet("fetch", flag.ExitOnError)
+	flags := newFlags("fetch")
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	libraryDir := flags.String("library", "", "library directory")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
@@ -165,7 +200,7 @@ func fetch(args []string) int {
 }
 
 func verify(args []string) int {
-	flags := flag.NewFlagSet("verify", flag.ExitOnError)
+	flags := newFlags("verify")
 	libraryDir := flags.String("library", "", "library directory")
 	job := flags.String("job", "", "export id")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
