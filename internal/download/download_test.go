@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
@@ -56,6 +57,35 @@ func TestADroppedTransferIsPickedUpWhereItStopped(t *testing.T) {
 	got, _ := os.ReadFile(filepath.Join(dir, "a.zip"))
 	if !bytes.Equal(got, data) {
 		t.Errorf("got %d bytes, want the %d sent", len(got), len(data))
+	}
+}
+
+// A progress bar needs to hear how far a part has got, counted from the
+// start of the part and not of the connection, across a drop.
+func TestArrivingBytesAreReported(t *testing.T) {
+	reportEvery = 0
+	defer func() { reportEvery = time.Second }()
+	data := bytes.Repeat([]byte("0123456789"), 100)
+	var done []int64
+	emit := func(e progress.Event) {
+		if e.Stage == progress.Receiving {
+			if e.Total != int64(len(data)) {
+				t.Errorf("total %d, want %d", e.Total, len(data))
+			}
+			done = append(done, e.Done)
+		}
+	}
+	err := Part(context.Background(), &dropping{data: data, cut: 300, drops: 2}, takeout.Target{}, takeout.Part{Filename: "a.zip"}, 1, 1, t.TempDir(), emit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i < len(done); i++ {
+		if done[i] <= done[i-1] {
+			t.Fatalf("done went from %d to %d", done[i-1], done[i])
+		}
+	}
+	if len(done) < 3 || done[len(done)-1] != int64(len(data)) {
+		t.Errorf("reported %v, want at least one per segment ending at %d", done, len(data))
 	}
 }
 

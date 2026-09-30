@@ -76,7 +76,15 @@ func Part(ctx context.Context, g Getter, target takeout.Target, part takeout.Par
 			return nil
 		}
 		emit.Emit(progress.Event{Stage: progress.Download, N: n, Of: of, Name: part.Filename, Done: have, Total: total})
-		if err := segment(ctx, g, part.URL(target), path, have, emit); err != nil {
+		received, reported := have, time.Now()
+		arrived := func(bytes int) {
+			received += int64(bytes)
+			if time.Since(reported) >= reportEvery {
+				reported = time.Now()
+				emit.Emit(progress.Event{Stage: progress.Receiving, N: n, Of: of, Name: part.Filename, Done: received, Total: total})
+			}
+		}
+		if err := segment(ctx, g, part.URL(target), path, have, emit, arrived); err != nil {
 			return err
 		}
 		got := sizeOnDisk(path)
@@ -92,8 +100,8 @@ func Part(ctx context.Context, g Getter, target takeout.Target, part takeout.Par
 
 // segment appends to path whatever the server sends from byte have onwards,
 // until it finishes, the connection drops, ctx is cancelled, or nothing
-// arrives for stallLimit.
-func segment(ctx context.Context, g Getter, url, path string, have int64, emit progress.Func) error {
+// arrives for stallLimit. arrived is told of every read that brings bytes.
+func segment(ctx context.Context, g Getter, url, path string, have int64, emit progress.Func, arrived func(int)) error {
 	res, err := request(ctx, g, url, map[string]string{"Range": fmt.Sprintf("bytes=%d-", have)}, emit)
 	if err != nil {
 		return err
@@ -113,7 +121,7 @@ func segment(ctx context.Context, g Getter, url, path string, have int64, emit p
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", path, err)
 	}
-	_, copyErr := io.Copy(file, watched{res.Body, stall})
+	_, copyErr := io.Copy(file, watched{res.Body, stall, arrived})
 	if closeErr := file.Close(); copyErr == nil && closeErr != nil {
 		return fmt.Errorf("writing %s: %w", path, closeErr)
 	}
@@ -124,16 +132,23 @@ func segment(ctx context.Context, g Getter, url, path string, have int64, emit p
 // dead and picked up again from where it stopped.
 var stallLimit = 2 * time.Minute
 
-// watched is a body whose every read that brings bytes pushes the stall back.
+// reportEvery is how often a transfer says how far it has got: often enough
+// for a progress bar, rarely enough for a log of JSON lines.
+var reportEvery = time.Second
+
+// watched is a body whose every read that brings bytes pushes the stall back
+// and is reported.
 type watched struct {
 	io.Reader
-	stall *time.Timer
+	stall   *time.Timer
+	arrived func(int)
 }
 
 func (w watched) Read(p []byte) (int, error) {
 	n, err := w.Reader.Read(p)
 	if n > 0 {
 		w.stall.Reset(stallLimit)
+		w.arrived(n)
 	}
 	return n, err
 }

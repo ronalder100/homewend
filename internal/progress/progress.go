@@ -13,6 +13,7 @@ const (
 	Request       = "request"        // an export is being asked for
 	Waiting       = "waiting"        // Google is preparing the export; Name is its job
 	Download      = "download"       // a part starts or resumes; Done and Total are bytes
+	Receiving     = "receiving"      // bytes of a part are arriving, at most once a second; Done and Total are bytes
 	Downloaded    = "downloaded"     // a part is complete on disk
 	Short         = "short"          // a transfer stopped early; the bytes on disk are kept
 	Retry         = "retry"          // the network did not answer and will be tried again; N counts, Note says why
