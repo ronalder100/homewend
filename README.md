@@ -82,8 +82,7 @@ Good to know:
 | | Google Takeout by hand | Homewend |
 |---|---|---|
 | **A big library** | A list of Download buttons, one per zip, to click by hand one by one. A 344 GB library came as 159 zips. | One command downloads them all, one after another. |
-| **Download limit** | Google lets you download each zip 5 times in 7 days. Every failed try uses one up. | Its downloads do not count against the limit, except your first click. |
-| **The connection drops** | No resume: you click Download again, and use up another of the 5. | It carries on from the byte where it stopped. |
+| **The connection drops** | No resume: you click Download and start that zip again. | It carries on from where it stopped. |
 | **What you get** | Zips, with photos and Google's `.json` files mixed together. | Photos in folders by date, and by album. |
 | **Did everything arrive?** | Hard to tell: Google's list has over 100,000 lines. | Every file is checked against Google's list. Anything missing is named. |
 
