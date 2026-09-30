@@ -4,7 +4,7 @@
   "description": "The terminal animation at the top of the README",
   "scripts": {
     "studio": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts Demo ../demo.gif --codec=gif --every-nth-frame=2"
+    "render": "remotion render src/index.ts Demo out/demo.mp4 && ffmpeg -y -v error -i out/demo.mp4 -vf fps=20,scale=800:-1:flags=lanczos -c:v libwebp_anim -quality 75 -loop 0 ../demo.webp"
   },
   "dependencies": {
     "@remotion/cli": "4.0.531",
