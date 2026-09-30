@@ -26,7 +26,7 @@ const rows = 13;
 const sec = (s: number) => Math.round(s * fps);
 
 // Characters a second, as a person types.
-const typingSpeed = 16;
+const typingSpeed = 32;
 
 const color = {
   background: "#171717",
@@ -47,13 +47,9 @@ type Line = { at: number; text: string; typed?: boolean };
 // The status line under the log, from one frame to another.
 type Status = { from: number; to: number; view: (progress: number, frame: number) => ReactNode };
 
-// How close the camera is, from a moment on. It follows the line being
-// written, and eases from one closeness to the next.
-type Shot = { at: number; scale: number };
 
 const log: Line[] = [];
 const status: Status[] = [];
-const shots: Shot[] = [];
 
 // The browser window login opens, from one frame to another.
 const browser = { from: 0, to: 0 };
@@ -69,18 +65,11 @@ const print = (...lines: string[]) => {
 const wait = (s: number) => {
   t += s;
 };
-const zoom = (scale: number) => {
-  shots.push({ at: sec(t), scale });
-};
 const show = (s: number, view: Status["view"]) => {
   status.push({ from: sec(t), to: sec(t + s), view });
   t += s;
 };
 
-// One cut in and one out, on the moment a first-time user must not miss:
-// Google takes hours, and the terminal stays open. Everything else is seen
-// whole.
-zoom(1);
 type("homewend login");
 print("a browser window is open: sign in to Google there");
 wait(0.6);
@@ -92,14 +81,12 @@ wait(1);
 type("homewend get --year 2025 --library ~/Pictures/Homewend");
 print("asking Google Takeout for an export");
 show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
-zoom(1.25);
 print(
   "Google is preparing the export: this can take hours.",
   "Leave this open, the download starts when it is ready.",
 );
 wait(1.2);
 show(3.5, (p, f) => spinning(f, "waiting for Google", 47 * 60 * p));
-zoom(1);
 print("the export is ready: downloading 4 parts, 5.1 GiB");
 wait(0.8);
 
@@ -115,7 +102,7 @@ print("[4/4] downloaded, 61 KiB");
 show(3.5, (p) => placing(Math.round(1812 * p), 1812));
 print("placed 1812 photos, 5.1 GiB: 4 duplicates, 0 undated, 212 in albums");
 wait(0.8);
-print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812");
+print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812", "download complete, congratulations 🎉");
 wait(3);
 const end = sec(t);
 export const duration = sec(t + 0.5);
@@ -236,43 +223,6 @@ function linesAt(frame: number) {
   return lines.slice(-rows);
 }
 
-// A cut, not a drift: a few frames to land.
-const transition = 5;
-
-function scaleAt(frame: number) {
-  let scale = shots[0].scale;
-  for (const [i, shot] of shots.entries()) {
-    if (i === 0 || frame < shot.at) continue;
-    scale = interpolate(frame, [shot.at, shot.at + transition], [shots[i - 1].scale, shot.scale], {
-      easing: Easing.inOut(Easing.cubic),
-      extrapolateRight: "clamp",
-    });
-  }
-  return scale;
-}
-
-// Where the text starts inside the terminal window, and how tall a line is.
-const margin = 16;
-const textLeft = 28;
-const textTop = 20 + 13 + 14;
-const linePx = fontSize * lineHeight;
-
-// The camera: scaled about the text's left edge, and moved so the line being
-// written sits a little below the middle, never past the window's edges.
-function camera(frame: number) {
-  const scale = scaleAt(frame);
-  // The last line jumps as lines arrive; a few frames of it, averaged, soften the jump.
-  const recent = Array.from({ length: 3 }, (_, k) => linesAt(Math.max(0, frame - k)).length - 1);
-  const active = recent.reduce((a, b) => a + b, 0) / recent.length;
-  const y = textTop + (active + 0.5) * linePx;
-  const closeness = Math.min(1, (scale - 1) / 0.3);
-  const target = margin + y + (height * 0.58 - margin - y) * closeness;
-  const inner = height - 2 * margin;
-  const ty = Math.min(0, Math.max(inner - inner * scale, target - margin - y * scale));
-  const tx = textLeft - textLeft * scale;
-  return `translate(${tx}px, ${ty}px) scale(${scale})`;
-}
-
 export const Demo = () => {
   const frame = useCurrentFrame();
   const visible = linesAt(frame);
@@ -281,8 +231,6 @@ export const Demo = () => {
       <div
         style={{
           flex: 1,
-          transform: camera(frame),
-          transformOrigin: "0 0",
           background: color.background,
           borderRadius: 12,
           border: "1px solid #2a2a2a",
