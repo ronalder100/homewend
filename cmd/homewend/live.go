@@ -40,7 +40,8 @@ type status struct {
 	spin spinner.Model
 	bar  bar.Model
 
-	// Beside the spinner while Google works, and since when.
+	// Beside the spinner while Google works, and since when; no time while
+	// Google prepares the export, where hours on a counter read as a hang.
 	waiting string
 	since   time.Time
 
@@ -82,7 +83,7 @@ func (s *status) show(e progress.Event, now time.Time) {
 	case progress.Request:
 		s.waiting, s.since, s.current = text["asking status"], now, progress.Event{}
 	case progress.Waiting:
-		s.waiting, s.since, s.current = text["waiting status"], now, progress.Event{}
+		s.waiting, s.since, s.current = text["waiting status"], time.Time{}, progress.Event{}
 	case progress.Download:
 		s.waiting, s.current = "", e
 		s.rate, s.lastAt, s.lastDone = 0, now, e.Done
@@ -125,7 +126,11 @@ func (s status) line(now time.Time) string {
 	}
 	if s.waiting != "" {
 		// The spinner's frames carry their own trailing space.
-		return fmt.Sprintf("%s%s · %s", s.spin.View(), s.waiting, now.Sub(s.since).Round(time.Second))
+		line := s.spin.View() + s.waiting
+		if !s.since.IsZero() {
+			line += " · " + now.Sub(s.since).Round(time.Second).String()
+		}
+		return line
 	}
 	return ""
 }

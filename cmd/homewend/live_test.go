@@ -11,14 +11,18 @@ import (
 	"github.com/ronalder100/homewend/internal/progress"
 )
 
-// Hours spent waiting for Google must show that time is passing.
-func TestTheWaitShowsHowLongItHasBeen(t *testing.T) {
+// Asking takes a minute or two, and counts them; the wait for Google takes
+// hours, and does not.
+func TestOnlyTheRequestCountsItsTime(t *testing.T) {
 	s := newStatus()
 	start := time.Now()
+	s.show(progress.Event{Stage: progress.Request}, start)
+	if line := s.line(start.Add(63 * time.Second)); !strings.Contains(line, "1m3s") {
+		t.Errorf("asking: status line %q, want the time", line)
+	}
 	s.show(progress.Event{Stage: progress.Waiting, Name: "job"}, start)
-	line := s.line(start.Add(12*time.Minute + 3*time.Second))
-	if !strings.Contains(line, text["waiting status"]) || !strings.Contains(line, "12m3s") {
-		t.Errorf("status line %q", line)
+	if line := s.line(start.Add(time.Hour)); !strings.Contains(line, text["waiting status"]) || strings.Contains(line, "·") {
+		t.Errorf("waiting: status line %q, want no time", line)
 	}
 }
 
