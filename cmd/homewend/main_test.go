@@ -4,10 +4,13 @@
 package main
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/ronalder100/homewend/internal/library"
 )
 
 // The test binary stands in for homewend when asked to, so the tests can run
@@ -77,4 +80,37 @@ func TestVersion(t *testing.T) {
 	if out, code := homewend(t, "version"); code != exitOK || strings.TrimSpace(out) != "dev" {
 		t.Errorf("exit %d, output %q", code, out)
 	}
+}
+
+// A download that ends with nothing missing says so; one with files missing
+// does not.
+func TestFinishedCongratulatesOnlyAComplete(t *testing.T) {
+	for _, tc := range []struct {
+		v    library.Verification
+		want bool
+	}{
+		{library.Verification{Declared: 2, Present: 2}, true},
+		{library.Verification{Declared: 2, Present: 1, Missing: []string{"a.jpg"}}, false},
+	} {
+		out := captured(t, func() { printer{}.finished(tc.v) })
+		if got := strings.Contains(out, text["complete"]); got != tc.want {
+			t.Errorf("%+v: congratulated %v, want %v:\n%s", tc.v, got, tc.want, out)
+		}
+	}
+}
+
+// captured is what f prints to stdout.
+func captured(t *testing.T, f func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	f()
+	os.Stdout = stdout
+	w.Close()
+	out, _ := io.ReadAll(r)
+	return string(out)
 }

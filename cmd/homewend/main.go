@@ -141,7 +141,7 @@ func get(args []string) int {
 		return out.fail(err)
 	}
 	out.organized(result.Organized)
-	return out.verification(result.Verification)
+	return out.finished(result.Verification)
 }
 
 // openSession opens the session over profile, or over the default profile when
@@ -200,7 +200,7 @@ func fetch(args []string) int {
 		return out.fail(err)
 	}
 	out.organized(result.Organized)
-	return out.verification(result.Verification)
+	return out.finished(result.Verification)
 }
 
 func verify(args []string) int {
@@ -332,6 +332,16 @@ func (p printer) verification(v library.Verification) int {
 		return exitIncomplete
 	}
 	return exitOK
+}
+
+// finished reports a download: the count, and when nothing is missing, that
+// it is over.
+func (p printer) finished(v library.Verification) int {
+	code := p.verification(v)
+	if code == exitOK && !p.json {
+		p.say("%s", text["complete"])
+	}
+	return code
 }
 
 func (p printer) fail(err error) int {
