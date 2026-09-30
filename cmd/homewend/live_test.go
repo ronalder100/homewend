@@ -29,7 +29,7 @@ func TestADownloadShowsItsSpeedAndTimeLeft(t *testing.T) {
 	s.show(progress.Event{Stage: progress.Download, N: 1, Of: 2, Name: "a.zip", Total: 100 * mib}, start)
 	s.show(progress.Event{Stage: progress.Receiving, N: 1, Of: 2, Name: "a.zip", Done: 10 * mib, Total: 100 * mib}, start.Add(time.Second))
 	line := s.line(start.Add(time.Second))
-	for _, want := range []string{"[1/2] a.zip", "10 MiB of 100 MiB", "10 MiB/s", "9s left"} {
+	for _, want := range []string{"[1/2] ", "10 MiB of 100 MiB", "10 MiB/s", "9s left"} {
 		if !strings.Contains(line, want) {
 			t.Errorf("status line %q lacks %q", line, want)
 		}

@@ -56,7 +56,7 @@ type status struct {
 func newStatus() status {
 	return status{
 		spin: spinner.New(spinner.WithSpinner(spinner.Dot)),
-		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(30)),
+		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(24)),
 	}
 }
 
@@ -111,7 +111,8 @@ func (s status) line(now time.Time) string {
 	e := s.current
 	switch e.Stage {
 	case progress.Download, progress.Receiving:
-		line := fmt.Sprintf(text["download status"], e.N, e.Of, e.Name,
+		// The name is in the log above; the line has to fit a narrow terminal.
+		line := fmt.Sprintf(text["download status"], e.N, e.Of,
 			s.bar.ViewAs(fraction(e.Done, e.Total)), size(e.Done), size(e.Total))
 		if s.rate > 0 {
 			left := time.Duration(float64(e.Total-e.Done) / s.rate * float64(time.Second))
