@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ronalder/homewend/engine/internal/progress"
-	"github.com/ronalder/homewend/engine/internal/session"
-	"github.com/ronalder/homewend/engine/internal/takeout"
+	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/session"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // ErrNotSignedIn means the browser was closed before sign-in completed.

@@ -9,8 +9,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/ronalder/homewend/engine/internal/download"
-	"github.com/ronalder/homewend/engine/internal/progress"
+	"github.com/ronalder100/homewend/internal/download"
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // Patiently runs fn again for as long as it fails on the network, with a

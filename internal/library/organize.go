@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ronalder/homewend/engine/internal/progress"
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // Organized is what an organise pass produced.

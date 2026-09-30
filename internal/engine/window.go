@@ -8,8 +8,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ronalder/homewend/engine/internal/progress"
-	"github.com/ronalder/homewend/engine/internal/session"
+	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/session"
 )
 
 // errWindowClosed means the user closed the browser before doing what it was

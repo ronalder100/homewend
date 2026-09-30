@@ -12,8 +12,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/ronalder/homewend/engine/internal/session"
-	"github.com/ronalder/homewend/engine/internal/takeout"
+	"github.com/ronalder100/homewend/internal/session"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 func TestUserIsReadFromADownloadAndKept(t *testing.T) {

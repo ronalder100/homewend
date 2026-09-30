@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ronalder/homewend/engine/internal/progress"
-	"github.com/ronalder/homewend/engine/internal/takeout"
+	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // ErrSessionExpired means Google no longer accepts the profile's cookies: it

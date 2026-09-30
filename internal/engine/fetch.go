@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ronalder/homewend/engine/internal/download"
-	"github.com/ronalder/homewend/engine/internal/library"
-	"github.com/ronalder/homewend/engine/internal/progress"
-	"github.com/ronalder/homewend/engine/internal/takeout"
+	"github.com/ronalder100/homewend/internal/download"
+	"github.com/ronalder100/homewend/internal/library"
+	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // Fetch is one export to bring into one library.

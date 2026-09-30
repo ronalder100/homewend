@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ronalder/homewend/engine/internal/download"
+	"github.com/ronalder100/homewend/internal/download"
 )
 
 func TestPatientlyWaitsOutTheNetwork(t *testing.T) {

@@ -19,12 +19,12 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/ronalder/homewend/engine/internal/download"
-	"github.com/ronalder/homewend/engine/internal/engine"
-	"github.com/ronalder/homewend/engine/internal/library"
-	"github.com/ronalder/homewend/engine/internal/progress"
-	"github.com/ronalder/homewend/engine/internal/session"
-	"github.com/ronalder/homewend/engine/internal/takeout"
+	"github.com/ronalder100/homewend/internal/download"
+	"github.com/ronalder100/homewend/internal/engine"
+	"github.com/ronalder100/homewend/internal/library"
+	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/session"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 const (

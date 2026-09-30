@@ -1,4 +1,4 @@
-module github.com/ronalder/homewend/engine
+module github.com/ronalder100/homewend
 
 go 1.25.0
 
