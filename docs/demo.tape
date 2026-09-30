@@ -7,8 +7,9 @@
 #   vhs docs/demo.tape
 #
 # It is a real run, never a mock-up: sign in with `homewend login` first, on a
-# machine with a browser. The wait for Google and the downloads are cut out
-# with Hide, and the recording resumes on the screen as the run left it.
+# machine with a browser. The wait for Google is cut short with Hide: the
+# recording shows its first seconds, then resumes on the screen as the run
+# left it.
 
 Output docs/demo.gif
 
@@ -28,12 +29,16 @@ Show
 
 Type "homewend login"
 Enter
-Wait /signed in/
+Wait+Screen /signed in/
 Sleep 1.5s
 
 Type "homewend get --year 2025 --library $LIBRARY"
 Enter
-Sleep 6s
+Sleep 4s
+Hide
+Wait+Screen@10m /waiting for Google/
+Show
+Sleep 8s
 
 Hide
 Wait+Screen@180m /declared \d+, on disk \d+, missing \d+/
