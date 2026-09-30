@@ -1,0 +1,25 @@
+# Paths are anchored with a leading slash on purpose: an unanchored "session/"
+# also matches internal/session/, which is source code, and a .gitignore that
+# silently swallows a package is the kind of mistake nobody notices until the
+# clone will not build.
+
+# The browser profile holds a live Google session. It never belongs in a repo.
+/session/
+*.db
+*.db-wal
+*.db-shm
+
+# Anything downloaded from, or built out of, someone's library.
+/takeout/
+/takeout-*/
+/library/
+/out/
+*.zip
+
+# Throwaway probes: they exist to answer one question and are rewritten every
+# time, so they are not history worth keeping.
+/cmd/probe/
+
+# Build output.
+/homewend
+/dist/

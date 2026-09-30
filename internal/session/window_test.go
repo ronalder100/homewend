@@ -1,0 +1,64 @@
+// homewend — Copyright (C) 2026 Ron Alder
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package session
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+// A stand-in browser that, like Chrome, shuts down when asked with SIGTERM
+// and writes down that it was asked.
+func TestCloseAsksTheBrowserToShutDown(t *testing.T) {
+	dir := t.TempDir()
+	asked := filepath.Join(dir, "asked")
+	ready := filepath.Join(dir, "ready")
+	browser := filepath.Join(dir, "browser")
+	// Touch ready right after the trap is installed, so the test can wait
+	// for the trap instead of guessing how long that takes.
+	script := "#!/bin/sh\ntrap 'touch " + asked + "; exit 0' TERM\ntouch " + ready + "\nwhile :; do sleep 0.05; done\n"
+	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BROWSER_BIN", browser)
+
+	sess, err := New(filepath.Join(dir, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := sess.Open("about:blank")
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForFile(t, ready, 5*time.Second) // wait for the trap to be set, rather than guessing
+
+	closed := make(chan struct{})
+	go func() { w.Close(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close did not return")
+	}
+	if _, err := os.Stat(asked); err != nil {
+		t.Error("the browser was not asked to shut down")
+	}
+}
+
+// waitForFile polls for path to appear, failing the test if it does not show
+// up within timeout.
+func waitForFile(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s never appeared", path)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
