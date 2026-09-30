@@ -140,7 +140,7 @@ Example:
 	"placed":          "placed %d photos, %s: %d duplicates, %d undated, %d in albums",
 	"verified":        "declared %d, on disk %d, missing %d",
 	"year":            "  %s  %d of %d",
-	"complete":        "download complete, congratulations 🎉",
+	"complete":        "\ndownload complete, congratulations 🎉",
 	"missing file":    "  missing: %s",
 	"session expired": "the Google session expired: run homewend login, then the same command",
 	"error":           "error: %v",
