@@ -13,6 +13,7 @@ Usage:
 
 Commands:
   login     sign in to Google, once, in your own browser
+  logout    sign out: delete the browser profile login made
   get       ask Google for your photos, download them, check them
   fetch     download the newest export that is already ready
   verify    count a library again against the export's manifest
@@ -47,6 +48,23 @@ Flags:
 Examples:
   homewend login
   BROWSER_BIN=/usr/bin/brave-browser homewend login`,
+
+	"help logout": `homewend logout — sign out of Google
+
+Usage:
+  homewend logout [--profile DIR]
+
+Deletes the browser profile login made, and with it the Google session: the
+next command that needs Google asks you to sign in again. Your photos and
+libraries are not touched.
+
+Flags:
+  --profile DIR   browser profile to delete (default: homewend/profile in your
+                  config directory)
+
+Examples:
+  homewend logout
+  homewend logout && homewend login`,
 
 	"help get": `homewend get — your photos, from Google to your disk
 
@@ -110,8 +128,20 @@ Example:
 	"unknown command": "unknown command %q\n",
 
 	"sign in":           "a small browser window is open: sign in to Google there",
-	"session ready":     "signed in to Google; getting Takeout ready, about half a minute",
+	"session ready":     "signed in to Google",
 	"signed in":         "signed in",
+	"signed out":        "signed out: the browser profile is deleted",
+	"was not signed in": "not signed in: there was no browser profile to delete",
+	"all photos":        "all your photos",
+	"photos of":         "your photos of %d",
+	"get intro": `Homewend is about to ask Google Takeout for an export of %s.
+
+Google takes its time to prepare it, often hours. You do not have to wait
+here: close this window whenever you like, and run the same command again
+later. It picks up where it left off, and never asks Google twice.
+
+Continue? [y/N] `,
+	"not asked":         "nothing asked: Google was not contacted",
 	"already signed in": "already signed in",
 	"not signed in":     "sign-in did not finish: run homewend login again",
 	"no browser":        "no Chrome, Chromium, Brave or Edge found on this machine: install one, or set BROWSER_BIN to its path",
@@ -128,9 +158,9 @@ Example:
 	"no export":         "no export is ready on Google Takeout yet",
 	"no space":          "not enough space for this export: %s needed, %s free",
 
-	"session status":  "getting Takeout ready",
-	"asking status":   "asking Google for the export",
-	"waiting status":  "waiting for Google",
+	"session status":  "getting Takeout ready, about half a minute",
+	"asking status":   "asking Google for the export, a minute or two",
+	"waiting status":  "waiting for Google, it can take a few hours",
 	"download status": "[%d/%d] %s · %s of %s",
 	"download rate":   " · %s/s · %s left",
 	"place status":    "%s  placing %d of %d",

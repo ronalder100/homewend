@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/dustin/go-humanize"
+	"golang.org/x/term"
 
 	"github.com/ronalder100/homewend/internal/download"
 	"github.com/ronalder100/homewend/internal/engine"
@@ -42,6 +44,7 @@ var version = "dev"
 // text["help <name>"].
 var commands = map[string]func(args []string) int{
 	"login":  login,
+	"logout": logout,
 	"get":    get,
 	"fetch":  fetch,
 	"verify": verify,
@@ -127,6 +130,10 @@ func get(args []string) int {
 		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
 		return exitError
 	}
+	g := engine.Get{Year: *year, Library: *libraryDir}
+	if !*asJSON && !confirmGet(g) {
+		return exitOK
+	}
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -136,7 +143,7 @@ func get(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	result, err := engine.Get{Year: *year, Library: *libraryDir}.Run(ctx, sess, out.event)
+	result, err := g.Run(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -144,16 +151,66 @@ func get(args []string) int {
 	return out.finished(result.Verification)
 }
 
+// confirmGet says what get is about to start, the first time for this export,
+// and asks to go on. Only a person at a terminal is asked: a script that runs
+// get meant it.
+func confirmGet(g engine.Get) bool {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return true
+	}
+	if asked, err := g.Asked(); err != nil || asked {
+		return true // carrying on, or the error is for Run to report
+	}
+	what := text["all photos"]
+	if g.Year != 0 {
+		what = fmt.Sprintf(text["photos of"], g.Year)
+	}
+	fmt.Printf(text["get intro"], what)
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "y", "yes":
+		return true
+	}
+	fmt.Println(text["not asked"])
+	return false
+}
+
+func logout(args []string) int {
+	flags := newFlags("logout")
+	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
+	flags.Parse(args)
+	dir, err := profileDir(*profile)
+	if err == nil {
+		var was bool
+		if was, err = engine.Logout(dir); err == nil {
+			if was {
+				fmt.Println(text["signed out"])
+			} else {
+				fmt.Println(text["was not signed in"])
+			}
+			return exitOK
+		}
+	}
+	fmt.Fprintln(os.Stderr, err)
+	return exitError
+}
+
+// profileDir is profile, or the default profile when none is given.
+func profileDir(profile string) (string, error) {
+	if profile != "" {
+		return profile, nil
+	}
+	return engine.DefaultProfile()
+}
+
 // openSession opens the session over profile, or over the default profile when
 // none is given.
 func openSession(profile string) (*session.Session, error) {
-	if profile == "" {
-		var err error
-		if profile, err = engine.DefaultProfile(); err != nil {
-			return nil, err
-		}
+	dir, err := profileDir(profile)
+	if err != nil {
+		return nil, err
 	}
-	return session.New(profile)
+	return session.New(dir)
 }
 
 func fetch(args []string) int {

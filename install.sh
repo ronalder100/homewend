@@ -41,8 +41,16 @@ url="https://github.com/$repo/releases/latest/download"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+# A bar while the binary comes down, when someone is watching: the script
+# itself arrives on stdin, so stderr is what says whether this is a terminal.
+if [ -t 2 ]; then
+	progress=--progress-bar
+else
+	progress=--silent
+fi
+
 echo "downloading $binary"
-curl -fsSL "$url/$binary" -o "$tmp/homewend" || fail "download failed: $url/$binary"
+curl -fSL $progress "$url/$binary" -o "$tmp/homewend" || fail "download failed: $url/$binary"
 curl -fsSL "$url/homewend_checksums.txt" -o "$tmp/checksums.txt" || fail "download failed: $url/homewend_checksums.txt"
 
 want="$(grep " $binary\$" "$tmp/checksums.txt" | cut -d' ' -f1)"
@@ -52,9 +60,28 @@ want="$(grep " $binary\$" "$tmp/checksums.txt" | cut -d' ' -f1)"
 mkdir -p "$dir"
 chmod 755 "$tmp/homewend"
 mv "$tmp/homewend" "$dir/homewend"
-echo "installed $("$dir/homewend" version) to $dir/homewend"
-
+# What to do next, in full: whoever piped this into sh has nothing else to
+# read yet.
 case ":$PATH:" in
-*":$dir:"*) echo "next: homewend login" ;;
-*) echo "$dir is not in your PATH: add it, or run $dir/homewend login" ;;
+*":$dir:"*) run=homewend ;;
+*) run="$dir/homewend" ;;
+esac
+cat <<EOF
+
+homewend $("$dir/homewend" version) is installed in $dir.
+
+Next, sign in to Google, once. A small window opens; your password goes to
+Google only:
+
+  $run login
+
+Then bring your photos home, here one year of them:
+
+  $run get --year 2025 --library ~/Pictures/Homewend
+
+All the commands: $run help
+EOF
+case ":$PATH:" in
+*":$dir:"*) ;;
+*) echo "($dir is not in your PATH: add it to type just \"homewend\".)" ;;
 esac

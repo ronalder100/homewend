@@ -34,6 +34,9 @@ func startLive() *tea.Program {
 	return p
 }
 
+// The spinner's colour, as in the demo in docs/demo.
+var spinColour = lipgloss.Color("#7571F9")
+
 // The one line a person must not skim past runs from the site's dark-theme
 // grey to its blue, homewend.app's --faint and --accent.
 var noticeFrom, noticeTo = lipgloss.Color("#565F89"), lipgloss.Color("#7AA2F7")
@@ -73,7 +76,7 @@ type status struct {
 
 func newStatus() status {
 	return status{
-		spin: spinner.New(spinner.WithSpinner(spinner.Dot)),
+		spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(lipgloss.NewStyle().Foreground(spinColour))),
 		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(18)),
 	}
 }

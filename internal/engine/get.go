@@ -46,15 +46,26 @@ func (g Get) Run(ctx context.Context, sess *session.Session, emit progress.Func)
 	return result, err
 }
 
-func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func) (Result, error) {
-	if _, err := Login(ctx, sess, emit); err != nil {
-		return Result{}, err
-	}
+// Asked reports whether this library already holds a request to Google for
+// this export: if so, Run carries it on rather than asking for a new one.
+func (g Get) Asked() (bool, error) {
+	req, err := loadRequest(g.requestPath())
+	return req.Job != "" || !req.Asked.IsZero(), err
+}
+
+func (g Get) requestPath() string {
 	name := "request-all.json"
 	if g.Year != 0 {
 		name = fmt.Sprintf("request-%d.json", g.Year)
 	}
-	path := filepath.Join(g.Library, library.WorkDir, name)
+	return filepath.Join(g.Library, library.WorkDir, name)
+}
+
+func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func) (Result, error) {
+	if _, err := Login(ctx, sess, emit); err != nil {
+		return Result{}, err
+	}
+	path := g.requestPath()
 	req, err := loadRequest(path)
 	if err != nil {
 		return Result{}, err

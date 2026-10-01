@@ -53,7 +53,7 @@ Install Homewend (macOS or Linux):
 curl -fsSL https://homewend.app/install.sh | sh
 ```
 
-Sign in to Google. A browser window opens; you sign in there, once:
+Sign in to Google. A small window opens; you sign in there, once:
 
 ```bash
 homewend login
@@ -73,7 +73,7 @@ homewend get --library ~/Pictures/Homewend
 
 Good to know:
 
-- Google needs time to prepare your photos: minutes for a year, hours for everything. Leave the terminal open.
+- Google needs time to prepare your photos: minutes for a year, hours for everything. You do not have to wait: close the terminal, run the same command later, and it picks up where it left off.
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, a browser window opens on your export: **click Download on the first part**. Only once.
 - You need Chrome, Chromium, Brave or Edge. Windows is not supported yet.
@@ -95,13 +95,14 @@ Good to know:
 | Command | What it does |
 |---|---|
 | `login` | Sign in to Google, in a browser profile that belongs to Homewend |
+| `logout` | Sign out: delete that browser profile |
 | `get` | Ask Google for an export, download it, check it |
 | `fetch` | Download an export you made yourself on Takeout |
 | `verify` | Count a library again against its export |
 | `version` | Print the version |
 | `help <command>` | Flags and examples |
 
-`--json` on any command prints one JSON object per line, for scripts.
+`--json` on `login`, `get`, `fetch` and `verify` prints one JSON object per line, for scripts.
 Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed in or session expired: run `homewend login`.
 
 ## On your disk
