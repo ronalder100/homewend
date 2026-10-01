@@ -112,9 +112,9 @@ func login(args []string) int {
 		return out.fail(err)
 	}
 	if already {
-		out.line("signed_in", true, "%s", text["already signed in"])
+		out.line("signed_in", true, "%s", paint(os.Stdout, okColour, text["already signed in"]))
 	} else {
-		out.line("signed_in", true, "%s", text["signed in"])
+		out.line("signed_in", true, "%s", paint(os.Stdout, okColour, text["signed in"]))
 	}
 	return exitOK
 }
@@ -166,6 +166,7 @@ func confirmGet(g engine.Get) bool {
 		what = fmt.Sprintf(text["photos of"], g.Year)
 	}
 	fmt.Printf(text["get intro"], what)
+	fmt.Print(paint(os.Stdout, accentColour, text["continue"]))
 	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	switch strings.ToLower(strings.TrimSpace(answer)) {
 	case "y", "yes":
@@ -184,14 +185,14 @@ func logout(args []string) int {
 		var was bool
 		if was, err = engine.Logout(dir); err == nil {
 			if was {
-				fmt.Println(text["signed out"])
+				fmt.Println(paint(os.Stdout, okColour, text["signed out"]))
 			} else {
 				fmt.Println(text["was not signed in"])
 			}
 			return exitOK
 		}
 	}
-	fmt.Fprintln(os.Stderr, err)
+	fmt.Fprintln(os.Stderr, paint(os.Stderr, errColour, err.Error()))
 	return exitError
 }
 
@@ -395,7 +396,7 @@ func (p printer) verification(v library.Verification) int {
 			p.say(text["year"], y.Year, y.Present, y.Declared)
 		}
 		for _, name := range v.Missing {
-			p.say(text["missing file"], name)
+			p.say("%s", paint(os.Stdout, errColour, fmt.Sprintf(text["missing file"], name)))
 		}
 	}
 	if !v.Complete() {
@@ -409,7 +410,8 @@ func (p printer) verification(v library.Verification) int {
 func (p printer) finished(v library.Verification) int {
 	code := p.verification(v)
 	if code == exitOK && !p.json {
-		p.say("%s", text["complete"])
+		p.say("")
+		p.say("%s", paint(os.Stdout, okColour, text["complete"]))
 	}
 	return code
 }
@@ -454,7 +456,7 @@ func (p printer) fail(err error) int {
 	if p.json {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"error": message, "exit": code})
 	} else {
-		fmt.Fprintln(os.Stderr, message)
+		fmt.Fprintln(os.Stderr, paint(os.Stderr, errColour, message))
 	}
 	return code
 }

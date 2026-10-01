@@ -66,6 +66,12 @@ case ":$PATH:" in
 *":$dir:"*) run=homewend ;;
 *) run="$dir/homewend" ;;
 esac
+# The commands to type in homewend.app's blue, when this is a terminal.
+if [ -t 1 ]; then
+	on="$(printf '\033[38;2;122;162;247m')" off="$(printf '\033[0m')"
+else
+	on="" off=""
+fi
 cat <<EOF
 
 homewend $("$dir/homewend" version) is installed in $dir.
@@ -73,13 +79,13 @@ homewend $("$dir/homewend" version) is installed in $dir.
 Next, sign in to Google, once. A small window opens; your password goes to
 Google only:
 
-  $run login
+  ${on}$run login${off}
 
 Then bring your photos home, here one year of them:
 
-  $run get --year 2025 --library ~/Pictures/Homewend
+  ${on}$run get --year 2025 --library ~/Pictures/Homewend${off}
 
-All the commands: $run help
+All the commands: ${on}$run help${off}
 EOF
 case ":$PATH:" in
 *":$dir:"*) ;;

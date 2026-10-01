@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 	"strings"
 	"time"
@@ -36,6 +37,22 @@ func startLive() *tea.Program {
 
 // The spinner's colour, as in the demo in docs/demo.
 var spinColour = lipgloss.Color("#7571F9")
+
+// States in homewend.app's dark-theme colours: --ok for what is done, --err
+// for what failed or is missing, --accent for what to type.
+var (
+	okColour     = lipgloss.Color("#9ECE6A")
+	errColour    = lipgloss.Color("#F7768E")
+	accentColour = lipgloss.Color("#7AA2F7")
+)
+
+// paint colours s when out is a terminal, and leaves it plain anywhere else.
+func paint(out *os.File, c color.Color, s string) string {
+	if !term.IsTerminal(int(out.Fd())) {
+		return s
+	}
+	return lipgloss.NewStyle().Foreground(c).Render(s)
+}
 
 // The one line a person must not skim past runs from the site's dark-theme
 // grey to its blue, homewend.app's --faint and --accent.
