@@ -110,6 +110,7 @@ Example:
 	"unknown command": "unknown command %q\n",
 
 	"sign in":           "a small browser window is open: sign in to Google there",
+	"session ready":     "signed in to Google; getting Takeout ready, about half a minute",
 	"signed in":         "signed in",
 	"already signed in": "already signed in",
 	"not signed in":     "sign-in did not finish: run homewend login again",

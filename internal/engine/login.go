@@ -74,7 +74,7 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (alre
 	if !cookiesLanded(sess) {
 		return false, ErrNotSignedIn
 	}
-	return false, openTakeout(ctx, sess)
+	return false, openTakeout(ctx, sess, emit)
 }
 
 // openTakeout opens Takeout once, out of sight, so the profile holds
@@ -82,50 +82,19 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (alre
 // service's: OSID and __Secure-OSID on takeout.google.com come only from
 // opening Takeout signed in, and without them Takeout sends the session to
 // sign in (measured 2026-10-01). The old sign-in started at Takeout and got
-// them on the way.
-//
-// The headless browser takes the cookies to disk on its 30-second timer
-// only: stopped sooner, it loses them (27 seconds, measured 2026-10-01). So
-// it stays open until Takeout accepts the session read from the profile.
-func openTakeout(ctx context.Context, sess *session.Session) error {
+// them on the way. Closing the page waits for them to reach the disk.
+func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func) error {
+	emit.Emit(progress.Event{Stage: progress.SessionReady})
 	page, err := sess.Headless(ctx, takeout.ManageURL)
 	if err != nil {
 		return err
 	}
-	defer page.Close()
-	done := signInDone(sess)
-	deadline := time.After(time.Minute)
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-deadline:
-			return ErrNotSignedIn
-		case <-tick.C:
-			if done() {
-				return nil
-			}
-		}
+	page.Close()
+	ok, err := signedIn(sess)
+	if err == nil && !ok {
+		err = ErrNotSignedIn
 	}
-}
-
-// signInDone asks Google whether it accepts the session only when the
-// cookies have changed since it last asked: polled every second, it would
-// otherwise ask at a pace no person refreshes a page. A failed check counts
-// as not yet, and is tried again when the cookies next change.
-func signInDone(sess *session.Session) func() bool {
-	var asked string
-	return func() bool {
-		cookies, names, err := sess.Cookies()
-		if err != nil || !names["SID"] || !names["SSID"] || cookies == asked {
-			return false
-		}
-		asked = cookies
-		ok, _ := takeout.SignedIn(sess)
-		return ok
-	}
+	return err
 }
 
 // cookiesLanded waits for the session cookies to reach the profile after the

@@ -124,11 +124,17 @@ five seconds.
 service's: `OSID` and `__Secure-OSID` on `takeout.google.com` are set only
 when Takeout is opened signed in, and without them `/manage` sends the
 session to sign in (2026-10-01). The old sign-in started at Takeout and got
-them on the way. Now a headless browser opens `/manage` once. It must stay
-open until the cookies are on disk: a headless browser commits them on the
-30-second timer only (27 seconds, measured), and stopped with SIGTERM before
-that it loses them. So it stays until Takeout accepts the session read from
-the profile, asked only when the cookies change.
+them on the way. Now a headless browser opens `/manage` once, and the user
+is told it takes about half a minute.
+
+**A headless browser is closed only once its cookies are on disk.** It
+commits them on Chrome's 30-second timer, and stopped by SIGTERM before that
+it exits at once and loses them: Takeout's cookies from a visit were gone,
+and on disk 27 seconds after it (Chromium 144, 2026-10-01). The same held
+for every headless visit, the export request included, where it meant
+losing the cookies Google rotates. So closing compares the browser's lasting
+Google cookies (CDP `Storage.getCookies`) with the profile on disk, and waits
+until they match, up to 40 seconds.
 
 ---
 

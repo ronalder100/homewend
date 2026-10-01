@@ -13,12 +13,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/storage"
 	"github.com/chromedp/chromedp"
 )
 
 // Page is a page in a browser the program drives, with no window.
 type Page struct {
+	sess    *Session
 	ctx     context.Context
 	cancel  func()
 	browser *exec.Cmd
@@ -61,7 +65,7 @@ func (s *Session) Headless(ctx context.Context, url string) (*Page, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting %s: %w", browser, err)
 	}
-	p := &Page{browser: cmd, exited: make(chan struct{}), cancel: func() {}}
+	p := &Page{sess: s, browser: cmd, exited: make(chan struct{}), cancel: func() {}}
 	go func() {
 		cmd.Wait()
 		close(p.exited)
@@ -114,7 +118,50 @@ func (p *Page) Click(x, y float64) error {
 }
 
 // Close stops the browser, cleanly, so the profile is written out.
+//
+// It waits first for the browser's cookies to be on disk. A headless browser
+// commits them on Chrome's 30-second timer, and stopped before it, by SIGTERM,
+// it exits at once and loses them: Takeout's cookies, set by a visit, were
+// gone, and they were on disk 27 seconds after it (Chromium 144, 2026-10-01).
+// A cookie Google rotated and the profile never kept is a session going stale.
 func (p *Page) Close() {
+	if p.ctx != nil {
+		p.waitForDisk(40 * time.Second)
+	}
 	p.cancel()
 	shutDown(p.browser, p.exited)
+}
+
+// waitForDisk waits, up to limit, until every lasting Google cookie the
+// browser holds is in the profile on disk, as the same value. Session cookies
+// are left out: Chrome never writes them.
+func (p *Page) waitForDisk(limit time.Duration) {
+	for deadline := time.Now().Add(limit); time.Now().Before(deadline); time.Sleep(time.Second) {
+		held, err := storage.GetCookies().Do(cdp.WithExecutor(p.ctx, chromedp.FromContext(p.ctx).Browser))
+		if err != nil {
+			return
+		}
+		header, _, err := p.sess.Cookies()
+		if err != nil {
+			return
+		}
+		onDisk := map[string]bool{}
+		for _, pair := range strings.Split(header, "; ") {
+			onDisk[pair] = true
+		}
+		if allOnDisk(held, onDisk) {
+			return
+		}
+	}
+}
+
+// allOnDisk reports whether every lasting Google cookie in held is among the
+// name=value pairs read from disk.
+func allOnDisk(held []*network.Cookie, onDisk map[string]bool) bool {
+	for _, c := range held {
+		if !c.Session && strings.HasSuffix(c.Domain, "google.com") && !onDisk[c.Name+"="+c.Value] {
+			return false
+		}
+	}
+	return true
 }

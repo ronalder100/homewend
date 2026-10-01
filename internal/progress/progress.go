@@ -9,6 +9,7 @@ package progress
 // The stages an event can come from.
 const (
 	SignIn        = "sign-in"        // the browser is open, waiting for the user to sign in
+	SessionReady  = "session-ready"  // signed in; Takeout is opened out of sight, once, for its own cookies
 	FirstDownload = "first-download" // the browser is open on the export, for the user to download one part, once per account
 	Request       = "request"        // an export is being asked for
 	Waiting       = "waiting"        // Google is preparing the export; Name is its job
