@@ -128,6 +128,7 @@ Example:
 	"no export":         "no export is ready on Google Takeout yet",
 	"no space":          "not enough space for this export: %s needed, %s free",
 
+	"session status":  "getting Takeout ready",
 	"asking status":   "asking Google for the export",
 	"waiting status":  "waiting for Google",
 	"download status": "[%d/%d] %s · %s of %s",

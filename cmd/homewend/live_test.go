@@ -26,6 +26,16 @@ func TestOnlyTheRequestCountsItsTime(t *testing.T) {
 	}
 }
 
+// After sign-in, the half minute Takeout takes shows as work going on.
+func TestGettingTakeoutReadySpins(t *testing.T) {
+	s := newStatus()
+	start := time.Now()
+	s.show(progress.Event{Stage: progress.SessionReady}, start)
+	if line := s.line(start.Add(12 * time.Second)); !strings.Contains(line, text["session status"]) || !strings.Contains(line, "12s") {
+		t.Errorf("status line %q, want the spinner and the time", line)
+	}
+}
+
 // Once the export is ready the wait is over, and the spinner with it.
 func TestReadyEndsTheWait(t *testing.T) {
 	s := newStatus()

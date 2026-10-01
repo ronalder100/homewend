@@ -97,6 +97,8 @@ func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // show takes in one event from the engine.
 func (s *status) show(e progress.Event, now time.Time) {
 	switch e.Stage {
+	case progress.SessionReady:
+		s.waiting, s.since, s.current = text["session status"], now, progress.Event{}
 	case progress.Request:
 		s.waiting, s.since, s.current = text["asking status"], now, progress.Event{}
 	case progress.Waiting:
