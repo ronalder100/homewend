@@ -135,6 +135,7 @@ Example:
 	"downloaded":      "[%d/%d] downloaded, %s",
 	"short":           "[%d/%d] %s  stopped at %s of %s; run again to continue",
 	"retry":           "network: %s (attempt %d; waiting for it to come back)",
+	"damaged":         "[%d/%d] damaged on the way: downloading it again",
 	"unpack":          "[%d/%d] unpacking",
 	"place":           "placing %d of %d",
 	"placed":          "placed %d photos, %s: %d duplicates, %d undated, %d in albums",

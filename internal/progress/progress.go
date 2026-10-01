@@ -18,6 +18,7 @@ const (
 	Downloaded    = "downloaded"     // a part is complete on disk
 	Short         = "short"          // a transfer stopped early; the bytes on disk are kept
 	Retry         = "retry"          // the network did not answer and will be tried again; N counts, Note says why
+	Damaged       = "damaged"        // a part failed its check on unpacking and is downloaded again
 	Unpack        = "unpack"         // a part is being opened
 	Place         = "place"          // a photo is being placed in the library
 )

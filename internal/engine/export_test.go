@@ -12,6 +12,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
@@ -75,5 +76,37 @@ func TestSpaceNeededCountsOnlyWhatIsLeft(t *testing.T) {
 	resumed := state{Unpacked: map[string]bool{"b.zip": true}, Manifest: "m.zip"}
 	if got := f.spaceNeeded(resumed); got != 100+200+200 {
 		t.Errorf("resumed: %d", got)
+	}
+}
+
+// A part damaged on the way is downloaded again, once; damaged twice, the run
+// stops rather than loop.
+func TestADamagedPartIsDownloadedAgainOnce(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "takeout-001.zip")
+	for _, tc := range []struct {
+		damagedTimes, wantDownloads int
+		wantErr                     bool
+	}{
+		{0, 0, false},
+		{1, 1, false},
+		{2, 1, true},
+	} {
+		unpacks, downloads, told := 0, 0, 0
+		unpack := func() error {
+			unpacks++
+			if unpacks <= tc.damagedTimes {
+				return library.ErrDamaged
+			}
+			return nil
+		}
+		download := func() error {
+			downloads++
+			return os.WriteFile(path, []byte("again"), 0o644)
+		}
+		os.WriteFile(path, []byte("first"), 0o644)
+		err := unpackOrAgain(path, unpack, download, func() { told++ })
+		if (err != nil) != tc.wantErr || downloads != tc.wantDownloads || told != min(tc.damagedTimes, 1) {
+			t.Errorf("damaged %d times: err %v, %d downloads, told %d", tc.damagedTimes, err, downloads, told)
+		}
 	}
 }

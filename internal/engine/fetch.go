@@ -72,11 +72,18 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	for i, part := range f.Export.Parts {
 		path := filepath.Join(parts, part.Filename)
 		if !st.Unpacked[part.Filename] {
-			if err := download.Part(ctx, g, f.Target, part, i+1, of, parts, emit); err != nil {
+			get := func() error { return download.Part(ctx, g, f.Target, part, i+1, of, parts, emit) }
+			unpack := func() error {
+				emit.Emit(progress.Event{Stage: progress.Unpack, N: i + 1, Of: of, Name: part.Filename})
+				_, err := library.UnpackPart(path, unpacked)
+				return err
+			}
+			if err := get(); err != nil {
 				return Result{}, err
 			}
-			emit.Emit(progress.Event{Stage: progress.Unpack, N: i + 1, Of: of, Name: part.Filename})
-			if _, err := library.UnpackPart(path, unpacked); err != nil {
+			if err := unpackOrAgain(path, unpack, get, func() {
+				emit.Emit(progress.Event{Stage: progress.Damaged, N: i + 1, Of: of, Name: part.Filename})
+			}); err != nil {
 				return Result{}, err
 			}
 			st.Unpacked[part.Filename] = true
@@ -210,4 +217,23 @@ func loadState(work string) (state, error) {
 
 func (st state) save(work string) error {
 	return writeJSON(filepath.Join(work, "state.json"), st)
+}
+
+// unpackOrAgain unpacks a downloaded part and, when its bytes turn out damaged,
+// deletes it and downloads it once more. Again costs none of Google's five
+// downloads: the URL is built, not reached through Takeout's redirect
+// (docs/architecture.md). A part damaged twice is not a fluke, and stops the run.
+func unpackOrAgain(path string, unpack, download func() error, damaged func()) error {
+	err := unpack()
+	if !errors.Is(err, library.ErrDamaged) {
+		return err
+	}
+	damaged()
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	if err := download(); err != nil {
+		return err
+	}
+	return unpack()
 }

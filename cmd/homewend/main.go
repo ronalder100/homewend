@@ -302,6 +302,8 @@ func (p printer) event(e progress.Event) {
 		p.say(text["short"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
 	case progress.Retry:
 		p.say(text["retry"], e.Note, e.N)
+	case progress.Damaged:
+		p.say(text["damaged"], e.N, e.Of)
 	case progress.Unpack:
 		p.say(text["unpack"], e.N, e.Of)
 	case progress.Place:

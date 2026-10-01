@@ -5,6 +5,7 @@ package library
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,10 +51,24 @@ func linked(path, target string) bool {
 	return errA == nil && errB == nil && os.SameFile(a, b)
 }
 
+// ErrDamaged means a part's bytes are not what Google zipped: a file in it
+// fails its CRC-32, or the archive cannot be read as one. Downloading the part
+// again is the cure.
+var ErrDamaged = errors.New("the part is damaged")
+
+// damaged marks err as ErrDamaged when it says the archive's bytes are wrong,
+// and leaves it alone otherwise: a full disk is not a reason to download again.
+func damaged(err error) error {
+	if errors.Is(err, zip.ErrChecksum) || errors.Is(err, zip.ErrFormat) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return fmt.Errorf("%w: %w", ErrDamaged, err)
+	}
+	return err
+}
+
 func unpackOne(archivePath, dstDir string) (files int, err error) {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
-		return 0, fmt.Errorf("opening %s: %w", archivePath, err)
+		return 0, damaged(fmt.Errorf("opening %s: %w", archivePath, err))
 	}
 	defer reader.Close()
 
@@ -73,7 +88,7 @@ func unpackOne(archivePath, dstDir string) (files int, err error) {
 		// Go's zip reader checks each entry against its CRC-32 as it reads, so
 		// a part that unpacks without error arrived intact.
 		if err := extract(entry, target); err != nil {
-			return files, err
+			return files, damaged(err)
 		}
 		files++
 	}
