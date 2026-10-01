@@ -55,6 +55,7 @@ repository**. The moment a file crosses over, the AGPL crosses with it.
     cmd/homewend       the CLI: flags in, engine call, text or JSON out
     internal/engine    what a user asks for, start to finish; every shell calls this
     internal/session   the browser profile we own: sign-in window, cookies, requests
+    internal/signin    the page Google sends the user back to once signed in
     internal/takeout   Google's pages: the export list, and the form that asks for one
     internal/download  one part at a time, Range, resume
     internal/library   unpack, place by date and album, catalogue, count against the manifest

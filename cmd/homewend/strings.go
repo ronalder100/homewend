@@ -32,8 +32,10 @@ https://homewend.app`,
 Usage:
   homewend login [--profile DIR] [--json]
 
-Opens Chrome, Chromium, Brave or Edge on a profile of its own and waits while
-you sign in to Google there. Homewend never sees your password: it keeps the
+Opens a small Chrome, Chromium, Brave or Edge window on a profile of its own
+and waits while you sign in to Google there. Google asks you to let Homewend
+see your email address: that is how the window knows you are done, and nothing
+is read with it. Homewend never sees your password: it keeps the
 browser profile, and every later command reads the session from it. Run it
 again whenever a command says the session expired.
 
@@ -107,10 +109,10 @@ Example:
 
 	"unknown command": "unknown command %q\n",
 
-	"sign in":           "a browser window is open: sign in to Google there",
+	"sign in":           "a small browser window is open: sign in to Google there",
 	"signed in":         "signed in",
 	"already signed in": "already signed in",
-	"not signed in":     "the browser was closed before sign-in finished: run homewend login again",
+	"not signed in":     "sign-in did not finish: run homewend login again",
 	"no browser":        "no Chrome, Chromium, Brave or Edge found on this machine: install one, or set BROWSER_BIN to its path",
 	"export":            "export %s of %s: %d parts, %s",
 	"request":           "asking Google Takeout for an export",

@@ -51,7 +51,7 @@ Owning the profile means owning its cookie store, and that is the point:
   12–20 hours of a full export are not measured yet.
 
 So the downloader is a plain process: the browser is needed for sign-in, then
-the user closes it.
+it closes.
 
 ### Reading the cookies
 
@@ -68,25 +68,67 @@ the user closes it.
 - **On Windows the key is protected with DPAPI.** Not implemented yet; it is the
   one real Windows risk, and it lives in the engine, not in the UI.
 
-### Handing the window back
+### The sign-in window
 
-When sign-in lands, a page of ours comes up in the same window, in front of
-Google's (*"You're signed in — the browser isn't needed any more"*). Closing the
-window stays the user's gesture.
+Sign-in is one small popup window: no tabs, no toolbar, only the address,
+read-only, so the user sees that the password goes to `accounts.google.com`.
+It ends on a page of ours, *Signed in*, and then closes by itself.
+
+The browser cannot be told to open a popup, but a page can. So it opens on a
+page of ours, which opens Google in a popup and closes itself, leaving the
+popup alone. Measured on Chromium 144, 2026-10-01:
+
+- `--app` gives a window with no address at all, and shows none even after
+  it leaves its own origin for Google's (by redirect or by script).
+- A popup opened from an `--app` window has no address either. Opened from an
+  ordinary window, it has the read-only address.
+- With no click, the popup is blocked unless the browser runs with
+  `--disable-popup-blocking`. The opening page may close itself, and the
+  ordinary window it was in is gone before it shows.
 
 **No debug port.** Google refuses sign-in in a browser launched with
 `--remote-debugging-port` (*"Couldn't sign you in — this browser or app may
 not be secure"*) and accepts the same browser, same profile flags, without it:
-Chromium 144, 2026-09-26, two empty profiles side by side. So the tab cannot be
-replaced; the page is opened the browser's own way instead, by launching it
-again on the same profile with the page as a `data:` URL. The running window
-takes the address and shows it in a new tab, the second process exits, and
-nothing of ours has to keep serving the page.
+Chromium 144, 2026-09-26, two empty profiles side by side. So the app cannot
+see or steer the page: it only knows what the profile and Google tell it.
 
-Sign-in is seen in the profile, not on the page: `SID` and `SSID` appear in the
-cookie store. Chrome commits cookies every 30 seconds or 512 changes
-(`net/extras/sqlite/sqlite_persistent_cookie_store.cc`), so the handover comes
-up to half a minute after Google's page shows the user signed in.
+**The end comes from Google's OAuth redirect.** Without it the window has no
+end of its own: after sign-in Google lands the user on a page of its choosing
+(My Account, with no `continue`), and the only sign is `SID` and `SSID` in the
+cookie store, which Chrome commits every 30 seconds or 512 changes
+(`net/extras/sqlite/sqlite_persistent_cookie_store.cc`). Measured 2026-10-01:
+
+- `ServiceLogin?continue=` follows Google's own addresses only. `127.0.0.1`,
+  `localhost` and `about:blank` are refused (the page stays on sign-in);
+  `www.google.com/blank.html` is accepted, and blank is all it shows.
+- Google's OAuth page for a **desktop app** client redirects to
+  `http://127.0.0.1:<port>/`, as documented for installed apps
+  (developers.google.com/identity/protocols/oauth2/native-app), the moment the
+  user finishes; and the sign-in leaves `SID` and `SSID` in the profile like
+  any other.
+
+So the popup opens on the OAuth page with the least scopes a sign-in can ask
+for (`openid email`), and a `state` that only this run knows. The redirect
+lands on a page served from `127.0.0.1` for the length of the sign-in. The
+code it carries is never exchanged: Homewend wants no token and reads nothing
+through OAuth. The user sees one extra screen, Google naming Homewend and
+asking to share their email address; that screen is also what says who is
+asking.
+
+Shutting the browser down writes the cookies out, but its main process can
+exit before they reach the disk: a read right after the exit found none, and
+the file was written 170 ms later (2026-10-01). The app waits for them, up to
+five seconds.
+
+**Then Takeout, out of sight.** Signing in gives the account's cookies, not a
+service's: `OSID` and `__Secure-OSID` on `takeout.google.com` are set only
+when Takeout is opened signed in, and without them `/manage` sends the
+session to sign in (2026-10-01). The old sign-in started at Takeout and got
+them on the way. Now a headless browser opens `/manage` once. It must stay
+open until the cookies are on disk: a headless browser commits them on the
+30-second timer only (27 seconds, measured), and stopped with SIGTERM before
+that it loses them. So it stays until Takeout accepts the session read from
+the profile, asked only when the cookies change.
 
 ---
 

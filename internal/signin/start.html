@@ -1,0 +1,11 @@
+<!doctype html>
+<!-- homewend — Copyright (C) 2026 Ron Alder
+     SPDX-License-Identifier: AGPL-3.0-or-later -->
+<meta charset="utf-8">
+<title>Homewend</title>
+<script>
+// A browser that blocks the popup still gets to sign in, in this window.
+const google = {{.}};
+if (window.open(google, "google", "popup,width=480,height=640")) window.close();
+else location.replace(google);
+</script>

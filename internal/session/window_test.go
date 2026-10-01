@@ -6,6 +6,8 @@ package session
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -60,5 +62,33 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) {
 			t.Fatalf("%s never appeared", path)
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// OpenSignIn lets the page open its popup, and opens the address last.
+func TestOpenSignInAllowsThePopup(t *testing.T) {
+	dir := t.TempDir()
+	args := filepath.Join(dir, "args")
+	browser := filepath.Join(dir, "browser")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + args + ".tmp && mv " + args + ".tmp " + args + "\n"
+	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BROWSER_BIN", browser)
+
+	sess, err := New(filepath.Join(dir, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := sess.OpenSignIn("http://127.0.0.1:1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-w.Exited()
+	waitForFile(t, args, 5*time.Second)
+	got, _ := os.ReadFile(args)
+	lines := strings.Split(strings.TrimSpace(string(got)), "\n")
+	if lines[0] != "--user-data-dir="+sess.Profile || !slices.Contains(lines, "--disable-popup-blocking") || lines[len(lines)-1] != "http://127.0.0.1:1/" {
+		t.Errorf("browser started with %q", lines)
 	}
 }

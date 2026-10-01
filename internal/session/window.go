@@ -23,13 +23,25 @@ type Window struct {
 // Google refuses sign-in in a browser launched with --remote-debugging-port
 // ("This browser or app may not be secure"), and accepts the same browser
 // without it. Measured on Chromium 144, 2026-09-26.
-func (s *Session) Open(url string) (*Window, error) {
+func (s *Session) Open(url string) (*Window, error) { return s.launch(url) }
+
+// OpenSignIn is Open for a page that opens a popup as soon as it loads, with
+// no click to allow it: the sign-in page, which hands over to Google in a
+// popup and closes itself (see package signin). The popup has to come from an
+// ordinary window: one opened from an --app window shows no address, and the
+// address is why it is a popup (measured on Chromium 144, 2026-10-01).
+func (s *Session) OpenSignIn(url string) (*Window, error) {
+	return s.launch("--disable-popup-blocking", url)
+}
+
+// launch starts the browser on the profile, with what to open last.
+func (s *Session) launch(open ...string) (*Window, error) {
 	browser, err := findBrowser()
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(browser,
-		"--user-data-dir="+s.Profile,
+	args := []string{
+		"--user-data-dir=" + s.Profile,
 		// A fixed password for the cookie key, so that we can read the cookies
 		// back (see derivedKey): the first on Linux, the second on macOS. Each
 		// browser ignores the one that is not for its system.
@@ -39,8 +51,8 @@ func (s *Session) Open(url string) (*Window, error) {
 		// A browser stopped by an interrupted run looks like a crash to Chrome,
 		// which then offers to restore the session: noise, next time round.
 		"--disable-session-crashed-bubble", "--hide-crash-restore-bubble",
-		url,
-	)
+	}
+	cmd := exec.Command(browser, append(args, open...)...)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting %s: %w", browser, err)
 	}

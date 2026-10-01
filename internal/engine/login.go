@@ -8,14 +8,17 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/session"
+	"github.com/ronalder100/homewend/internal/signin"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
-// ErrNotSignedIn means the browser was closed before sign-in completed.
-var ErrNotSignedIn = errors.New("the browser was closed before sign-in completed")
+// ErrNotSignedIn means sign-in did not complete: the window was closed first,
+// or the user declined.
+var ErrNotSignedIn = errors.New("sign-in did not complete")
 
 // DefaultProfile is where the browser profile lives unless told otherwise: in
 // the user's config directory, because it is settings and a session, not data.
@@ -28,35 +31,90 @@ func DefaultProfile() (string, error) {
 }
 
 // Login makes sure the profile holds a Google session. If it does not, it
-// opens the browser on Takeout, which sends the user through Google's sign-in,
-// waits for them, and closes it once they are in.
+// opens Google's sign-in in a small browser window, waits until Google sends
+// the user back to our page, and closes the window.
 //
 // It reports whether the profile was already signed in.
 func Login(ctx context.Context, sess *session.Session, emit progress.Func) (already bool, err error) {
 	if ok, err := signedIn(sess); ok || err != nil {
 		return ok, err
 	}
-	err = inWindow(ctx, sess, takeout.PhotosURL, progress.SignIn, signInDone(sess), emit)
-	if errors.Is(err, errWindowClosed) {
+	back, err := signin.Listen()
+	if err != nil {
+		return false, err
+	}
+	defer back.Close()
+	w, err := sess.OpenSignIn(back.URL())
+	if err != nil {
+		return false, err
+	}
+	emit.Emit(progress.Event{Stage: progress.SignIn})
+
+	var result error
+	select {
+	case <-ctx.Done():
+		w.Close()
+		return false, ctx.Err()
+	case <-w.Exited():
+		return false, ErrNotSignedIn
+	case result = <-back.Done():
+	}
+	// Long enough for the page's animation to play out, so the user sees how
+	// it ended before the window goes.
+	select {
+	case <-time.After(3 * time.Second):
+	case <-w.Exited():
+	}
+	// Closing writes the profile out: the browser takes cookies to disk on
+	// shutdown, not only on its 30-second timer.
+	w.Close()
+	if result != nil {
 		return false, ErrNotSignedIn
 	}
-	return false, err
-}
-
-// signedIn reports whether the profile holds a session Google accepts.
-func signedIn(sess *session.Session) (bool, error) {
-	_, names, err := sess.Cookies()
-	if err != nil || !names["SID"] || !names["SSID"] {
-		return false, nil
+	if !cookiesLanded(sess) {
+		return false, ErrNotSignedIn
 	}
-	return takeout.SignedIn(sess)
+	return false, openTakeout(ctx, sess)
 }
 
-// signInDone is the check the sign-in window polls. It asks Google only when
-// the cookies have changed since it last asked: the window looks every two
-// seconds, a revoked session keeps its old cookies until the user signs in
-// again, and a person does not refresh a page that often. A failed check
-// counts as not yet, and is tried again when the cookies next change.
+// openTakeout opens Takeout once, out of sight, so the profile holds
+// Takeout's own cookies. Signing in gives the account's cookies but not a
+// service's: OSID and __Secure-OSID on takeout.google.com come only from
+// opening Takeout signed in, and without them Takeout sends the session to
+// sign in (measured 2026-10-01). The old sign-in started at Takeout and got
+// them on the way.
+//
+// The headless browser takes the cookies to disk on its 30-second timer
+// only: stopped sooner, it loses them (27 seconds, measured 2026-10-01). So
+// it stays open until Takeout accepts the session read from the profile.
+func openTakeout(ctx context.Context, sess *session.Session) error {
+	page, err := sess.Headless(ctx, takeout.ManageURL)
+	if err != nil {
+		return err
+	}
+	defer page.Close()
+	done := signInDone(sess)
+	deadline := time.After(time.Minute)
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline:
+			return ErrNotSignedIn
+		case <-tick.C:
+			if done() {
+				return nil
+			}
+		}
+	}
+}
+
+// signInDone asks Google whether it accepts the session only when the
+// cookies have changed since it last asked: polled every second, it would
+// otherwise ask at a pace no person refreshes a page. A failed check counts
+// as not yet, and is tried again when the cookies next change.
 func signInDone(sess *session.Session) func() bool {
 	var asked string
 	return func() bool {
@@ -68,4 +126,27 @@ func signInDone(sess *session.Session) func() bool {
 		ok, _ := takeout.SignedIn(sess)
 		return ok
 	}
+}
+
+// cookiesLanded waits for the session cookies to reach the profile after the
+// browser has shut down. Its main process can exit before they are on disk:
+// on 2026-10-01 a read right after the exit found none, and the file was
+// written 170 ms later.
+func cookiesLanded(sess *session.Session) bool {
+	for range 50 {
+		if _, names, err := sess.Cookies(); err == nil && names["SID"] && names["SSID"] {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
+
+// signedIn reports whether the profile holds a session Google accepts.
+func signedIn(sess *session.Session) (bool, error) {
+	_, names, err := sess.Cookies()
+	if err != nil || !names["SID"] || !names["SSID"] {
+		return false, nil
+	}
+	return takeout.SignedIn(sess)
 }
