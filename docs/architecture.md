@@ -154,6 +154,7 @@ the page. The fields read, by position (two exports, one live and one expired,
 | 6 | declared bytes, manifest excluded |
 | 8 | the parts, each `[filename, bytes, downloads so far, …]`; `null` once expired |
 | 22 | created, milliseconds since the epoch — the timestamp in the filenames |
+| 23 | when Google finished preparing it |
 | 24, 25 | expiry while live; the day it expired, once expired |
 | 27 | the manifest's archive, shaped like a part; `null` once expired |
 | 31 | the long user id |
@@ -165,6 +166,20 @@ files.
 
 The marker matters: a bare UUID picked at random also matches things that are
 not exports (the same page carries one that belongs to YouTube).
+
+**An export lasts seven days from when it is ready.** On 2026-10-01, fourteen
+exports on one account: in all twelve live ones, field 24 was field 23 plus
+exactly 604,800,000 ms; the two expired ones had 24 `null` and the day in 25.
+An export being prepared and one expired both have no parts, so field 25 is
+what tells them apart.
+
+**What an export holds is not on the page:** no year, no album. So Homewend
+notes each export it asks for, with the year, in the profile
+(`homewend-takeouts.json`, beside the user id): per account, usable by any
+library. `get` downloads the newest export of the year it noted, if Google
+still offers it or is preparing it, and asks for a new one only when there is
+none, or with `--new`. Into another library the same export is downloaded
+again; that costs none of Google's five downloads (see below).
 
 ### The manifest
 

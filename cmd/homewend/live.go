@@ -39,11 +39,13 @@ func startLive() *tea.Program {
 var spinColour = lipgloss.Color("#7571F9")
 
 // States in homewend.app's dark-theme colours: --ok for what is done, --err
-// for what failed or is missing, --accent for what to type.
+// for what failed or is missing, --accent for what to type, --faint for what
+// is over.
 var (
 	okColour     = lipgloss.Color("#9ECE6A")
 	errColour    = lipgloss.Color("#F7768E")
 	accentColour = lipgloss.Color("#7AA2F7")
+	faintColour  = lipgloss.Color("#565F89")
 )
 
 // paint colours s when out is a terminal, and leaves it plain anywhere else.
@@ -138,7 +140,7 @@ func (s *status) show(e progress.Event, now time.Time) {
 		s.current, s.lastAt, s.lastDone = e, now, e.Done
 	case progress.Place:
 		s.waiting, s.current = "", e
-	case progress.Ready, progress.Downloaded, progress.Short, progress.Damaged, progress.Unpack:
+	case progress.Ready, progress.InLibrary, progress.Downloaded, progress.Short, progress.Damaged, progress.Unpack:
 		s.waiting = ""
 		s.current = progress.Event{}
 	}

@@ -26,18 +26,25 @@ var ErrExportGone = errors.New("the export asked for is no longer listed by Goog
 type Get struct {
 	Year    int // 0: everything
 	Library string
+	// Takeout picks an export by its id, or the first characters of it, as
+	// the takeouts command lists them; Year is then not looked at.
+	Takeout string
+	// New asks Google for a new export even when one of Year is still offered.
+	New bool
 }
 
 // waitPoll is how often /manage is read while Google prepares the export: the
 // pace of a person refreshing a tab.
 const waitPoll = time.Minute
 
-// Run asks Google for the export, waits for it, fetches it and verifies it.
+// Run downloads the export of Year that Homewend asked for last, if Google
+// still offers it or is preparing it, and asks for a new one only when there
+// is none; then it waits for it, fetches it and verifies it.
 //
-// It can be stopped at any point and run again. What it has done is kept in
-// the library (see request): an export already asked for is never asked for
-// twice, and the fetch resumes as Fetch.Run does. When the network fails it
-// runs itself again (see Patiently).
+// It can be stopped at any point and run again: an export already asked for
+// is never asked for twice, and the fetch resumes as Fetch.Run does. Into
+// another library, the same export is downloaded again. When the network
+// fails it runs itself again (see Patiently).
 func (g Get) Run(ctx context.Context, sess *session.Session, emit progress.Func) (result Result, err error) {
 	err = Patiently(ctx, emit, func() error {
 		result, err = g.run(ctx, sess, emit)
@@ -46,14 +53,56 @@ func (g Get) Run(ctx context.Context, sess *session.Session, emit progress.Func)
 	return result, err
 }
 
-// Asked reports whether this library already holds a request to Google for
-// this export: if so, Run carries it on rather than asking for a new one.
-func (g Get) Asked() (bool, error) {
-	req, err := loadRequest(g.requestPath())
-	return req.Job != "" || !req.Asked.IsZero(), err
+// WillAsk reports whether Run would ask Google for a new export, so that a
+// person can be asked first. The profile must be signed in.
+func (g Get) WillAsk(sess *session.Session) (bool, error) {
+	job, err := g.pick(sess)
+	return job == "", err
 }
 
-func (g Get) requestPath() string {
+// pick is the export Run downloads, or "" when it has to ask for a new one.
+func (g Get) pick(sess *session.Session) (string, error) {
+	exports, err := takeout.Exports(sess)
+	if err != nil {
+		return "", err
+	}
+	if g.Takeout != "" {
+		e, err := byID(exports, g.Takeout)
+		if err != nil {
+			return "", err
+		}
+		if StatusOf(e) == Expired {
+			return "", fmt.Errorf("%w: %s", ErrExpired, g.Takeout)
+		}
+		return e.Job, nil
+	}
+	if g.New {
+		return "", nil
+	}
+	notes, err := loadNotes(sess.Profile)
+	if err != nil {
+		return "", err
+	}
+	// A library from before the notes moved to the profile kept its own.
+	if old, err := loadRequest(g.libraryNote()); err == nil && !old.Asked.IsZero() && !noted(notes, old.Asked) {
+		notes = append(notes, note{Year: old.Year, Asked: old.Asked, Job: old.Job})
+	}
+	job, notes := latestFor(g.Year, notes, exports)
+	return job, saveNotes(sess.Profile, notes)
+}
+
+func noted(notes []note, asked time.Time) bool {
+	for _, n := range notes {
+		if n.Asked.Equal(asked) {
+			return true
+		}
+	}
+	return false
+}
+
+// libraryNote is where a library kept its request before the notes moved to
+// the profile.
+func (g Get) libraryNote() string {
 	name := "request-all.json"
 	if g.Year != 0 {
 		name = fmt.Sprintf("request-%d.json", g.Year)
@@ -65,36 +114,31 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 	if _, err := Login(ctx, sess, emit); err != nil {
 		return Result{}, err
 	}
-	path := g.requestPath()
-	req, err := loadRequest(path)
+	job, err := g.pick(sess)
 	if err != nil {
 		return Result{}, err
 	}
-	req.Year = g.Year
-
-	if req.Job == "" && !req.Asked.IsZero() {
-		// Stopped between sending the form and seeing the export listed:
-		// Google may have it. Asking again would make a second one.
-		exports, err := takeout.Exports(sess)
+	if job == "" {
+		// The note is written before the form is sent: a run stopped in
+		// between finds the export by its time, and does not ask twice.
+		notes, err := loadNotes(sess.Profile)
 		if err != nil {
 			return Result{}, err
 		}
-		req.Job = askedSince(exports, req.Asked)
-	}
-	if req.Job == "" {
-		req.Asked = time.Now()
-		if err := writeJSON(path, req); err != nil {
+		notes = append(notes, note{Year: g.Year, Asked: time.Now()})
+		if err := saveNotes(sess.Profile, notes); err != nil {
 			return Result{}, err
 		}
-		if req.Job, err = requestExport(ctx, sess, g.Year, emit); err != nil {
+		if job, err = requestExport(ctx, sess, g.Year, emit); err != nil {
 			return Result{}, err
 		}
-	}
-	if err := writeJSON(path, req); err != nil {
-		return Result{}, err
+		notes[len(notes)-1].Job = job
+		if err := saveNotes(sess.Profile, notes); err != nil {
+			return Result{}, err
+		}
 	}
 
-	export, err := waitReady(ctx, sess, req.Job, emit)
+	export, err := waitReady(ctx, sess, job, emit)
 	if err != nil {
 		return Result{}, err
 	}
@@ -109,8 +153,8 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 	}.Run(ctx, sess, emit)
 }
 
-// request is what Get keeps between runs, one file per year asked for, and
-// one for everything.
+// request is what a library kept between runs before the notes moved to the
+// profile, one file per year asked for, and one for everything.
 type request struct {
 	Year  int       `json:"year"`
 	Asked time.Time `json:"asked,omitzero"` // just before the form was sent
@@ -156,8 +200,11 @@ func waitReady(ctx context.Context, sess *session.Session, job string, emit prog
 		if i < 0 {
 			return takeout.Export{}, fmt.Errorf("%w: %s", ErrExportGone, job)
 		}
-		if exports[i].Ready() {
+		switch StatusOf(exports[i]) {
+		case Ready:
 			return exports[i], nil
+		case Expired:
+			return takeout.Export{}, fmt.Errorf("%w: %s", ErrExpired, job)
 		}
 		if !waiting {
 			emit.Emit(progress.Event{Stage: progress.Waiting, Name: job})

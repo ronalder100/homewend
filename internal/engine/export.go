@@ -15,26 +15,9 @@ import (
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
-// ErrNoExport means /manage shows no export that can be downloaded now.
-var ErrNoExport = errors.New("no export is ready to download")
-
 // ErrNoDownload means the browser was closed before a download started, so
 // the short user id is still unknown.
 var ErrNoDownload = errors.New("the browser was closed before a download started")
-
-// Latest is the newest export that can be downloaded now.
-func Latest(sess *session.Session) (takeout.Export, error) {
-	exports, err := takeout.Exports(sess)
-	if err != nil {
-		return takeout.Export{}, err
-	}
-	for _, e := range exports {
-		if e.Ready() {
-			return e, nil
-		}
-	}
-	return takeout.Export{}, ErrNoExport
-}
 
 // userFile keeps the short user id beside the profile it belongs to. It is per
 // account and has not changed between two exports; Chrome's own history of

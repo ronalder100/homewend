@@ -15,7 +15,7 @@ Commands:
   login     sign in to Google, once, in your own browser
   logout    sign out: delete the browser profile login made
   get       ask Google for your photos, download them, check them
-  fetch     download the newest export that is already ready
+  takeouts  list the exports on your Google Takeout, with their ids
   verify    count a library again against the export's manifest
   version   print the version
   help      show help for a command
@@ -69,43 +69,55 @@ Examples:
 	"help get": `homewend get — your photos, from Google to your disk
 
 Usage:
-  homewend get --library DIR [--year YYYY] [--profile DIR] [--json]
+  homewend get --library DIR [--year YYYY | --takeout ID] [--new]
+               [--profile DIR] [--json]
 
-Asks Google Takeout for an export of your Google Photos — one year, or all of
-them — waits while Google prepares it, downloads every part, files the photos
-by date with your albums beside them, and counts them against the manifest
-Google puts in the export.
+Brings your Google Photos — one year, or all of them — into a folder: the
+photos by date, with your albums beside them, each one counted against the
+list Google puts in the export.
+
+If Google Takeout still has the export of that year Homewend asked for last,
+it downloads that one. Only when there is none, or it has expired, does it ask
+Google for a new one, and Google takes hours to prepare it.
 
 Stop it at any time and run the same command again: it carries on where it
-was, and never asks Google for a second export.
+was, and never asks Google twice. Into another folder, the same export is
+downloaded again.
 
 Flags:
   --library DIR   where your photos go (required)
   --year YYYY     only this year (default: all of your photos)
+  --takeout ID    this export, by the id homewend takeouts shows
+  --new           ask Google for a new export even if there is one, for the
+                  photos taken since
   --profile DIR   browser profile to use (default: the one login made)
   --json          one JSON object per line, for scripts
 
 Examples:
   homewend get --year 2025 --library ~/Pictures/Homewend
-  homewend get --library /mnt/nas/photos`,
+  homewend get --library /mnt/nas/photos
+  homewend get --takeout 8f6c3233 --library ~/Pictures/Homewend`,
 
-	"help fetch": `homewend fetch — download an export that is already ready
+	"help takeouts": `homewend takeouts — the exports on your Google Takeout
 
 Usage:
-  homewend fetch --library DIR [--profile DIR] [--json]
+  homewend takeouts [--profile DIR] [--json]
 
-For an export you asked Google Takeout for yourself. Finds the newest export
-that is ready, downloads every part, puts the photos into the library, and
-counts them against the manifest. Checks there is room on the disk first.
-Stop it and run it again: it resumes from the byte where it stopped.
+Lists every export Google Takeout keeps for your account, newest first: its
+id, when it was made, its size, and whether it is ready, still being prepared,
+or expired. Google keeps an export for 7 days after it is ready. For the ones
+Homewend asked for, it also says which year they hold; Google does not say it
+for the others.
+
+Download one of them with get --takeout ID.
 
 Flags:
-  --library DIR   where your photos go (required)
   --profile DIR   browser profile to use (default: the one login made)
   --json          one JSON object per line, for scripts
 
 Example:
-  homewend fetch --library ~/Pictures/Homewend`,
+  homewend takeouts
+  homewend get --takeout 8f6c3233 --library ~/Pictures/Homewend`,
 
 	"help verify": `homewend verify — count a library again
 
@@ -142,11 +154,17 @@ later. It picks up where it left off, and never asks Google twice.
 
 `,
 	"continue":          "Continue? [y/N] ",
-	"not asked":         "nothing asked: Google was not contacted",
+	"not asked":         "nothing asked: no new export was requested",
 	"already signed in": "already signed in",
 	"not signed in":     "sign-in did not finish: run homewend login again",
 	"no browser":        "no Chrome, Chromium, Brave or Edge found on this machine: install one, or set BROWSER_BIN to its path",
-	"export":            "export %s of %s: %d parts, %s",
+	"in library":        "\nthis export is already all in this folder: nothing to download, checking it again",
+	"takeouts header":   "id        made              size       parts  status     until             holds",
+	"takeout row":       "%-8s  %-16s  %9s  %5d  %-9s  %-16s  %s",
+	"holds year":        "%d",
+	"holds all":         "all photos",
+	"holds unknown":     "unknown",
+	"no takeouts":       "Google Takeout has no exports for this account",
 	"request":           "asking Google Takeout for an export",
 	"not offered":       "Google Takeout offers no export of %d. It offers these years: %s\nand these albums:\n  %s",
 	"waiting":           "Google is preparing the export: this can take hours.\nLeave this open and the download starts when it is ready, or close it and run the same command later.",
@@ -156,7 +174,8 @@ later. It picks up where it left off, and never asks Google twice.
 	"not requested":     "the export was not requested: %v",
 	"first download":    "a browser window is open on your export: click Download on the first part, and enter your password if Google asks. This is needed once for this account; the window closes by itself once the download starts",
 	"no download":       "the browser was closed before a download started: run the same command again",
-	"no export":         "no export is ready on Google Takeout yet",
+	"no such takeout":   "%v: run homewend takeouts to see them",
+	"expired":           "%v: Google keeps an export for 7 days after it is ready. Run get without --takeout to ask for a new one",
 	"no space":          "not enough space for this export: %s needed, %s free",
 
 	"session status":  "getting Takeout ready, about half a minute",

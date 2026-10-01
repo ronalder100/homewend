@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/dustin/go-humanize"
@@ -43,11 +42,11 @@ var version = "dev"
 // commands maps each subcommand to its shell. Every one has a help page,
 // text["help <name>"].
 var commands = map[string]func(args []string) int{
-	"login":  login,
-	"logout": logout,
-	"get":    get,
-	"fetch":  fetch,
-	"verify": verify,
+	"login":    login,
+	"logout":   logout,
+	"get":      get,
+	"takeouts": takeouts,
+	"verify":   verify,
 }
 
 func main() {
@@ -124,18 +123,17 @@ func get(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	year := flags.Int("year", 0, "the year whose photos to get (default: all of them)")
 	libraryDir := flags.String("library", "", "library directory")
+	takeoutID := flags.String("takeout", "", "the export to download, by its id")
+	fresh := flags.Bool("new", false, "ask Google for a new export even if there is one")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
 	if missing := unset(map[string]string{"--library": *libraryDir}); missing != "" {
 		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
 		return exitError
 	}
-	g := engine.Get{Year: *year, Library: *libraryDir}
-	if !*asJSON && !confirmGet(g) {
-		return exitOK
-	}
+	g := engine.Get{Year: *year, Library: *libraryDir, Takeout: *takeoutID, New: *fresh}
 	out := newPrinter(*asJSON)
-	defer out.close()
+	defer func() { out.close() }()
 
 	sess, err := openSession(*profile)
 	if err != nil {
@@ -143,6 +141,24 @@ func get(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+	// A person at a terminal is asked before Google is asked for an export:
+	// it takes hours. A script that runs get meant it.
+	if !*asJSON && term.IsTerminal(int(os.Stdin.Fd())) {
+		if _, err := engine.Login(ctx, sess, out.event); err != nil {
+			return out.fail(err)
+		}
+		ask, err := g.WillAsk(sess)
+		if err != nil {
+			return out.fail(err)
+		}
+		if ask {
+			out.close()
+			if !confirmGet(g) {
+				return exitOK
+			}
+			out = newPrinter(*asJSON)
+		}
+	}
 	result, err := g.Run(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
@@ -151,16 +167,9 @@ func get(args []string) int {
 	return out.finished(result.Verification)
 }
 
-// confirmGet says what get is about to start, the first time for this export,
-// and asks to go on. Only a person at a terminal is asked: a script that runs
-// get meant it.
+// confirmGet says that get is about to ask Google for an export, and what
+// that means, and asks to go on.
 func confirmGet(g engine.Get) bool {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return true
-	}
-	if asked, err := g.Asked(); err != nil || asked {
-		return true // carrying on, or the error is for Run to report
-	}
 	what := text["all photos"]
 	if g.Year != 0 {
 		what = fmt.Sprintf(text["photos of"], g.Year)
@@ -214,16 +223,11 @@ func openSession(profile string) (*session.Session, error) {
 	return session.New(dir)
 }
 
-func fetch(args []string) int {
-	flags := newFlags("fetch")
+func takeouts(args []string) int {
+	flags := newFlags("takeouts")
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
-	libraryDir := flags.String("library", "", "library directory")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	if missing := unset(map[string]string{"--library": *libraryDir}); missing != "" {
-		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
-		return exitError
-	}
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -231,34 +235,49 @@ func fetch(args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	export, err := engine.Latest(sess)
-	if err != nil {
-		return out.fail(err)
-	}
-	out.line("export", export, text["export"],
-		export.Job, export.Created.Format(time.DateOnly), len(export.Parts), humanize.IBytes(uint64(export.Bytes)))
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	user, err := engine.User(ctx, sess, export.Job, out.event)
+	if _, err := engine.Login(ctx, sess, out.event); err != nil {
+		return out.fail(err)
+	}
+	list, err := engine.Takeouts(sess)
 	if err != nil {
 		return out.fail(err)
 	}
-
-	var result engine.Result
-	err = engine.Patiently(ctx, out.event, func() error {
-		result, err = engine.Fetch{
-			Target:  takeout.Target{Job: export.Job, User: user},
-			Export:  export,
-			Library: *libraryDir,
-		}.Run(ctx, sess, out.event)
-		return err
-	})
-	if err != nil {
-		return out.fail(err)
+	if *asJSON {
+		for _, t := range list {
+			json.NewEncoder(os.Stdout).Encode(map[string]any{"takeout": t})
+		}
+		return exitOK
 	}
-	out.organized(result.Organized)
-	return out.finished(result.Verification)
+	if len(list) == 0 {
+		out.say("%s", text["no takeouts"])
+		return exitOK
+	}
+	out.say("%s", text["takeouts header"])
+	for _, t := range list {
+		holds := text["holds unknown"]
+		switch {
+		case t.Known && t.Year != 0:
+			holds = fmt.Sprintf(text["holds year"], t.Year)
+		case t.Known:
+			holds = text["holds all"]
+		}
+		until := ""
+		if !t.Expires.IsZero() {
+			until = t.Expires.Local().Format("2006-01-02 15:04")
+		}
+		row := fmt.Sprintf(text["takeout row"], t.ID, t.Created.Local().Format("2006-01-02 15:04"),
+			size(t.Bytes), len(t.Parts), t.Status, until, holds)
+		switch t.Status {
+		case engine.Ready:
+			row = paint(os.Stdout, okColour, row)
+		case engine.Expired:
+			row = paint(os.Stdout, faintColour, row)
+		}
+		out.say("%s", row)
+	}
+	return exitOK
 }
 
 func verify(args []string) int {
@@ -356,6 +375,8 @@ func (p printer) event(e progress.Event) {
 	case progress.Waiting:
 		p.say("%s", text["waiting"])
 		p.say("%s", p.notice(text["restart"]))
+	case progress.InLibrary:
+		p.say("%s", text["in library"])
 	case progress.Ready:
 		p.say(text["ready"], e.Of, size(e.Total))
 	case progress.FirstDownload:
@@ -384,7 +405,12 @@ func (p printer) event(e progress.Event) {
 	}
 }
 
+// organized reports what was placed; when the export was already all in the
+// library there is nothing to report, and the count that follows says it.
 func (p printer) organized(o library.Organized) {
+	if o.Placed == 0 && o.Skipped == 0 && !p.json {
+		return
+	}
 	p.line("organized", o, text["placed"],
 		o.Placed, humanize.IBytes(uint64(o.Bytes)), o.Skipped, o.Undated, o.Linked+o.Copied)
 }
@@ -444,8 +470,10 @@ func (p printer) fail(err error) int {
 		message = text["stopped"]
 	case errors.Is(err, takeout.ErrFormChanged), errors.Is(err, engine.ErrNotRequested):
 		message = fmt.Sprintf(text["not requested"], err)
-	case errors.Is(err, engine.ErrNoExport):
-		message = text["no export"]
+	case errors.Is(err, engine.ErrNoSuchTakeout):
+		message = fmt.Sprintf(text["no such takeout"], err)
+	case errors.Is(err, engine.ErrExpired):
+		message = fmt.Sprintf(text["expired"], err)
 	case errors.Is(err, engine.ErrNoDownload):
 		message = text["no download"]
 	case errors.As(err, &space):

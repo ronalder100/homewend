@@ -41,16 +41,3 @@ func TestARequestSurvivesBetweenRuns(t *testing.T) {
 		t.Errorf("got %+v, %v; want %+v", got, err, want)
 	}
 }
-
-func TestAskedOnceARequestIsKept(t *testing.T) {
-	g := Get{Year: 2025, Library: t.TempDir()}
-	if asked, err := g.Asked(); err != nil || asked {
-		t.Fatalf("empty library: got %v, %v; want false", asked, err)
-	}
-	if err := writeJSON(g.requestPath(), request{Year: 2025, Asked: time.Now()}); err != nil {
-		t.Fatal(err)
-	}
-	if asked, err := g.Asked(); err != nil || !asked {
-		t.Errorf("after asking: got %v, %v; want true", asked, err)
-	}
-}

@@ -97,12 +97,12 @@ Good to know:
 | `login` | Sign in to Google, in a browser profile that belongs to Homewend |
 | `logout` | Sign out: delete that browser profile |
 | `get` | Ask Google for an export, download it, check it |
-| `fetch` | Download an export you made yourself on Takeout |
+| `takeouts` | List the exports on your Google Takeout; `get --takeout ID` downloads one |
 | `verify` | Count a library again against its export |
 | `version` | Print the version |
 | `help <command>` | Flags and examples |
 
-`--json` on `login`, `get`, `fetch` and `verify` prints one JSON object per line, for scripts.
+`--json` on `login`, `get`, `takeouts` and `verify` prints one JSON object per line, for scripts.
 Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed in or session expired: run `homewend login`.
 
 ## On your disk

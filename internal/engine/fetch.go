@@ -68,7 +68,11 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 
 	// The manifest is one more archive, and counted as one.
 	of := len(f.Export.Parts) + 1
-	emit.Emit(progress.Event{Stage: progress.Ready, Name: f.Export.Job, Of: of, Total: f.Export.Bytes})
+	if st.complete(f.Export) {
+		emit.Emit(progress.Event{Stage: progress.InLibrary, Name: f.Export.Job, Of: of})
+	} else {
+		emit.Emit(progress.Event{Stage: progress.Ready, Name: f.Export.Job, Of: of, Total: f.Export.Bytes})
+	}
 	for i, part := range f.Export.Parts {
 		path := filepath.Join(parts, part.Filename)
 		if !st.Unpacked[part.Filename] {
@@ -213,6 +217,17 @@ func loadState(work string) (state, error) {
 		st.Unpacked = map[string]bool{}
 	}
 	return st, nil
+}
+
+// complete reports whether every part of e is unpacked here and its manifest
+// fetched: nothing is left to download.
+func (st state) complete(e takeout.Export) bool {
+	for _, part := range e.Parts {
+		if !st.Unpacked[part.Filename] {
+			return false
+		}
+	}
+	return st.Manifest != ""
 }
 
 func (st state) save(work string) error {

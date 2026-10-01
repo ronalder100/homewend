@@ -85,6 +85,11 @@ type Export struct {
 	Parts []Part
 	// archive_browser.html's archive, one index past the last part.
 	Manifest Part
+	// When Google stops offering it, or stopped; zero while it is prepared.
+	Expires time.Time
+	// Google no longer offers it. Being prepared looks the same on /manage,
+	// with no parts: only this tells the two apart.
+	Expired bool
 }
 
 // Ready reports whether the export can be downloaded now.
@@ -100,7 +105,12 @@ func (e Export) Ready() bool { return len(e.Parts) > 0 && e.Manifest.Filename !=
 //	[6]  declared bytes
 //	[8]  parts, each [filename, bytes, downloads so far, ...]; null once expired
 //	[22] created, milliseconds since the epoch (matches the filenames' timestamp)
+//	[24] when it expires, while it can be downloaded; null once expired
+//	[25] when it expired, once it has; null before
 //	[27] the manifest's archive, shaped like a part; null once expired
+//
+// [24] and [25] read on 2026-10-01, fourteen exports: twelve live, each
+// expiring exactly seven days after field [23], and two expired.
 //
 // The marker matters: a bare UUID picked at random also matches things that
 // are not exports (the same page carries one that belongs to YouTube).
@@ -110,6 +120,8 @@ const (
 	fieldBytes     = 6
 	fieldParts     = 8
 	fieldCreated   = 22
+	fieldExpires   = 24
+	fieldExpired   = 25
 	fieldManifest  = 27
 	recordMinWidth = fieldManifest + 1
 )
@@ -206,6 +218,20 @@ func parseRecord(record []json.RawMessage) (Export, error) {
 		return Export{}, errors.New("an export record has no id")
 	}
 	e.Created = time.UnixMilli(created)
+
+	var expires, expired *int64
+	if err := json.Unmarshal(record[fieldExpires], &expires); err != nil {
+		return Export{}, fmt.Errorf("export %s, expiry: %w", e.Job, err)
+	}
+	if err := json.Unmarshal(record[fieldExpired], &expired); err != nil {
+		return Export{}, fmt.Errorf("export %s, expired: %w", e.Job, err)
+	}
+	switch {
+	case expired != nil:
+		e.Expires, e.Expired = time.UnixMilli(*expired), true
+	case expires != nil:
+		e.Expires = time.UnixMilli(*expires)
+	}
 
 	var parts [][]json.RawMessage
 	if err := json.Unmarshal(record[fieldParts], &parts); err != nil {

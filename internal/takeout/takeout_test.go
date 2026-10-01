@@ -4,6 +4,7 @@
 package takeout
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,16 +30,27 @@ func record(job string, created int64, parts, manifest string) string {
 	return "[" + strings.Join(fields, ",") + "]"
 }
 
+// withField sets one field of a record built by record.
+func withField(index int, value, rec string) string {
+	var fields []json.RawMessage
+	if err := json.Unmarshal([]byte(rec), &fields); err != nil {
+		panic(err)
+	}
+	fields[index] = json.RawMessage(value)
+	out, _ := json.Marshal(fields)
+	return string(out)
+}
+
 const (
 	oldJob = "11111111-1111-1111-1111-111111111111"
 	newJob = "22222222-2222-2222-2222-222222222222"
 )
 
 func TestExportsAreReadFromTheirRecords(t *testing.T) {
-	live := record(newJob, 1767352183000,
+	live := withField(fieldExpires, "1767956983000", record(newJob, 1767352183000,
 		`[["takeout-20260102T110943Z-1-001.zip",2147483648,0,null,null,5],["IMG_0001.MOV",3000000000,1,null,null,5]]`,
-		`["takeout-20260102T110943Z-001.zip",55620,0,null,null,5,null,"",1]`)
-	expired := record(oldJob, 1766752183000, "null", "null")
+		`["takeout-20260102T110943Z-001.zip",55620,0,null,null,5,null,"",1]`))
+	expired := withField(fieldExpired, "1767356983000", record(oldJob, 1766752183000, "null", "null"))
 	page := `<script>AF_initDataCallback({key: 'ds:0', data:[[[null,` + expired + `]]]});` +
 		// A UUID that is not an export, as the real page carries one.
 		`"33333333-3333-3333-3333-333333333333"` +
@@ -55,6 +67,12 @@ func TestExportsAreReadFromTheirRecords(t *testing.T) {
 	e := exports[0]
 	if !e.Ready() || exports[1].Ready() {
 		t.Errorf("ready: live %v, expired %v; want true, false", e.Ready(), exports[1].Ready())
+	}
+	if e.Expired || e.Expires.UnixMilli() != 1767956983000 {
+		t.Errorf("live: expired %v, expires %v", e.Expired, e.Expires)
+	}
+	if old := exports[1]; !old.Expired || old.Expires.UnixMilli() != 1767356983000 {
+		t.Errorf("expired: expired %v, expires %v", old.Expired, old.Expires)
 	}
 	if e.Bytes != 4387791 || e.Created.UnixMilli() != 1767352183000 {
 		t.Errorf("bytes %d, created %v", e.Bytes, e.Created)
