@@ -10,6 +10,7 @@ import (
 	"hash/crc32"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -146,9 +147,14 @@ func readsBack(path string, want uint32) error {
 	return nil
 }
 
-// safeJoin refuses any path that would land outside root — the zip-slip check.
+// safeJoin refuses any path that would land outside root — the zip-slip check
+// — and makes each component a name the disk will take (see fileName).
 func safeJoin(root, name string) (string, error) {
-	target := filepath.Join(root, filepath.Clean("/"+name))
+	parts := strings.Split(path.Clean("/"+name), "/")
+	for i, part := range parts {
+		parts[i] = fileName(part)
+	}
+	target := filepath.Join(root, filepath.FromSlash(strings.Join(parts, "/")))
 	if !strings.HasPrefix(target, filepath.Clean(root)+string(os.PathSeparator)) {
 		return "", fmt.Errorf("archive entry %q would write outside the output directory", name)
 	}
