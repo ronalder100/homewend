@@ -100,9 +100,9 @@ wait(0.8);
 // One part and the manifest: the smallest real export, so the run is not a
 // list of the same three lines.
 const parts = [2 * GiB];
-const seconds = [5];
+const seconds = [3.8];
 parts.forEach((total, i) => {
-  show(seconds[i], (p) => downloading(i + 1, parts.length + 1, total * p, total, 41 * MiB));
+  show(seconds[i], (p) => downloading(i + 1, parts.length + 1, total * skipped(p), total, 41 * MiB));
   print(`[${i + 1}/${parts.length + 1}] downloaded, ${ibytes(total)}`);
   print(`[${i + 1}/${parts.length + 1}] unpacking`);
 });
@@ -115,6 +115,13 @@ print("declared 742, on disk 742, missing 0", "  2025  742 of 742", "", "downloa
 wait(1.5);
 const end = sec(t);
 export const duration = sec(t + 3);
+
+// A cut in the download, from half to three quarters: the bar moves at its
+// real pace, and the film skips a quarter of it.
+function skipped(p: number) {
+  const x = p * 0.75;
+  return x < 0.5 ? x : x + 0.25;
+}
 
 // Go's Duration.String, rounded to the second, as live.go prints it.
 function goDuration(seconds: number) {
