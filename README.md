@@ -12,8 +12,7 @@
 </p>
 
 <p align="center">
-  <strong>Google Photos, on your own disk.</strong><br />
-  The open-source Google Photos downloader.
+  <strong>Google Photos, on your own disk.</strong>
 </p>
 
 <p align="center">
