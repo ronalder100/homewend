@@ -49,7 +49,8 @@ func (s *Session) launch(open ...string) (*Window, error) {
 	args := []string{
 		"--user-data-dir=" + s.Profile,
 		// A fixed password for the cookie key, so that we can read the cookies
-		// back (see loadCookieKey): the first on Linux, the second on macOS. Each
+		// back (see loadCookieKey): the first on Linux, the second on macOS, and
+		// neither on Windows, where the key is in the profile itself. Each
 		// browser ignores the one that is not for its system.
 		"--password-store=basic",
 		"--use-mock-keychain",

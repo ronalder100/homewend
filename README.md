@@ -89,7 +89,7 @@ Good to know:
 - Google needs time to prepare your photos: minutes for a year, hours for everything. You do not have to wait: close the terminal, run the same command later, and it picks up where it left off.
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, Google asks for your password once more, in a browser window: **type it there**. Only once.
-- You need Chrome, Chromium, Brave or Edge. On Windows, close the browser window once you have signed in.
+- You need Chrome, Chromium, Brave or Edge.
 - Windows support is new: the parts that do not need a Google account are tested on every build, a full run on Windows is not yet confirmed.
 - On Windows, SmartScreen may warn about an unsigned download: "More info", then "Run anyway". Signing costs more than this project has.
 - You need room for your library plus one zip. Homewend checks before it starts.
