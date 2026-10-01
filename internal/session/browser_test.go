@@ -23,8 +23,11 @@ func TestPickBrowser(t *testing.T) {
 	}
 	// The default browser's id, as the system in use would give it.
 	id := func(c chromium) string {
-		if runtime.GOOS == "darwin" {
+		switch runtime.GOOS {
+		case "darwin":
 			return c.bundle
+		case "windows":
+			return `C:\Program Files\Browser\` + c.exe
 		}
 		return c.commands[len(c.commands)-1] + ".desktop"
 	}
@@ -49,5 +52,23 @@ func TestPickBrowser(t *testing.T) {
 
 	if _, err := pickBrowser("", on()); !errors.Is(err, ErrNoBrowser) {
 		t.Errorf("nothing installed: got %v, want ErrNoBrowser", err)
+	}
+}
+
+// Open commands as the registry held them on Windows Server 2025: quoted by
+// Chrome's and Edge's installers, unquoted by Internet Explorer's.
+func TestCommandPath(t *testing.T) {
+	cases := map[string]string{
+		`"C:\Program Files\Google\Chrome\Application\chrome.exe" --single-argument %1`: `C:\Program Files\Google\Chrome\Application\chrome.exe`,
+		`"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`:               `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
+		`C:\Program Files\Internet Explorer\iexplore.exe`:                              `C:\Program Files\Internet Explorer\iexplore.exe`,
+		`C:\Program Files\Internet Explorer\IEXPLORE.EXE %1`:                           `C:\Program Files\Internet Explorer\IEXPLORE.EXE`,
+		``:          ``,
+		`"unclosed`: ``,
+	}
+	for command, want := range cases {
+		if got := commandPath(command); got != want {
+			t.Errorf("%q: got %q, want %q", command, got, want)
+		}
 	}
 }
