@@ -26,7 +26,7 @@ const rows = 13;
 const sec = (s: number) => Math.round(s * fps);
 
 // Characters a second, as a person types.
-const typingSpeed = 32;
+const typingSpeed = 60;
 
 const color = {
   background: "#171717",
@@ -94,22 +94,24 @@ wait(1.2);
 waiting.from = sec(t);
 show(4, (_, f) => <Pulse frame={f}>waiting for Google</Pulse>);
 waiting.to = sec(t);
-print("", "the export is ready: downloading 4 parts, 5.1 GiB");
+print("", "the export is ready: downloading 2 parts, 2.0 GiB");
 wait(0.8);
 
-const parts = [2 * GiB, 2 * GiB, 1.1 * GiB];
-const seconds = [5, 4, 3.5];
+// One part and the manifest: the smallest real export, so the run is not a
+// list of the same three lines.
+const parts = [2 * GiB];
+const seconds = [5];
 parts.forEach((total, i) => {
   show(seconds[i], (p) => downloading(i + 1, parts.length + 1, total * p, total, 41 * MiB));
   print(`[${i + 1}/${parts.length + 1}] downloaded, ${ibytes(total)}`);
   print(`[${i + 1}/${parts.length + 1}] unpacking`);
 });
 wait(0.6);
-print("[4/4] downloaded, 61 KiB");
-show(3.5, (p) => placing(Math.round(1812 * p), 1812));
-print("placed 1812 photos, 5.1 GiB: 4 duplicates, 0 undated, 212 in albums");
+print("[2/2] downloaded, 61 KiB");
+show(3, (p) => placing(Math.round(742 * p), 742));
+print("placed 742 photos, 2.0 GiB: 2 duplicates, 0 undated, 87 in albums");
 wait(0.8);
-print("declared 1812, on disk 1812, missing 0", "  2025  1812 of 1812", "", "download complete, congratulations 🎉");
+print("declared 742, on disk 742, missing 0", "  2025  742 of 742", "", "download complete, congratulations 🎉");
 wait(1.5);
 const end = sec(t);
 export const duration = sec(t + 3);
