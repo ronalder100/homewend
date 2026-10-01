@@ -260,7 +260,7 @@ func (p printer) notice(s string) string {
 	if p.live == nil {
 		return s
 	}
-	return noticed.Render(s)
+	return blended(s)
 }
 
 // say prints one line of text for a person.

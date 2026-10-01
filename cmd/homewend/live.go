@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	bar "charm.land/bubbles/v2/progress"
@@ -33,8 +34,20 @@ func startLive() *tea.Program {
 	return p
 }
 
-// noticed is the colour of the one line a person must not skim past.
-var noticed = lipgloss.NewStyle().Foreground(lipgloss.Color("#E5C07B"))
+// The one line a person must not skim past runs from the site's dark-theme
+// grey to its blue, homewend.app's --faint and --accent.
+var noticeFrom, noticeTo = lipgloss.Color("#565F89"), lipgloss.Color("#7AA2F7")
+
+// blended colours s letter by letter from noticeFrom to noticeTo.
+func blended(s string) string {
+	letters := []rune(s)
+	colours := lipgloss.Blend1D(len(letters), noticeFrom, noticeTo)
+	var b strings.Builder
+	for i, r := range letters {
+		b.WriteString(lipgloss.NewStyle().Foreground(colours[i]).Render(string(r)))
+	}
+	return b.String()
+}
 
 // idle clears the status line, so a command's last words are not followed by
 // a stale bar.
