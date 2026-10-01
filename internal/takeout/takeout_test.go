@@ -90,6 +90,21 @@ func TestExportsAreReadFromTheirRecords(t *testing.T) {
 	}
 }
 
+// A page that answers fetch with what it would answer a navigation.
+type fetching struct{ page string }
+
+func (f fetching) Eval(_ string, out any) error { *out.(*string) = f.page; return nil }
+func (f fetching) Click(float64, float64) error { return nil }
+
+func TestExportsAreReadThroughThePage(t *testing.T) {
+	page := `<script>AF_initDataCallback({key: 'ds:1', data:[[[null,` +
+		record(newJob, 1767352183000, "null", "null") + `]]]});</script>`
+	exports, err := ExportsFrom(fetching{page})
+	if err != nil || len(exports) != 1 || exports[0].Job != newJob {
+		t.Fatalf("got %v, %v", exports, err)
+	}
+}
+
 func TestARecordThatCannotBeReadIsAnError(t *testing.T) {
 	bad := []string{
 		`["ac.t.ta","` + newJob + `"]`,

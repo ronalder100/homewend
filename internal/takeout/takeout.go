@@ -217,6 +217,19 @@ func Exports(g Getter) ([]Export, error) {
 	return parseExports(string(body))
 }
 
+// ExportsFrom lists the exports as Exports does, but asks from inside a page
+// of Takeout's that d drives, with the cookies the browser holds. It is for
+// when the profile is in use: on Windows the browser keeps its cookies file
+// locked while it runs. The page fetched this way is the one the HTTP route
+// gets: same 13 exports, same records, measured 2026-10-01.
+func ExportsFrom(d Driver) ([]Export, error) {
+	var page string
+	if err := d.Eval(`fetch('/manage').then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))`, &page); err != nil {
+		return nil, fmt.Errorf("reading the export list: %w", err)
+	}
+	return parseExports(page)
+}
+
 func parseExports(page string) ([]Export, error) {
 	seen := map[string]bool{}
 	var exports []Export

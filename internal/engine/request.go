@@ -19,9 +19,10 @@ import (
 var ErrNotRequested = errors.New("Google did not list a new export")
 
 // requestExport asks Google for an export of the Google Photos of one year,
-// or of all of them when year is 0, and returns its job id once /manage lists it. The form is filled in a
-// browser of our own, out of sight (see session.Headless); Google takes a
-// minute or two before it lets a year be chosen (see takeout.PickerWait).
+// or of all of them when year is 0, and returns its job id once /manage lists
+// it. The form is filled in a browser of our own, out of sight (see
+// session.Headless); Google takes a minute or two before it lets a year be
+// chosen (see takeout.PickerWait).
 func requestExport(ctx context.Context, sess *session.Session, year int, emit progress.Func) (string, error) {
 	before, err := takeout.Exports(sess)
 	if err != nil {
@@ -42,15 +43,17 @@ func requestExport(ctx context.Context, sess *session.Session, year int, emit pr
 		return "", err
 	}
 
-	// The page stays open meanwhile: closing it could cut the request short.
-	// Two minutes is generous for a form Google answers in seconds.
+	// The page stays open meanwhile: closing it could cut the request short,
+	// and while it is open /manage is read through it, since the browser may
+	// hold the profile's cookies locked (see takeout.ExportsFrom). Two
+	// minutes is generous for a form Google answers in seconds.
 	for deadline := time.Now().Add(2 * time.Minute); time.Now().Before(deadline); {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case <-time.After(5 * time.Second):
 		}
-		now, err := takeout.Exports(sess)
+		now, err := takeout.ExportsFrom(page)
 		if err != nil {
 			return "", err
 		}
