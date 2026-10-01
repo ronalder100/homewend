@@ -114,3 +114,26 @@ func TestTheCookieKeysAreChromes(t *testing.T) {
 		}
 	}
 }
+
+// Chrome's cookies may sit under Default/Network, where the Windows build
+// writes them, or beside History.
+func TestProfileFilesAreFoundUnderNetworkToo(t *testing.T) {
+	profile := t.TempDir()
+	sess, err := New(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.profileFile("Cookies"); err == nil {
+		t.Fatal("found Cookies in an empty profile")
+	}
+	under := filepath.Join(profile, "Default", "Network", "Cookies")
+	if err := os.MkdirAll(filepath.Dir(under), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(under, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := sess.profileFile("Cookies"); err != nil || got != under {
+		t.Fatalf("got %q, %v; want %q", got, err, under)
+	}
+}

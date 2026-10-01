@@ -205,10 +205,15 @@ func (s *Session) DownloadURLs() ([]string, error) {
 
 // query runs a read-only query on one of the profile's SQLite files. The
 // browser keeps them locked while it runs, so it works on a copy.
+//
+// On Windows the copy itself can fail: there the browser opens its cookies
+// with no sharing, and the file cannot even be read until it closes (Chrome
+// 154 and Edge 153, Windows Server 2025); the error says so, and callers
+// that poll take it as "not yet". History is readable meanwhile.
 func (s *Session) query(file, query string, row func(*sql.Rows) error) error {
-	source := filepath.Join(s.Profile, "Default", file)
-	if _, err := os.Stat(source); err != nil {
-		return fmt.Errorf("no %s in the profile: %w", file, err)
+	source, err := s.profileFile(file)
+	if err != nil {
+		return err
 	}
 	dir, err := os.MkdirTemp("", "homewend-profile-*")
 	if err != nil {
@@ -244,6 +249,21 @@ func (s *Session) query(file, query string, row func(*sql.Rows) error) error {
 		}
 	}
 	return rows.Err()
+}
+
+// profileFile finds one of the profile's SQLite files. Cookies moved under
+// Network/ in Chrome's layout; a profile written by the browsers measured on
+// Linux and macOS still has them beside History, one on Windows has them
+// under Network/ only (2026-10-01).
+func (s *Session) profileFile(file string) (string, error) {
+	var err error
+	for _, dir := range []string{"Default", filepath.Join("Default", "Network")} {
+		path := filepath.Join(s.Profile, dir, file)
+		if _, err = os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("no %s in the profile: %w", file, err)
 }
 
 func copyFile(source, dest string) error {
