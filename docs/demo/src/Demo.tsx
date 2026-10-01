@@ -89,6 +89,7 @@ show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
 print(
   "Google is preparing the export: this can take hours.",
   "Leave this open, the download starts when it is ready.",
+  "If the computer restarts, run the same command again.",
 );
 wait(1.2);
 waiting.from = sec(t);

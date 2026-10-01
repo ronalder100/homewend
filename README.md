@@ -33,9 +33,9 @@
 ## Features
 
 - **One command, start to finish.** Asks Google Takeout for the export, waits, downloads, unpacks, checks.
-- **Resumes.** Stop it, lose the network, close the laptop: run it again and it carries on from the byte where it stopped.
+- **Resumes.** Lose the network or put the computer to sleep: it carries on by itself. After a restart, run the same command again: it picks up from the byte where it stopped.
 - **Plain folders.** By date, albums beside them, readable without Homewend.
-- **Verified.** Every file counted against the list Google puts in the export; anything missing is named.
+- **Verified.** Every file checked against its checksum once on your disk, and counted against the list Google puts in the export; anything missing is named.
 - **Untouched.** Photos are never modified; Google's `.json` is kept beside them, never written into them.
 - **Private.** Google → your disk, no server between.
 
@@ -68,6 +68,7 @@ homewend get --library ~/Pictures/Homewend
 Good to know:
 
 - Google needs time to prepare your photos: minutes for a year, hours for everything. Leave the terminal open.
+- If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, a browser window opens on your export: **click Download on the first part**. Only once.
 - You need Chrome, Chromium, Brave or Edge. Windows is not supported yet.
 - You need room for your library plus one zip. Homewend checks before it starts.
