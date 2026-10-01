@@ -45,6 +45,11 @@ trap 'rm -rf "$tmp"' EXIT
 # itself arrives on stdin, so stderr is what says whether this is a terminal.
 if [ -t 2 ]; then
 	progress=--progress-bar
+	# curl measures the terminal on stdin, finds the pipe and assumes 79
+	# columns: in a narrower window every redraw wraps and leaves a line
+	# behind. COLUMNS is what it reads first.
+	COLUMNS="$(stty size <&2 2>/dev/null | cut -d' ' -f2)"
+	export COLUMNS
 else
 	progress=--silent
 fi
