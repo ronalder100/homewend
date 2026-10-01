@@ -50,8 +50,9 @@ if [ -t 2 ]; then
 fi
 [ "${cols:-0}" -gt 0 ] || cols=80
 
-# homewend.app's blue.
-blue="$(printf '\033[38;2;122;162;247m')" dim="$(printf '\033[2m')" off="$(printf '\033[0m')"
+# homewend.app's blue, and a dark slate for the part of the bar still to
+# come: the terminal's own dim is a light grey that competes with the blue.
+blue="$(printf '\033[38;2;122;162;247m')" dim="$(printf '\033[38;2;59;66;97m')" off="$(printf '\033[0m')"
 case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
 *[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) cell_done="━" cell_left="━" ;;
 *) cell_done="#" cell_left="-" ;;
