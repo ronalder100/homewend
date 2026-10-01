@@ -54,3 +54,10 @@ func TestADownloadShowsItsSpeedAndTimeLeft(t *testing.T) {
 		t.Errorf("after the part: status line %q, want none", line)
 	}
 }
+
+// Colour is for a terminal; anywhere else the line stays plain text.
+func TestANoticeIsPlainOutsideATerminal(t *testing.T) {
+	if got := (printer{}).notice(text["restart"]); got != text["restart"] {
+		t.Errorf("got %q", got)
+	}
+}

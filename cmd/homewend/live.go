@@ -11,6 +11,7 @@ import (
 	bar "charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/dustin/go-humanize"
 	"golang.org/x/term"
 
@@ -31,6 +32,9 @@ func startLive() *tea.Program {
 	go p.Run()
 	return p
 }
+
+// noticed is the colour of the one line a person must not skim past.
+var noticed = lipgloss.NewStyle().Foreground(lipgloss.Color("#E5C07B"))
 
 // idle clears the status line, so a command's last words are not followed by
 // a stale bar.

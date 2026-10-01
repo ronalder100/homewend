@@ -33,6 +33,7 @@ const color = {
   text: "#dddddd",
   dim: "#8a8a8a",
   prompt: "#7571F9",
+  notice: "#E5C07B",
   empty: "#606060",
   blendStart: [0x5a, 0x56, 0xe0],
   blendEnd: [0xee, 0x6f, 0xf8],
@@ -42,7 +43,7 @@ const GiB = 1024 ** 3;
 const MiB = 1024 ** 2;
 
 // A line of the log: typed at a prompt, or printed.
-type Line = { at: number; text: string; typed?: boolean };
+type Line = { at: number; text: string; typed?: boolean; color?: string };
 
 // The status line under the log, from one frame to another.
 type Status = { from: number; to: number; view: (progress: number, frame: number) => ReactNode };
@@ -65,6 +66,10 @@ const type = (text: string) => {
 };
 const print = (...lines: string[]) => {
   for (const text of lines) log.push({ at: sec(t), text });
+};
+// The one line a person must not skim past, in the colour the CLI gives it.
+const notice = (text: string) => {
+  log.push({ at: sec(t), text, color: color.notice });
 };
 const wait = (s: number) => {
   t += s;
@@ -89,8 +94,8 @@ show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
 print(
   "Google is preparing the export: this can take hours.",
   "Leave this open, the download starts when it is ready.",
-  "If the computer restarts, run the same command again.",
 );
+notice("If the computer restarts, run the same command again.");
 wait(1.2);
 waiting.from = sec(t);
 show(4, (_, f) => <Pulse frame={f}>waiting for Google</Pulse>);
@@ -229,7 +234,7 @@ function linesAt(frame: number) {
     if (frame < line.at) return;
     if (!line.typed) {
       // A blank line still takes its height.
-      lines.push(line.text || " ");
+      lines.push(line.color ? <span style={{ color: line.color }}>{line.text}</span> : line.text || " ");
       return;
     }
     const shown = Math.floor(((frame - line.at) / fps) * typingSpeed);

@@ -255,6 +255,14 @@ func (p printer) close() {
 	}
 }
 
+// notice colours s in a terminal, and leaves it plain anywhere else.
+func (p printer) notice(s string) string {
+	if p.live == nil {
+		return s
+	}
+	return noticed.Render(s)
+}
+
 // say prints one line of text for a person.
 func (p printer) say(format string, args ...any) {
 	if p.live != nil {
@@ -287,6 +295,7 @@ func (p printer) event(e progress.Event) {
 		p.say("%s", text["request"])
 	case progress.Waiting:
 		p.say("%s", text["waiting"])
+		p.say("%s", p.notice(text["restart"]))
 	case progress.Ready:
 		p.say(text["ready"], e.Of, size(e.Total))
 	case progress.FirstDownload:
