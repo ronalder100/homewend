@@ -59,13 +59,13 @@ Sign in to Google. A small window opens; you sign in there, once:
 homewend login
 ```
 
-Download one year of photos, to try it:
+Bring home one year of photos, to try it. Homewend says what it is about to ask Google, and waits for your yes:
 
 ```bash
 homewend get --year 2025 --library ~/Pictures/Homewend
 ```
 
-Download everything:
+Then everything:
 
 ```bash
 homewend get --library ~/Pictures/Homewend

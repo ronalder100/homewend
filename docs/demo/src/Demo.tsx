@@ -13,15 +13,17 @@ import type { ReactNode } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
 const { fontFamily } = loadFont("normal", { weights: ["400"], subsets: ["latin"] });
-const { fontFamily: sansFamily } = loadSans("normal", { weights: ["400"], subsets: ["latin"] });
+const { fontFamily: sansFamily } = loadSans("normal", { weights: ["400", "700"], subsets: ["latin"] });
 
 export const fps = 30;
-export const width = 1000;
+export const width = 1100;
 export const height = 560;
-// The longest line, 68 columns, fits the wide shot whole.
 const fontSize = 22;
 const lineHeight = 1.45;
-const rows = 13;
+const rows = 14;
+// Columns of the terminal: a longer line wraps, at a space, as the CLI's
+// sentences are meant to be read.
+const cols = 76;
 
 const sec = (s: number) => Math.round(s * fps);
 
@@ -33,6 +35,9 @@ const color = {
   text: "#dddddd",
   dim: "#8a8a8a",
   prompt: "#7571F9",
+  // The CLI's own: done in green, what to type in blue.
+  ok: "#9ECE6A",
+  ask: "#7AA2F7",
   // homewend.app's dark-theme --faint and --accent: the notice runs from one to the other.
   noticeFrom: [0x56, 0x5f, 0x89],
   noticeTo: [0x7a, 0xa2, 0xf7],
@@ -45,7 +50,15 @@ const GiB = 1024 ** 3;
 const MiB = 1024 ** 2;
 
 // A line of the log: typed at a prompt, or printed.
-type Line = { at: number; text: string; typed?: boolean; notice?: boolean };
+type Line = {
+  at: number;
+  text: string;
+  typed?: boolean;
+  notice?: boolean;
+  color?: string;
+  // An answer typed after the line, from a later frame.
+  answer?: { text: string; at: number };
+};
 
 // The status line under the log, from one frame to another.
 type Status = { from: number; to: number; view: (progress: number, frame: number) => ReactNode };
@@ -66,12 +79,32 @@ const type = (text: string) => {
   log.push({ at: sec(t), text, typed: true });
   t += text.length / typingSpeed + 0.8;
 };
+// wrap breaks a line at the last space before the terminal's edge.
+function wrap(text: string): string[] {
+  const rows: string[] = [];
+  let rest = text;
+  while (rest.length > cols) {
+    const cut = rest.lastIndexOf(" ", cols);
+    rows.push(rest.slice(0, cut));
+    rest = rest.slice(cut + 1);
+  }
+  return [...rows, rest];
+}
 const print = (...lines: string[]) => {
-  for (const text of lines) log.push({ at: sec(t), text });
+  for (const line of lines) for (const text of wrap(line)) log.push({ at: sec(t), text });
+};
+const colored = (c: string, text: string) => {
+  log.push({ at: sec(t), text, color: c });
 };
 // The one line a person must not skim past, in the colour the CLI gives it.
 const notice = (text: string) => {
   log.push({ at: sec(t), text, notice: true });
+};
+// A question, and the answer typed after a moment's thought.
+const ask = (question: string, answer: string) => {
+  const at = sec(t + 0.9);
+  log.push({ at: sec(t), text: question, color: color.ask, answer: { text: answer, at } });
+  t += 0.9 + answer.length / typingSpeed + 0.5;
 };
 const wait = (s: number) => {
   t += s;
@@ -82,25 +115,35 @@ const show = (s: number, view: Status["view"]) => {
 };
 
 type("homewend login");
-print("a browser window is open: sign in to Google there");
+print("a small browser window is open: sign in to Google there");
 wait(0.6);
 browser.from = sec(t);
-wait(5);
+wait(6);
 browser.to = sec(t);
-print("signed in");
+print("signed in to Google");
+show(2, (p, f) => spinning(f, "getting Takeout ready, about half a minute", 2 + 26 * p));
+colored(color.ok, "signed in");
 wait(1);
 print("");
 type("homewend get --year 2025 --library ~/Pictures/Homewend");
+print(
+  "Homewend is about to ask Google Takeout for an export of your photos of 2025.",
+  "",
+  "Google takes its time to prepare it, often hours. You do not have to wait here: close this window whenever you like, and run the same command again later. It picks up where it left off, and never asks Google twice.",
+  "",
+);
+wait(2.5);
+ask("Continue? [y/N] ", "y");
 print("asking Google Takeout for an export");
-show(2, (p, f) => spinning(f, "asking Google for the export", 70 * p));
+show(2, (p, f) => spinning(f, "asking Google for the export, a minute or two", 70 * p));
 print(
   "Google is preparing the export: this can take hours.",
-  "Leave this open, the download starts when it is ready.",
+  "Leave this open and the download starts when it is ready, or close it and run the same command later.",
 );
 notice("If the computer restarts, run the same command again.");
 wait(1.2);
 waiting.from = sec(t);
-show(4, (_, f) => <Pulse frame={f}>waiting for Google</Pulse>);
+show(4, (_, f) => <Pulse frame={f}>waiting for Google, it can take a few hours</Pulse>);
 waiting.to = sec(t);
 print("", "the export is ready: downloading 2 parts, 2.0 GiB");
 wait(0.8);
@@ -119,7 +162,8 @@ print("[2/2] downloaded, 61 KiB");
 show(3, (p) => placing(Math.round(742 * p), 742));
 print("placed 742 photos, 2.0 GiB: 2 duplicates, 0 undated, 87 in albums");
 wait(0.8);
-print("declared 742, on disk 742, missing 0", "  2025  742 of 742", "", "download complete, congratulations 🎉");
+print("declared 742, on disk 742, missing 0", "  2025  742 of 742", "");
+colored(color.ok, "download complete, congratulations 🎉");
 wait(1.5);
 const end = sec(t);
 export const duration = sec(t + 3);
@@ -250,7 +294,16 @@ function linesAt(frame: number) {
     if (frame < line.at) return;
     if (!line.typed) {
       // A blank line still takes its height.
-      lines.push(line.notice ? blended(line.text) : line.text || " ");
+      if (line.notice) lines.push(blended(line.text));
+      else if (line.color) {
+        const typed = line.answer && frame >= line.answer.at ? line.answer.text.slice(0, Math.floor(((frame - line.answer.at) / fps) * typingSpeed) + 1) : "";
+        lines.push(
+          <>
+            <span style={{ color: line.color }}>{line.text}</span>
+            {typed}
+          </>,
+        );
+      } else lines.push(line.text || " ");
       return;
     }
     const shown = Math.floor(((frame - line.at) / fps) * typingSpeed);
@@ -284,11 +337,11 @@ function camera(frame: number, lines: number) {
   );
   if (k === 0) return {};
   const ease = Easing.inOut(Easing.cubic)(k);
-  const fx = textLeft + 15 * charPx;
+  const fx = textLeft + 21 * charPx;
   const fy = textTop + (lines - 0.5) * linePx;
   return {
     transformOrigin: `${fx - margin}px ${fy - margin}px`,
-    transform: `translate(${(width / 2 - fx) * ease}px, ${(height / 2 - fy) * ease}px) scale(${1 + 1.2 * ease})`,
+    transform: `translate(${(width / 2 - fx) * ease}px, ${(height / 2 - fy) * ease}px) scale(${1 + 0.7 * ease})`,
   };
 }
 
@@ -327,94 +380,113 @@ export const Demo = () => {
   );
 };
 
-// The browser window of homewend login, over the terminal: it opens, the
-// person signs in, it closes by itself.
+// The sign-in window of homewend login, over the terminal: a small popup, the
+// address read-only, Google's page and then Homewend's own (internal/signin),
+// which closes itself.
+const logo =
+  "M69.58 128.26895c-12.845-1.99499-20.72-4.65501-20.72-11.09502 0-6.36999 8.365-9.86999 21.45502-14.55999 34.64998-12.215 50.95999-22.4 50.95999-46.305l0-5.11 24.64 0c2.55499-0.07 4.655-2.13499 4.54999-4.655l-0.14-6.825c-0.07-1.61001-0.83998-3.08-2.13498-4.025l-44.41501-34.755c-1.785-1.33-4.30501-1.225-6.02001 0.175l-44.13499 35.385c-1.40001 1.085-2.03001 2.765-1.96001 4.515l0.07001 6.405c0 2.59 2.06499 4.41 4.585 4.34001l20.50999-0.21001 0 5.355c0 10.39499-7.62999 14.21-25.19999 20.57999-23.31001 8.57501-45.88501 18.795-45.88501 42.38501 0 27.545 28.735 34.79 56.84 40.04 23.80001 4.41001 41.19501 7.525 41.19501 16.87001 0 13.93-34.61501 16.69499-80.53501 20.615-13.65 1.22499-23.24 10.98998-23.24 22.53999 0 12.00501 10.57 20.965 23.275 20.79001 34.26501-1.19 131.355-11.515 131.355-62.16 0-41.51001-51.69499-44.76502-85.05-50.295z";
+
+// The site's dark theme, as the sign-in page takes it.
+const site = { bg: "#1A1B26", fg: "#C0CAF5", muted: "#9AA5CE", accent: "#7AA2F7", ok: "#9ECE6A" };
+
 const Browser = ({ frame }: { frame: number }) => {
   if (frame < browser.from || frame >= browser.to) return null;
   const p = (frame - browser.from) / (browser.to - browser.from);
   const at = (from: number, to: number) =>
     interpolate(p, [from, to], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
-  const shown = at(0, 0.1) * (1 - at(0.92, 1));
+  const shown = at(0, 0.08) * (1 - at(0.93, 1));
   const email = "you@gmail.com";
-  const typed = email.slice(0, Math.round(email.length * at(0.18, 0.5)));
-  const pressed = p > 0.6 && p < 0.66;
-  const done = p >= 0.7;
+  const typed = email.slice(0, Math.round(email.length * at(0.12, 0.38)));
+  const pressed = p > 0.44 && p < 0.5;
+  const ours = p >= 0.52;
+  const drawn = at(0.52, 0.66);
+  const words = at(0.62, 0.72);
   return (
     <div
       style={{
         position: "absolute",
         left: "50%",
-        top: "52%",
-        width: 560,
-        height: 380,
-        transform: `translate(-50%, -50%) scale(${0.85 + 0.15 * shown})`,
+        top: "50%",
+        width: 420,
+        height: 440,
+        transform: `translate(-50%, -50%) scale(${0.9 + 0.1 * shown})`,
         opacity: shown,
-        borderRadius: 12,
+        borderRadius: 10,
         overflow: "hidden",
-        background: "#ffffff",
+        background: ours ? site.bg : "#ffffff",
         boxShadow: "0 30px 80px rgba(0,0,0,0.6)",
         fontFamily: sansFamily,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#e8eaed" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", background: ours ? "#16161e" : "#e8eaed" }}>
         {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
-          <div key={c} style={{ width: 12, height: 12, borderRadius: "50%", background: c }} />
+          <div key={c} style={{ width: 11, height: 11, borderRadius: "50%", background: c }} />
         ))}
         <div
           style={{
             flex: 1,
-            marginLeft: 12,
-            padding: "5px 14px",
-            borderRadius: 14,
-            background: "#ffffff",
-            color: "#3c4043",
-            fontSize: 14,
+            marginLeft: 10,
+            padding: "4px 12px",
+            borderRadius: 12,
+            background: ours ? "#24283b" : "#ffffff",
+            color: ours ? site.muted : "#3c4043",
+            fontSize: 13,
           }}
         >
-          accounts.google.com
+          {ours ? "127.0.0.1" : "accounts.google.com"}
         </div>
       </div>
-      <div style={{ padding: "34px 48px", color: "#202124" }}>
-        {done ? (
-          <div style={{ textAlign: "center", marginTop: 70 }}>
-            <div style={{ fontSize: 56, color: "#1e8e3e", transform: `scale(${0.6 + 0.4 * at(0.7, 0.78)})` }}>✓</div>
-            <div style={{ fontSize: 24, marginTop: 8 }}>Signed in</div>
+      {ours ? (
+        <div style={{ height: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 26 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: site.fg, fontSize: 18, fontWeight: 700 }}>
+            <svg viewBox="-44 -1 243 243" style={{ width: 15, height: 24 }}>
+              <path d={logo} fill={site.accent} />
+            </svg>
+            Homewend
           </div>
-        ) : (
-          <>
-            <div style={{ fontSize: 30 }}>Sign in</div>
-            <div style={{ fontSize: 16, marginTop: 8, color: "#5f6368" }}>with your Google Account</div>
+          <svg viewBox="0 0 96 96" style={{ width: 84, height: 84 }}>
+            <circle cx="48" cy="48" r="42" fill="none" stroke={site.ok} strokeWidth={5} strokeDasharray={264} strokeDashoffset={264 * (1 - drawn)} />
+            <path d="M30 49 l12 12 l24 -26" fill="none" stroke={site.ok} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={80} strokeDashoffset={80 * (1 - at(0.6, 0.66))} />
+          </svg>
+          <div style={{ textAlign: "center", opacity: words, transform: `translateY(${8 * (1 - words)}px)` }}>
+            <div style={{ color: site.fg, fontSize: 28, fontWeight: 700, marginBottom: 6 }}>Signed in.</div>
+            <div style={{ color: site.muted, fontSize: 15 }}>You're all set. This window closes by itself.</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: "34px 36px", color: "#202124" }}>
+          <div style={{ fontSize: 26 }}>Sign in</div>
+          <div style={{ fontSize: 15, marginTop: 8, color: "#5f6368" }}>to continue to Homewend</div>
+          <div
+            style={{
+              marginTop: 32,
+              display: "flex",
+              alignItems: "center",
+              boxSizing: "border-box",
+              height: 52,
+              padding: "0 14px",
+              border: `2px solid ${typed ? "#1a73e8" : "#dadce0"}`,
+              borderRadius: 6,
+              fontSize: 17,
+            }}
+          >
+            {typed || <span style={{ color: "#80868b" }}>Email or phone</span>}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 30 }}>
             <div
               style={{
-                marginTop: 34,
-                display: "flex",
-                alignItems: "center",
-                boxSizing: "border-box",
-                height: 54,
-                padding: "0 16px",
-                border: `2px solid ${typed ? "#1a73e8" : "#dadce0"}`,
-                borderRadius: 6,
-                fontSize: 18,
+                padding: "10px 24px",
+                borderRadius: 20,
+                background: pressed ? "#1557b0" : "#1a73e8",
+                color: "#ffffff",
+                fontSize: 15,
               }}
             >
-              {typed || <span style={{ color: "#80868b" }}>Email or phone</span>}
+              Next
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 30 }}>
-              <div
-                style={{
-                  padding: "10px 26px",
-                  borderRadius: 20,
-                  background: pressed ? "#1557b0" : "#1a73e8",
-                  color: "#ffffff",
-                  fontSize: 16,
-                }}
-              >
-                Next
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
