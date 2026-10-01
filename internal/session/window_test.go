@@ -111,6 +111,9 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) {
 
 // OpenSignIn lets the page open its popup, and opens the address last.
 func TestOpenSignInAllowsThePopup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in browser is a shell script")
+	}
 	dir := t.TempDir()
 	args := filepath.Join(dir, "args")
 	browser := filepath.Join(dir, "browser")
