@@ -30,6 +30,11 @@
   <img src="docs/demo.webp" alt="homewend login, then homewend get, in a terminal" width="800" />
 </p>
 
+## What's next
+
+- **Windows version.**
+- **[Desktop app](https://homewend.app/?src=github#join):** one click, pick your albums, see your library.
+
 ## Features
 
 - **One command, start to finish.** Asks Google Takeout for the export, waits, downloads, unpacks, checks.
@@ -38,11 +43,6 @@
 - **Verified.** Every file checked against its checksum once on your disk, and counted against the list Google puts in the export; anything missing is named.
 - **Untouched.** Photos are never modified; Google's `.json` is kept beside them, never written into them.
 - **Private.** Google → your disk, no server between.
-
-## What's next
-
-- **Windows version.**
-- **[Desktop app](https://homewend.app/?src=github#join):** one click, pick your albums, see your library.
 
 ## Quick start
 
