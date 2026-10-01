@@ -283,16 +283,16 @@ func takeouts(args []string) int {
 func verify(args []string) int {
 	flags := newFlags("verify")
 	libraryDir := flags.String("library", "", "library directory")
-	job := flags.String("job", "", "export id")
+	takeoutID := flags.String("takeout", "", "the export to check against, by its id")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	if missing := unset(map[string]string{"--library": *libraryDir, "--job": *job}); missing != "" {
+	if missing := unset(map[string]string{"--library": *libraryDir}); missing != "" {
 		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
 		return exitError
 	}
 	out := printer{json: *asJSON}
 
-	v, err := engine.Verify(*libraryDir, *job)
+	v, err := engine.Verify(*libraryDir, *takeoutID)
 	if err != nil {
 		return out.fail(err)
 	}

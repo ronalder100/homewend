@@ -5,9 +5,11 @@ package engine
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
@@ -108,5 +110,23 @@ func TestNotesSurviveBetweenRuns(t *testing.T) {
 	got, err := loadNotes(profile)
 	if err != nil || len(got) != 1 || got[0].Job != want[0].Job || !got[0].Asked.Equal(now) {
 		t.Errorf("got %+v, %v", got, err)
+	}
+}
+
+func TestDownloadedFindsTheExportInTheLibrary(t *testing.T) {
+	lib := t.TempDir()
+	for _, job := range []string{"8f6c3233-aaaa", "8f6d0000-bbbb"} {
+		if err := writeJSON(filepath.Join(lib, library.WorkDir, job, "state.json"), state{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if job, err := downloaded(lib, "8f6c"); err != nil || job != "8f6c3233-aaaa" {
+		t.Errorf("got %q, %v", job, err)
+	}
+	if _, err := downloaded(lib, ""); err == nil {
+		t.Error("two exports and no id: no error")
+	}
+	if _, err := downloaded(lib, "ffff"); !errors.Is(err, ErrNoSuchTakeout) {
+		t.Errorf("got %v, want ErrNoSuchTakeout", err)
 	}
 }

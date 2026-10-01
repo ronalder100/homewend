@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/download"
@@ -175,7 +176,14 @@ func (f Fetch) spaceNeeded(st state) int64 {
 
 // Verify checks a library against the manifest of an export already fetched
 // into it.
-func Verify(libraryRoot, job string) (library.Verification, error) {
+//
+// id is the export's id or its first characters; empty, it is the only export
+// downloaded into the library.
+func Verify(libraryRoot, id string) (library.Verification, error) {
+	job, err := downloaded(libraryRoot, id)
+	if err != nil {
+		return library.Verification{}, err
+	}
 	work := filepath.Join(libraryRoot, library.WorkDir, job)
 	st, err := loadState(work)
 	if err != nil {
@@ -185,6 +193,33 @@ func Verify(libraryRoot, job string) (library.Verification, error) {
 		return library.Verification{}, fmt.Errorf("export %s has not been fetched into %s", job, libraryRoot)
 	}
 	return verify(libraryRoot, filepath.Join(work, st.Manifest))
+}
+
+// downloaded finds the export in the library whose id starts with id: each
+// one fetched there has its own folder, with its state, under the work dir.
+func downloaded(libraryRoot, id string) (string, error) {
+	entries, err := os.ReadDir(filepath.Join(libraryRoot, library.WorkDir))
+	if err != nil {
+		return "", fmt.Errorf("no export has been downloaded into %s", libraryRoot)
+	}
+	var found []string
+	for _, e := range entries {
+		state := filepath.Join(libraryRoot, library.WorkDir, e.Name(), "state.json")
+		if _, err := os.Stat(state); err == nil && strings.HasPrefix(e.Name(), id) {
+			found = append(found, e.Name())
+		}
+	}
+	switch {
+	case len(found) == 1:
+		return found[0], nil
+	case len(found) == 0 && id == "":
+		return "", fmt.Errorf("no export has been downloaded into %s", libraryRoot)
+	case len(found) == 0:
+		return "", fmt.Errorf("%w: %s, in %s", ErrNoSuchTakeout, id, libraryRoot)
+	case id == "":
+		return "", fmt.Errorf("%d exports are in %s: say which with --takeout", len(found), libraryRoot)
+	}
+	return "", fmt.Errorf("%s matches %d exports in %s: give more of it", id, len(found), libraryRoot)
 }
 
 func verify(libraryRoot, manifestPath string) (library.Verification, error) {

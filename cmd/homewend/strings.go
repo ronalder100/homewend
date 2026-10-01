@@ -14,7 +14,7 @@ Usage:
 Commands:
   login     sign in to Google, once, in your own browser
   logout    sign out: delete the browser profile login made
-  get       ask Google for your photos, download them, check them
+  get       bring your photos from Google into a folder
   takeouts  list the exports on your Google Takeout, with their ids
   verify    count a library again against the export's manifest
   version   print the version
@@ -115,27 +115,28 @@ Flags:
   --profile DIR   browser profile to use (default: the one login made)
   --json          one JSON object per line, for scripts
 
-Example:
+Examples:
   homewend takeouts
   homewend get --takeout 8f6c3233 --library ~/Pictures/Homewend`,
 
 	"help verify": `homewend verify — count a library again
 
 Usage:
-  homewend verify --library DIR --job ID [--json]
+  homewend verify --library DIR [--takeout ID] [--json]
 
-Counts the photos in the library against the manifest of an export already
+Counts the photos in the library against the list of an export already
 downloaded into it, year by year, and names every file that is missing.
-Nothing is downloaded and nothing is changed. The export id is the name of
-its folder under DIR/.homewend/.
+Nothing is downloaded and nothing is changed, and Google is not contacted.
 
 Flags:
   --library DIR   the library to check (required)
-  --job ID        the export to check it against (required)
+  --takeout ID    the export to check it against, by the id homewend takeouts
+                  shows; needed only when more than one was downloaded there
   --json          one JSON object per line, for scripts
 
-Example:
-  homewend verify --library ~/Pictures/Homewend --job <export id>`,
+Examples:
+  homewend verify --library ~/Pictures/Homewend
+  homewend verify --library ~/Pictures/Homewend --takeout 8f6c3233`,
 
 	"unknown command": "unknown command %q\n",
 
