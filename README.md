@@ -30,6 +30,8 @@
   <img src="docs/demo.webp" alt="homewend login, then homewend get, in a terminal" width="800" />
 </p>
 
+Google Photos to your disk in one click: no zips to babysit, no download to restart by hand. Homewend does the heavy lifting; you get your photos in plain folders, sorted by date and album. Open source, and nothing passes through our servers.
+
 ## 🚀 What's next
 
 - **Windows version.**
