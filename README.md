@@ -39,6 +39,11 @@
 - **Untouched.** Photos are never modified; Google's `.json` is kept beside them, never written into them.
 - **Private.** Google → your disk, no server between.
 
+## What's next
+
+- **Windows version.**
+- **[Desktop app](https://homewend.app/?src=github#join):** one click, pick your albums, see your library.
+
 ## Quick start
 
 Install Homewend (macOS or Linux):
