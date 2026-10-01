@@ -41,21 +41,63 @@ url="https://github.com/$repo/releases/latest/download"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-# A bar while the binary comes down, when someone is watching: the script
-# itself arrives on stdin, so stderr is what says whether this is a terminal.
+# The script itself arrives on stdin, so stderr is what says whether this is
+# a terminal and how wide it is. Everything below is drawn and wrapped to that
+# width: a line longer than the window wraps wherever the terminal likes.
+cols=0
 if [ -t 2 ]; then
-	progress=--progress-bar
-	# curl measures the terminal on stdin, finds the pipe and assumes 79
-	# columns: in a narrower window every redraw wraps and leaves a line
-	# behind. COLUMNS is what it reads first.
-	COLUMNS="$(stty size <&2 2>/dev/null | cut -d' ' -f2)"
-	export COLUMNS
-else
-	progress=--silent
+	cols="$(stty size <&2 2>/dev/null | cut -d' ' -f2)"
 fi
+[ "${cols:-0}" -gt 0 ] || cols=80
+
+# homewend.app's blue.
+blue="$(printf '\033[38;2;122;162;247m')" dim="$(printf '\033[2m')" off="$(printf '\033[0m')"
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+*[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) cell_done="━" cell_left="━" ;;
+*) cell_done="#" cell_left="-" ;;
+esac
+
+mb() {
+	echo "$(($1 / 1048576)).$(($1 % 1048576 * 10 / 1048576))"
+}
+
+# One line of progress. curl's own bar cannot be styled, so this one is drawn
+# from the size in the response headers and the size of the file so far.
+bar() {
+	total=0 have=0
+	if [ -f "$tmp/headers" ]; then
+		# The redirects on the way announce a length of 0; the last one counts.
+		total="$(tr -d '\r' <"$tmp/headers" | awk 'tolower($1) == "content-length:" { n = $2 } END { print n + 0 }')"
+	fi
+	if [ -f "$tmp/homewend" ]; then
+		have="$(($(wc -c <"$tmp/homewend")))"
+	fi
+	cells=$((cols > 64 ? 40 : cols - 24))
+	fill=$((total > 0 ? have * cells / total : 0))
+	full="" rest="" i=0
+	while [ "$i" -lt "$cells" ]; do
+		if [ "$i" -lt "$fill" ]; then full="$full$cell_done"; else rest="$rest$cell_left"; fi
+		i=$((i + 1))
+	done
+	printf '\r%s%s%s%s%s %3d%%  %s / %s MB\033[K' "$blue" "$full" "$dim" "$rest" "$off" \
+		"$((total > 0 ? have * 100 / total : 0))" "$(mb "$have")" "$(mb "$total")" >&2
+}
 
 echo "downloading $binary"
-curl -fSL $progress "$url/$binary" -o "$tmp/homewend" || fail "download failed: $url/$binary"
+curl -fsSL -D "$tmp/headers" "$url/$binary" -o "$tmp/homewend" 2>"$tmp/error" &
+download=$!
+if [ -t 2 ]; then
+	while kill -0 "$download" 2>/dev/null; do
+		bar
+		sleep 0.1
+	done
+	bar
+	echo >&2
+fi
+wait "$download" || {
+	cat "$tmp/error" >&2
+	fail "download failed: $url/$binary"
+}
 curl -fsSL "$url/homewend_checksums.txt" -o "$tmp/checksums.txt" || fail "download failed: $url/homewend_checksums.txt"
 
 want="$(grep " $binary\$" "$tmp/checksums.txt" | cut -d' ' -f1)"
@@ -73,26 +115,27 @@ case ":$PATH:" in
 esac
 # The commands to type in homewend.app's blue, when this is a terminal.
 if [ -t 1 ]; then
-	on="$(printf '\033[38;2;122;162;247m')" off="$(printf '\033[0m')"
+	on="$blue"
 else
 	on="" off=""
 fi
-cat <<EOF
-
-homewend $("$dir/homewend" version) is installed in $dir.
-
-Next, sign in to Google, once. A small window opens; your password goes to
-Google only:
-
-  ${on}$run login${off}
-
-Then bring your photos home, here one year of them:
-
-  ${on}$run get --year 2025 --library ~/Pictures/Homewend${off}
-
-All the commands: ${on}$run help${off}
-EOF
+# Prose breaks between words, at the width of the window.
+say() {
+	echo "$*" | fold -s -w "$((cols > 80 ? 80 : cols))"
+}
+echo
+say "homewend $("$dir/homewend" version) is installed in $dir."
+echo
+say "Next, sign in to Google, once. A small window opens; your password goes to Google only:"
+echo
+echo "  ${on}$run login${off}"
+echo
+say "Then bring your photos home, here one year of them:"
+echo
+echo "  ${on}$run get --year 2025 --library ~/Pictures/Homewend${off}"
+echo
+echo "All the commands: ${on}$run help${off}"
 case ":$PATH:" in
 *":$dir:"*) ;;
-*) echo "($dir is not in your PATH: add it to type just \"homewend\".)" ;;
+*) say "($dir is not in your PATH: add it to type just \"homewend\".)" ;;
 esac
