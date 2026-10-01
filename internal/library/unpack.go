@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -107,11 +108,40 @@ func extract(entry *zip.File, target string) error {
 		return fmt.Errorf("writing %s: %w", target, err)
 	}
 	_, copyErr := io.Copy(file, source)
+	if syncErr := file.Sync(); copyErr == nil {
+		copyErr = syncErr
+	}
 	if closeErr := file.Close(); copyErr == nil {
 		copyErr = closeErr
 	}
 	if copyErr != nil {
 		return fmt.Errorf("writing %s: %w", target, copyErr)
+	}
+	return readsBack(target, entry.CRC32)
+}
+
+// ErrNotWritten means a file read back from the disk is not the file that was
+// written to it.
+var ErrNotWritten = errors.New("the file on disk is not the file written")
+
+// readsBack reads path back through the filesystem and checks it against the
+// CRC-32 its bytes were written with. The archive proves what came out of the
+// zip; this proves what is on the disk: a write that went wrong on the way — a
+// network share that dropped a block, a disk that filled without saying so —
+// is caught now, not years later when the photo will not open. It cannot see
+// past a cache that the operating system answers from, and does not pretend to.
+func readsBack(path string, want uint32) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	sum := crc32.NewIEEE()
+	if _, err := io.Copy(sum, file); err != nil {
+		return fmt.Errorf("reading back %s: %w", path, err)
+	}
+	if sum.Sum32() != want {
+		return fmt.Errorf("%w: %s", ErrNotWritten, path)
 	}
 	return nil
 }
@@ -139,9 +169,16 @@ func copyFile(src, dst string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	written, copyErr := io.Copy(file, source)
+	sum := crc32.NewIEEE()
+	written, copyErr := io.Copy(file, io.TeeReader(source, sum))
+	if syncErr := file.Sync(); copyErr == nil {
+		copyErr = syncErr
+	}
 	if closeErr := file.Close(); copyErr == nil {
 		copyErr = closeErr
 	}
-	return written, copyErr
+	if copyErr != nil {
+		return written, copyErr
+	}
+	return written, readsBack(dst, sum.Sum32())
 }

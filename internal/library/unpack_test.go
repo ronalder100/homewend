@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"hash/crc32"
 	"os"
 	"path/filepath"
 	"testing"
@@ -51,6 +52,13 @@ func TestADamagedPartSaysSo(t *testing.T) {
 	}
 	f.Write([]byte("the photo, every byte of it"))
 	w.Close()
+	if err := os.WriteFile(part, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := UnpackPart(part, filepath.Join(dir, "good")); err != nil || n != 1 {
+		t.Fatalf("intact part: %d files, %v", n, err)
+	}
+
 	data := bytes.Replace(buf.Bytes(), []byte("every"), []byte("EVERY"), 1)
 	if err := os.WriteFile(part, data, 0o644); err != nil {
 		t.Fatal(err)
@@ -64,5 +72,20 @@ func TestADamagedPartSaysSo(t *testing.T) {
 	}
 	if _, err := UnpackPart(part, filepath.Join(dir, "out")); !errors.Is(err, ErrDamaged) {
 		t.Errorf("not a zip: got %v, want ErrDamaged", err)
+	}
+}
+
+// What is on the disk is checked against what was written to it.
+func TestAFileIsReadBackAgainstItsChecksum(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "IMG_1.jpg")
+	data := []byte("the photo, every byte of it")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := readsBack(path, crc32.ChecksumIEEE(data)); err != nil {
+		t.Errorf("intact file: %v", err)
+	}
+	if err := readsBack(path, crc32.ChecksumIEEE([]byte("another photo"))); !errors.Is(err, ErrNotWritten) {
+		t.Errorf("changed file: got %v, want ErrNotWritten", err)
 	}
 }
