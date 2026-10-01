@@ -45,12 +45,11 @@ type Session struct {
 
 	client *http.Client
 
-	// The key that decrypts the cookie values, loaded once on first use: on
-	// Windows it is read from the profile, which does not exist until the
-	// browser has run (see loadCookieKey).
-	keyOnce sync.Once
-	key     []byte
-	keyErr  error
+	// The key that decrypts the cookie values, kept once read: on Windows
+	// it comes from the profile, which does not exist until the browser has
+	// run (see loadCookieKey).
+	keyMu sync.Mutex
+	key   []byte
 }
 
 // New prepares a session over profileDir, creating it if needed. No browser is
@@ -104,12 +103,22 @@ func keyFor(system string) []byte {
 	return key
 }
 
-// cookieKey is the key that decrypts the profile's cookie values, read once
-// and kept. How it is found differs by system (see loadCookieKey in
-// cookie_unix.go and cookie_windows.go), so the decryption does too.
+// cookieKey is the key that decrypts the profile's cookie values, kept once
+// read. A failed read is not kept: on Windows the browser rewrites Local
+// State while it runs, and a file caught mid-rename is there the next time.
+// How the key is found differs by system (see loadCookieKey in cookie_unix.go
+// and cookie_windows.go), so the decryption does too.
 func (s *Session) cookieKey() ([]byte, error) {
-	s.keyOnce.Do(func() { s.key, s.keyErr = s.loadCookieKey() })
-	return s.key, s.keyErr
+	s.keyMu.Lock()
+	defer s.keyMu.Unlock()
+	if s.key == nil {
+		key, err := s.loadCookieKey()
+		if err != nil {
+			return nil, err
+		}
+		s.key = key
+	}
+	return s.key, nil
 }
 
 // stripDomainHash drops the 32-byte domain hash Chrome 130+ puts in front of a
