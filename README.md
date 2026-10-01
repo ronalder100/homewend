@@ -30,7 +30,7 @@
   <img src="docs/demo.webp" alt="homewend login, then homewend get, in a terminal" width="800" />
 </p>
 
-## 🚧 What's next
+## 🚀 What's next
 
 - **Windows version.**
 - **[Desktop app](https://homewend.app/?src=github#join):** one click, pick your albums, see your library.
@@ -80,7 +80,7 @@ Good to know:
 - The installer checks the download and puts `homewend` in `~/.local/bin`. No root needed.
 - From source: `go build ./cmd/homewend` (Go 1.25+).
 
-## ⚖️ Homewend vs. Takeout by hand
+## Homewend vs. Takeout by hand
 
 | | Google Takeout by hand | Homewend |
 |---|---|---|
@@ -89,7 +89,7 @@ Good to know:
 | **What you get** | Zips, with photos and Google's `.json` files mixed together. | Photos in folders by date, and by album. |
 | **Did everything arrive?** | Hard to tell: Google's list has over 100,000 lines. | Every file is checked against Google's list. Anything missing is named. |
 
-## ⌨️ Commands
+## Commands
 
 | Command | What it does |
 |---|---|
@@ -103,7 +103,7 @@ Good to know:
 `--json` on any command prints one JSON object per line, for scripts.
 Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed in or session expired: run `homewend login`.
 
-## 📁 On your disk
+## On your disk
 
 ```
 Homewend/
@@ -123,7 +123,7 @@ Homewend/
 - `undated/` for photos with no date at all.
 - `.homewend/` keeps Google's `.json` files, the catalogue and the progress.
 
-## 🔒 How Homewend works with Google
+## How Homewend works with Google
 
 - It uses **Google Takeout**, Google's own export of your data.
 - You sign in **in your own browser**. Homewend never sees your password.
@@ -131,7 +131,7 @@ Homewend/
 
 In detail: [`architecture.md`](docs/architecture.md) · [`principles.md`](docs/principles.md) · [`engine.md`](docs/engine.md)
 
-## 📄 License
+## License
 
 [AGPL-3.0](LICENSE): free to use on your computer or NAS; run a changed version as a service and you publish your changes.
 Not affiliated with Google. Google Photos is a trademark of Google LLC.
