@@ -190,3 +190,40 @@ func TestPhotosArePlacedAsTheirPartsArrive(t *testing.T) {
 		t.Errorf("placed %d, verification %+v", result.Organized.Placed, result.Verification)
 	}
 }
+
+// The other way round works the same: a sidecar that arrives before its
+// photo waits beside nothing, and the photo is filed by it the moment it
+// comes.
+func TestASidecarThatArrivesFirstIsUsedWhenThePhotoComes(t *testing.T) {
+	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
+		<div class="extracted-folder-name">Photos from 2024</div>
+		<div class="extracted-file-name">b.jpg</div>`})
+	first := archive(t, map[string]string{
+		"Takeout/Google Photos/Photos from 2024/b.jpg.supplemental-metadata.json": `{"photoTakenTime":{"timestamp":"1721000000"}}`,
+	})
+	second := archive(t, map[string]string{"Takeout/Google Photos/Photos from 2024/b.jpg": "photo b"})
+	served := &host{files: map[string][]byte{"part-001.zip": first, "part-002.zip": second, "manifest.zip": manifest}}
+	f := Fetch{
+		Target: takeout.Target{Job: "job", User: "1"},
+		Export: takeout.Export{
+			Job: "job",
+			Parts: []takeout.Part{
+				{Index: 0, Filename: "part-001.zip", Size: int64(len(first))},
+				{Index: 1, Filename: "part-002.zip", Size: int64(len(second))},
+			},
+			Manifest: takeout.Part{Index: 2, Filename: "manifest.zip", Size: int64(len(manifest))},
+		},
+		Library:  t.TempDir(),
+		Location: time.UTC,
+	}
+	result, err := f.Run(context.Background(), served, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(f.Library, "2024", "07", "b.jpg")); err != nil {
+		t.Errorf("b.jpg is not filed under July 2024: %v", err)
+	}
+	if result.Organized.Placed != 1 || !result.Verification.Complete() {
+		t.Errorf("placed %d, verification %+v", result.Organized.Placed, result.Verification)
+	}
+}
