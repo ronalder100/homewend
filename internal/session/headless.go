@@ -137,6 +137,62 @@ func (p *Page) Click(x, y float64) error {
 	return chromedp.Run(p.ctx, chromedp.MouseClickXY(x, y))
 }
 
+// Download follows address, which should end in a download, and returns the
+// address the download finally came from; "" when none began within wait,
+// because the page went somewhere else, to a password prompt for one. What is
+// downloaded lands in dir.
+//
+// Followed a few minutes after a sign-in, the download address on an export's
+// page went through Google's sign-in addresses without a question and ended at
+// the download host: the event that announces the download carried that last
+// address. Fourteen minutes after a sign-in the same address ended on the
+// password page, and no download began. Both 2026-10-02.
+func (p *Page) Download(address, dir string, wait time.Duration) (string, error) {
+	began := make(chan string, 1)
+	finished := make(chan struct{}, 1)
+	chromedp.ListenBrowser(p.ctx, func(event any) {
+		switch e := event.(type) {
+		case *cdpbrowser.EventDownloadWillBegin:
+			select {
+			case began <- e.URL:
+			default:
+			}
+		case *cdpbrowser.EventDownloadProgress:
+			if e.State != cdpbrowser.DownloadProgressStateInProgress {
+				select {
+				case finished <- struct{}{}:
+				default:
+				}
+			}
+		}
+	})
+	err := chromedp.Run(p.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		allow := cdpbrowser.SetDownloadBehavior(cdpbrowser.SetDownloadBehaviorBehaviorAllow).WithDownloadPath(dir).WithEventsEnabled(true)
+		if err := allow.Do(cdp.WithExecutor(ctx, chromedp.FromContext(ctx).Browser)); err != nil {
+			return err
+		}
+		_, _, _, _, err := page.Navigate(address).Do(ctx)
+		return err
+	}))
+	if err != nil {
+		return "", err
+	}
+	select {
+	case from := <-began:
+		// The file is small and ours to throw away, but a browser closed in the
+		// middle of it leaves a half-written one behind.
+		select {
+		case <-finished:
+		case <-time.After(wait):
+		}
+		return from, nil
+	case <-time.After(wait):
+		return "", nil
+	case <-p.exited:
+		return "", errors.New("the headless browser exited")
+	}
+}
+
 // Close closes the browser through DevTools, which writes the profile out at
 // once: closed this way right after a page set 60 cookies, the browser was
 // gone within a quarter of a second with all 60 on disk, four runs of four
