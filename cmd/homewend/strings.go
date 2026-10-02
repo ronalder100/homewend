@@ -6,7 +6,11 @@ package main
 // Every sentence the CLI shows a person. A second language is a second table.
 var text = map[string]string{
 	"usage": `homewend — Google Photos, on your own disk.
-The open-source Google Photos downloader.
+
+Google Photos to your disk in one click: no zips to babysit, no
+download to restart by hand. Homewend does the heavy lifting; you
+get your photos in plain folders, sorted by date and album. Open
+source, and nothing passes through our servers.
 
 Usage:
   homewend <command> [flags]
