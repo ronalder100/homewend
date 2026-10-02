@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -53,10 +54,14 @@ var commands = map[string]func(args []string) int{
 
 func main() {
 	if len(os.Args) < 2 {
+		cleanScreen(nil)
 		showHelp(os.Stderr, text["usage"])
 		os.Exit(exitError)
 	}
 	name, args := os.Args[1], os.Args[2:]
+	if name != "version" && name != "--version" {
+		cleanScreen(args)
+	}
 	switch name {
 	case "help", "-h", "--help":
 		os.Exit(help(args))
@@ -71,6 +76,17 @@ func main() {
 		os.Exit(exitError)
 	}
 	os.Exit(run(args))
+}
+
+// cleanScreen starts a command at the top of an empty screen, for a person
+// at a terminal: what it says is then the one thing to look at, not the last
+// lines under everything that came before. A script, or anyone asking for
+// JSON, gets nothing of it.
+func cleanScreen(args []string) {
+	if !term.IsTerminal(int(os.Stdout.Fd())) || slices.Contains(args, "--json") || slices.Contains(args, "-json") {
+		return
+	}
+	fmt.Print(ansi.CursorHomePosition + ansi.EraseEntireScreen)
 }
 
 // help prints the overview, or the page of one command.
@@ -145,10 +161,6 @@ func login(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	if !*asJSON && term.IsTerminal(int(os.Stdout.Fd())) {
-		// Signing in starts on a clean screen: it is the one thing to look at.
-		fmt.Print(ansi.CursorHomePosition + ansi.EraseEntireScreen)
-	}
 	out := newPrinter(*asJSON)
 	defer out.close()
 	// What to do in the browser is the one thing to look at while it is
