@@ -39,6 +39,11 @@ type Result struct {
 
 // Run brings the export into the library and checks it against the manifest.
 //
+// The manifest comes first. It is small, and it says what the export holds,
+// year by year: whoever watches is told how much of each year is here from
+// the first minute, and a year is complete the moment its last photo is
+// placed, whatever order Google's parts arrive in.
+//
 // Parts are taken one at a time: downloaded, unpacked, recorded, and only
 // then deleted, so the disk holds the growing unpacked tree plus one part.
 // Placing waits until every part is unpacked, because nothing proves that a
@@ -74,12 +79,42 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	} else {
 		emit.Emit(progress.Event{Stage: progress.Ready, Name: f.Export.Job, Of: of, Total: f.Export.Bytes})
 	}
+	// The manifest is the first archive of the count, the parts the rest.
+	if st.Manifest == "" {
+		if err := download.Part(ctx, g, f.Target, f.Export.Manifest, 1, of, work, emit); err != nil {
+			return Result{}, err
+		}
+		st.Manifest = f.Export.Manifest.Filename
+		if err := st.save(work); err != nil {
+			return Result{}, err
+		}
+	}
+	manifest, err := library.ParseManifestZip(filepath.Join(work, st.Manifest))
+	if err != nil {
+		// Nothing can be counted against a manifest that does not open: it
+		// is fetched once more, and a second failure stops the run.
+		if err := os.Remove(filepath.Join(work, st.Manifest)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return Result{}, err
+		}
+		if err := download.Part(ctx, g, f.Target, f.Export.Manifest, 1, of, work, emit); err != nil {
+			return Result{}, err
+		}
+		if manifest, err = library.ParseManifestZip(filepath.Join(work, st.Manifest)); err != nil {
+			return Result{}, err
+		}
+	}
+	years, err := newYears(f.Library, manifest)
+	if err != nil {
+		return Result{}, err
+	}
+	years.report(emit)
+
 	for i, part := range f.Export.Parts {
 		path := filepath.Join(parts, part.Filename)
 		if !st.Unpacked[part.Filename] {
-			get := func() error { return download.Part(ctx, g, f.Target, part, i+1, of, parts, emit) }
+			get := func() error { return download.Part(ctx, g, f.Target, part, i+2, of, parts, emit) }
 			unpack := func() error {
-				emit.Emit(progress.Event{Stage: progress.Unpack, N: i + 1, Of: of, Name: part.Filename})
+				emit.Emit(progress.Event{Stage: progress.Unpack, N: i + 2, Of: of, Name: part.Filename})
 				_, err := library.UnpackPart(path, unpacked)
 				return err
 			}
@@ -87,7 +122,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 				return Result{}, err
 			}
 			if err := unpackOrAgain(path, unpack, get, func() {
-				emit.Emit(progress.Event{Stage: progress.Damaged, N: i + 1, Of: of, Name: part.Filename})
+				emit.Emit(progress.Event{Stage: progress.Damaged, N: i + 2, Of: of, Name: part.Filename})
 			}); err != nil {
 				return Result{}, err
 			}
@@ -103,16 +138,6 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		}
 	}
 
-	if st.Manifest == "" {
-		if err := download.Part(ctx, g, f.Target, f.Export.Manifest, of, of, work, emit); err != nil {
-			return Result{}, err
-		}
-		st.Manifest = f.Export.Manifest.Filename
-		if err := st.save(work); err != nil {
-			return Result{}, err
-		}
-	}
-
 	catalog, err := library.OpenCatalog(filepath.Join(f.Library, library.WorkDir, "catalog.db"))
 	if err != nil {
 		return Result{}, err
@@ -123,16 +148,78 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if err != nil {
 		return Result{}, err
 	}
-	organized, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, emit)
+	organized, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, years.following(emit))
 	if err != nil {
 		return Result{}, err
 	}
 
-	verification, err := verify(f.Library, filepath.Join(work, st.Manifest))
+	verification, err := library.Verify(f.Library, manifest)
 	if err != nil {
 		return Result{}, err
 	}
 	return Result{Organized: organized, Verification: verification}, nil
+}
+
+// years follows how much of each year of an export is in the library, for
+// whoever watches the download. The count that decides is still the
+// verification at the end: this one moves as photos are placed, and a photo
+// is announced a moment before it is.
+type years struct {
+	order    []string
+	declared map[string]int
+	of       map[string]string          // a photo's name -> its year
+	here     map[string]map[string]bool // year -> the names in the library
+}
+
+// newYears reads the years off the manifest and what is already in the
+// library off the disk: a run that carries on starts from where the last one
+// stopped, not from nothing.
+func newYears(libraryRoot string, manifest library.Manifest) (*years, error) {
+	found, err := library.Verify(libraryRoot, manifest)
+	if err != nil {
+		return nil, err
+	}
+	missing := make(map[string]bool, len(found.Missing))
+	for _, name := range found.Missing {
+		missing[name] = true
+	}
+	y := &years{of: map[string]string{}, here: map[string]map[string]bool{}}
+	y.declared, y.order = manifest.ByYear()
+	for _, year := range y.order {
+		y.here[year] = map[string]bool{}
+	}
+	for _, entry := range manifest.Media {
+		year, ok := library.YearOf(entry)
+		if !ok {
+			continue
+		}
+		y.of[entry.Name] = year
+		if !missing[entry.Name] {
+			y.here[year][entry.Name] = true
+		}
+	}
+	return y, nil
+}
+
+// report says where every year stands.
+func (y *years) report(emit progress.Func) {
+	for _, year := range y.order {
+		emit.Emit(progress.Event{Stage: progress.Year, Name: year, N: len(y.here[year]), Of: y.declared[year]})
+	}
+}
+
+// following passes every event on and, as each photo is placed, says where
+// its year now stands.
+func (y *years) following(emit progress.Func) progress.Func {
+	return func(e progress.Event) {
+		emit.Emit(e)
+		year, known := y.of[e.Name]
+		if e.Stage != progress.Place || !known || y.here[year][e.Name] {
+			return
+		}
+		y.here[year][e.Name] = true
+		emit.Emit(progress.Event{Stage: progress.Year, Name: year, N: len(y.here[year]), Of: y.declared[year]})
+	}
 }
 
 // NoSpaceError means the library's disk cannot hold what is left to fetch.

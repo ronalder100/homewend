@@ -107,6 +107,15 @@ func (m Manifest) Names() map[string]bool {
 	return names
 }
 
+// YearOf is the year folder an entry is listed under, if it is under one.
+func YearOf(entry Entry) (string, bool) {
+	match := yearFolder.FindStringSubmatch(entry.Folder)
+	if match == nil {
+		return "", false
+	}
+	return match[1], true
+}
+
 // ByYear counts distinct files per year folder, and returns the years in order.
 //
 // This is the unit the user thinks in. Google decides how an export is split —
