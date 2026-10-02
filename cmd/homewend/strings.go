@@ -60,7 +60,8 @@ Usage:
 
 Deletes the browser profile login made, and with it the Google session: the
 next command that needs Google asks you to sign in again. Your photos and
-libraries are not touched.
+libraries are not touched, and homewend still knows which year each export
+it asked for holds.
 
 Flags:
   --profile DIR   browser profile to delete (default: homewend/profile in your
