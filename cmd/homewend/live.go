@@ -81,10 +81,15 @@ type status struct {
 }
 
 func newStatus() status {
+	// The bar in the palette's colours, like everything else: the accent for
+	// what is done, a hairline for what is left, the muted grey for the count.
+	progress := bar.New(bar.WithColors(accentColour), bar.WithWidth(18))
+	progress.EmptyColor = lineColour
+	progress.PercentageStyle = lipgloss.NewStyle().Foreground(mutedColour)
 	return status{
 		dot:  spinner.New(spinner.WithSpinner(pulse())),
 		spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(lipgloss.NewStyle().Foreground(accentColour))),
-		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(18)),
+		bar:  progress,
 	}
 }
 
@@ -189,8 +194,10 @@ func (s status) line(now time.Time) string {
 		}
 		return line
 	case progress.Update:
-		return s.spin.View() + fmt.Sprintf(text["update status"],
-			s.bar.ViewAs(fraction(e.Done, e.Total)), size(e.Done), size(e.Total))
+		// A bar alone says that something is arriving, not what.
+		muted := lipgloss.NewStyle().Foreground(mutedColour)
+		return s.spin.View() + muted.Render(fmt.Sprintf(text["update status"], e.Name)) + "  " +
+			s.bar.ViewAs(fraction(e.Done, e.Total)) + muted.Render(fmt.Sprintf(text["update sizes"], size(e.Done), size(e.Total)))
 	case progress.Place:
 		return fmt.Sprintf(text["place status"], s.bar.ViewAs(fraction(int64(e.N), int64(e.Of))), e.N, e.Of)
 	}

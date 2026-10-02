@@ -97,6 +97,18 @@ func TestASignInIsInTheMiddle(t *testing.T) {
 	}
 }
 
+// An update says what is arriving, not only how much of it.
+func TestAnUpdateSaysWhatIsArriving(t *testing.T) {
+	s := newStatus()
+	s.show(progress.Event{Stage: progress.Update, Name: "0.1.2", Done: 4 << 20, Total: 17 << 20}, time.Now())
+	line := ansi.Strip(s.line(time.Now()))
+	for _, want := range []string{"getting homewend 0.1.2", "4.0 MiB of 17 MiB"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("status line %q lacks %q", line, want)
+		}
+	}
+}
+
 // Once the export is ready the wait is over, and the spinner with it.
 func TestReadyEndsTheWait(t *testing.T) {
 	s := newStatus()

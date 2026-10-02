@@ -209,7 +209,8 @@ Examples:
 	"download status": "[%d/%d] %s · %s of %s",
 	"download rate":   " · %s/s · %s left",
 	"place status":    "%s  placing %d of %d",
-	"update status":   "%s · %s of %s",
+	"update status":   "getting homewend %s",
+	"update sizes":    " · %s of %s",
 
 	"newer":          "\nhomewend %s is out: run homewend update",
 	"up to date":     "homewend %s is the latest",
@@ -218,10 +219,10 @@ Examples:
 
 	"get needs library": `library folder missing:
 
-  homewend get --library ~/Pictures/Homewend`,
+  homewend get %s--library ~/Pictures/Homewend`,
 	"verify needs library": `library folder missing:
 
-  homewend verify --library ~/Pictures/Homewend`,
+  homewend verify %s--library ~/Pictures/Homewend`,
 	"download":        "[%d/%d] %s  from %s of %s",
 	"downloaded":      "[%d/%d] downloaded, %s",
 	"short":           "[%d/%d] %s  stopped at %s of %s; run again to continue",

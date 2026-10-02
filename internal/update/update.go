@@ -41,6 +41,8 @@ var latest = "https://github.com/ronalder100/homewend/releases/latest"
 var ErrDamaged = errors.New("the download does not match the release's checksum")
 
 // Latest asks GitHub for the version of the newest release, without the v.
+// The answer is kept for Newer, whoever asked: what the user is told at the
+// end of a command is never older than what update has just been told.
 func Latest(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, latest, nil)
 	if err != nil {
@@ -57,7 +59,18 @@ func Latest(ctx context.Context) (string, error) {
 	if res.StatusCode != http.StatusFound || !strings.HasPrefix(tag, "v") {
 		return "", fmt.Errorf("asking for the latest release: HTTP %d", res.StatusCode)
 	}
-	return strings.TrimPrefix(tag, "v"), nil
+	version := strings.TrimPrefix(tag, "v")
+	if file, err := kept(); err == nil && os.MkdirAll(filepath.Dir(file), 0o700) == nil {
+		os.WriteFile(file, []byte(version+"\n"), 0o600)
+	}
+	return version, nil
+}
+
+// kept is where the last answer about the latest release is: the user's
+// cache directory.
+func kept() (string, error) {
+	cache, err := os.UserCacheDir()
+	return filepath.Join(cache, "homewend", "latest"), err
 }
 
 // Install downloads the latest release for this machine and puts it in place
@@ -163,24 +176,19 @@ func (c *counted) Write(p []byte) (int, error) {
 //
 // A build that is not a release, whose version is "dev", is never told.
 func Newer(ctx context.Context, running string) string {
-	cache, err := os.UserCacheDir()
+	file, err := kept()
 	if err != nil || running == "dev" {
 		return ""
 	}
-	dir := filepath.Join(cache, "homewend")
-	kept := filepath.Join(dir, "latest")
 	version := ""
-	if info, err := os.Stat(kept); err == nil && time.Since(info.ModTime()) < 24*time.Hour {
-		raw, _ := os.ReadFile(kept)
+	if info, err := os.Stat(file); err == nil && time.Since(info.ModTime()) < 24*time.Hour {
+		raw, _ := os.ReadFile(file)
 		version = strings.TrimSpace(string(raw))
 	} else {
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		if version, err = Latest(ctx); err != nil {
 			return ""
-		}
-		if os.MkdirAll(dir, 0o700) == nil {
-			os.WriteFile(kept, []byte(version+"\n"), 0o600)
 		}
 	}
 	if version == running {

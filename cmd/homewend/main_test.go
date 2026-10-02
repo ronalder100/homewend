@@ -96,16 +96,17 @@ func TestDressedKeepsEveryWord(t *testing.T) {
 	}
 }
 
-// A command asked for without what it needs says what that is and shows what
-// to type, in words a person can act on.
+// A command asked for without its folder says so and shows what to type:
+// what was typed, with the folder added.
 func TestACommandAskedWronglySaysWhatToType(t *testing.T) {
-	for name, want := range map[string]string{
-		"get":    "homewend get --library ~/Pictures/Homewend",
-		"verify": "homewend verify --library ~/Pictures/Homewend",
+	for typed, want := range map[string]string{
+		"get":             "\n  homewend get --library ~/Pictures/Homewend",
+		"get --year 2025": "\n  homewend get --year 2025 --library ~/Pictures/Homewend",
+		"verify":          "\n  homewend verify --library ~/Pictures/Homewend",
 	} {
-		out, code := homewend(t, name)
-		if code != exitError || !strings.Contains(out, text[name+" needs library"]) || !strings.Contains(out, want) {
-			t.Errorf("homewend %s: exit %d, output\n%s", name, code, out)
+		out, code := homewend(t, strings.Fields(typed)...)
+		if code != exitError || !strings.HasPrefix(out, "library folder missing:") || !strings.Contains(out, want) {
+			t.Errorf("homewend %s: exit %d, output\n%s", typed, code, out)
 		}
 	}
 }

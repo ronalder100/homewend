@@ -47,6 +47,7 @@ func sum(b []byte) string {
 }
 
 func TestLatestReadsTheRedirect(t *testing.T) {
+	cache(t)
 	github(t, "0.1.3", nil, "")
 	if got, err := Latest(context.Background()); got != "0.1.3" || err != nil {
 		t.Errorf("got %q, %v", got, err)
@@ -141,5 +142,24 @@ func TestNewerWithNoAnswer(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "latest")); err == nil {
 		t.Error("an answer was kept")
+	}
+}
+
+// What update is told replaces what was kept: an answer from before the
+// releases changed must not go on being told for a day.
+func TestLatestReplacesTheAnswerKept(t *testing.T) {
+	dir := cache(t)
+	os.MkdirAll(dir, 0o700)
+	os.WriteFile(filepath.Join(dir, "latest"), []byte("0.1.4\n"), 0o600)
+	ctx := context.Background()
+	if got := Newer(ctx, "0.1.1"); got != "0.1.4" {
+		t.Fatalf("the answer kept: got %q", got)
+	}
+	github(t, "0.1.1", nil, "")
+	if _, err := Latest(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := Newer(ctx, "0.1.1"); got != "" {
+		t.Errorf("after asking again: told of %q", got)
 	}
 }

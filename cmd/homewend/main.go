@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -116,7 +117,12 @@ func updateProgram(args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	if err := update.Install(ctx, program, out.event); err != nil {
+	// The status line names the version that is arriving.
+	arriving := func(e progress.Event) {
+		e.Name = latest
+		out.event(e)
+	}
+	if err := update.Install(ctx, program, arriving); err != nil {
 		return out.fail(err)
 	}
 	out.line("version", latest, "%s", paint(os.Stdout, okColour, fmt.Sprintf(text["updated"], latest, version)))
@@ -128,9 +134,9 @@ func updateProgram(args []string) int {
 // lines under everything that came before. A script, or anyone asking for
 // JSON, gets nothing of it.
 //
-// Only what takes the screen for itself does it: the help pages, and signing
-// in and out. A command that adds a few lines, or a bar, to what the user was
-// doing leaves the rest where it was.
+// Every command does it once it knows it has what it needs, but update: a
+// bar and one line, added to what the user was doing. A command asked wrongly
+// clears nothing either, and answers under what was typed.
 func cleanScreen(args []string) {
 	if !term.IsTerminal(int(os.Stdout.Fd())) || slices.Contains(args, "--json") || slices.Contains(args, "-json") {
 		return
@@ -264,8 +270,9 @@ func get(args []string) int {
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
 	if *libraryDir == "" {
-		return askedWrongly(text["get needs library"])
+		return askedWrongly(text["get needs library"], args)
 	}
+	cleanScreen(args)
 	g := engine.Get{Year: *year, Library: *libraryDir, Takeout: *takeoutID, New: *fresh}
 	out := newPrinter(*asJSON)
 	defer func() { out.close() }()
@@ -388,6 +395,7 @@ func takeouts(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
+	cleanScreen(args)
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -447,8 +455,9 @@ func verify(args []string) int {
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
 	if *libraryDir == "" {
-		return askedWrongly(text["verify needs library"])
+		return askedWrongly(text["verify needs library"], args)
 	}
+	cleanScreen(args)
 	out := printer{json: *asJSON}
 
 	v, err := engine.Verify(*libraryDir, *takeoutID)
@@ -459,9 +468,17 @@ func verify(args []string) int {
 }
 
 // askedWrongly says what a command was missing and shows what to type
-// instead, in the accent at a terminal like everything there is to type.
-func askedWrongly(said string) int {
-	lines := strings.Split(said, "\n")
+// instead: what the user typed, with what was missing added, in the accent at
+// a terminal like everything there is to type.
+func askedWrongly(said string, typed []string) int {
+	given := ""
+	for _, word := range typed {
+		if strings.ContainsAny(word, " \t") {
+			word = strconv.Quote(word)
+		}
+		given += word + " "
+	}
+	lines := strings.Split(fmt.Sprintf(said, given), "\n")
 	if term.IsTerminal(int(os.Stderr.Fd())) {
 		for i, line := range lines {
 			if strings.HasPrefix(line, "  ") {
