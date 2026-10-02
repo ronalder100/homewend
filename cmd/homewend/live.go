@@ -39,20 +39,16 @@ func startLive() *tea.Program {
 // a stale bar.
 type idle struct{}
 
-// centre puts the status in the middle of the window: for a command that has
-// one thing to say at a time and no log above it, like login.
+// centre puts what the user is asked to do in the browser in the middle of
+// the window, for as long as it is asked: for a command with no log above it,
+// like login. Everything else stays a line at the top.
 type centre struct{}
 
-// last is a command's last word, when the status is in the middle of the
-// window: it takes the status's place and stays there when the program ends.
-type last string
-
 type status struct {
-	// In the middle of a window this wide and tall, when centred; the last
-	// word, once said.
-	centred       bool
+	// What the user is asked to do goes in the middle of a window this wide
+	// and tall, when centring.
+	centring      bool
 	width, height int
-	last          string
 
 	// Two ways of saying "not stuck": a dot that pulses while there is only
 	// waiting to do, a spinner while files are coming down.
@@ -114,13 +110,14 @@ func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s.spin, spin = s.spin.Update(msg)
 		return s, tea.Batch(dot, spin)
 	case idle:
-		return newStatus(), nil
+		// Clear what it says, not what it knows of the window.
+		fresh := newStatus()
+		fresh.centring, fresh.width, fresh.height = s.centring, s.width, s.height
+		return fresh, nil
 	case centre:
-		s.centred = true
+		s.centring = true
 	case tea.WindowSizeMsg:
 		s.width, s.height = msg.Width, msg.Height
-	case last:
-		s.last = string(msg)
 	case progress.Event:
 		s.show(msg, time.Now())
 	}
@@ -167,10 +164,7 @@ func (s *status) show(e progress.Event, now time.Time) {
 
 func (s status) View() tea.View {
 	line := s.line(time.Now())
-	if s.last != "" {
-		line = s.last
-	}
-	if !s.centred || s.width == 0 || line == "" {
+	if !s.centring || s.asks == "" || s.width == 0 {
 		return tea.NewView(line)
 	}
 	// A line longer than the window breaks between words, and each piece is

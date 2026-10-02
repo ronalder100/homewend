@@ -13,7 +13,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"image/color"
 	"os"
 	"os/signal"
 	"strings"
@@ -151,16 +150,10 @@ func login(args []string) int {
 		fmt.Print(ansi.CursorHomePosition + ansi.EraseEntireScreen)
 	}
 	out := newPrinter(*asJSON)
-	defer func() { out.close() }()
-	// Signing in has one thing to say at a time, and the screen to itself:
-	// from the moment the browser opens, the status is in the middle of the
-	// window. A session already there is one line, like any other answer.
-	event := func(e progress.Event) {
-		if e.Stage == progress.SignIn {
-			out.centre()
-		}
-		out.event(e)
-	}
+	defer out.close()
+	// What to do in the browser is the one thing to look at while it is
+	// open, and login has no log above it to push away.
+	out.centre()
 
 	sess, err := openSession(*profile)
 	if err != nil {
@@ -168,7 +161,7 @@ func login(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	account, already, err := engine.Login(ctx, sess, event)
+	account, already, err := engine.Login(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -187,7 +180,7 @@ func login(args []string) int {
 	case account != "":
 		said = fmt.Sprintf(text["signed in as"], account)
 	}
-	out.end("signed_in", true, okColour, said)
+	out.line("signed_in", true, "%s", paint(os.Stdout, okColour, said))
 	return exitOK
 }
 
@@ -387,9 +380,6 @@ func unset(flags map[string]string) string {
 type printer struct {
 	json bool
 	live *tea.Program
-
-	// The status is in the middle of the window, and so is the last word.
-	centred bool
 }
 
 func newPrinter(json bool) printer {
@@ -399,35 +389,21 @@ func newPrinter(json bool) printer {
 	return printer{live: startLive()}
 }
 
-// close takes the status line down. It can be called more than once. In the
-// middle of the window, what is there stays: it is the command's last word.
+// close takes the status line down. It can be called more than once.
 func (p printer) close() {
 	if p.live != nil {
-		if !p.centred {
-			p.live.Send(idle{})
-		}
+		p.live.Send(idle{})
 		p.live.Quit()
 		p.live.Wait()
 	}
 }
 
-// centre puts the status, and the last word, in the middle of the window,
-// when there is a window.
-func (p *printer) centre() {
+// centre puts what the user is asked to do in the middle of the window, when
+// there is a window.
+func (p printer) centre() {
 	if p.live != nil {
-		p.centred = true
 		p.live.Send(centre{})
 	}
-}
-
-// end says a command's last word: in the middle of the window when the
-// status is there, as a line otherwise.
-func (p printer) end(kind string, value any, c color.Color, said string) {
-	if p.centred {
-		p.live.Send(last(lipgloss.NewStyle().Foreground(c).Render(said)))
-		return
-	}
-	p.line(kind, value, "%s", paint(os.Stdout, c, said))
 }
 
 // notice colours s in a terminal, and leaves it plain anywhere else.
@@ -546,13 +522,13 @@ func (p printer) finished(v library.Verification) int {
 }
 
 func (p printer) fail(err error) int {
+	p.close()
 	code, message := exitError, fmt.Sprintf(text["error"], err)
 	var space engine.NoSpaceError
 	var notOffered *takeout.NotOfferedError
 	switch {
 	case errors.As(err, &notOffered):
 		if p.json {
-			p.close()
 			json.NewEncoder(os.Stdout).Encode(map[string]any{"error": err.Error(), "offered": notOffered.Offered, "exit": code})
 			return code
 		}
@@ -590,12 +566,6 @@ func (p printer) fail(err error) int {
 	case errors.Is(err, session.ErrNoBrowser):
 		message = text["no browser"]
 	}
-	if p.centred {
-		p.live.Send(last(lipgloss.NewStyle().Foreground(errColour).Render(message)))
-		p.close()
-		return code
-	}
-	p.close()
 	if p.json {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"error": message, "exit": code})
 	} else {

@@ -60,13 +60,17 @@ func TestCheckingTheSessionShowsAtOnce(t *testing.T) {
 	}
 }
 
-// Centred, the status sits in the middle of the window, and the last word
-// takes its place; a line longer than the window breaks, each piece centred.
-func TestCentredIsInTheMiddle(t *testing.T) {
+// What to do in the browser is in the middle of the window while it is
+// asked, and only then: the wait that follows is a line at the top again.
+func TestTheBrowserPromptIsInTheMiddle(t *testing.T) {
 	var m tea.Model = newStatus()
-	for _, msg := range []tea.Msg{centre{}, tea.WindowSizeMsg{Width: 80, Height: 24}, progress.Event{Stage: progress.SignIn}} {
+	for _, msg := range []tea.Msg{centre{}, tea.WindowSizeMsg{Width: 80, Height: 24}, progress.Event{Stage: progress.Checking}} {
 		m, _ = m.Update(msg)
 	}
+	if rows := strings.Split(m.(status).View().Content, "\n"); len(rows) > 2 {
+		t.Errorf("checking the session takes %d rows, want a line", len(rows))
+	}
+	m, _ = m.Update(progress.Event{Stage: progress.SignIn})
 	rows := strings.Split(ansi.Strip(m.(status).View().Content), "\n")
 	at := -1
 	for i, row := range rows {
@@ -81,9 +85,9 @@ func TestCentredIsInTheMiddle(t *testing.T) {
 	if want := (80 - len(text["sign in"])) / 2; before < want-1 || before > want+1 {
 		t.Errorf("%d spaces before the words, want about %d", before, want)
 	}
-	m, _ = m.Update(last("signed in as someone@example.com"))
-	if view := ansi.Strip(m.(status).View().Content); !strings.Contains(view, "signed in as someone@example.com") || strings.Contains(view, text["sign in"]) {
-		t.Errorf("the last word did not take the place of the status:\n%s", view)
+	m, _ = m.Update(progress.Event{Stage: progress.SessionReady})
+	if rows := strings.Split(m.(status).View().Content, "\n"); len(rows) > 2 {
+		t.Errorf("setting up takes %d rows, want a line", len(rows))
 	}
 }
 
