@@ -81,12 +81,12 @@ photos by date, with your albums beside them, each one counted against the
 list Google puts in the export.
 
 If Google Takeout still has the export of that year Homewend asked for last,
-it downloads that one. Only when there is none, or it has expired, does it ask
-Google for a new one, and Google takes hours to prepare it.
+it asks you whether to download that one or to ask Google for a new one. When
+there is none, or it has expired, it asks you before asking Google: Google
+takes hours to prepare an export.
 
 Stop it at any time and run the same command again: it carries on where it
-was, and never asks Google twice. Into another folder, the same export is
-downloaded again.
+was, without a question, and never asks Google twice.
 
 Flags:
   --library DIR   where your photos go (required)
@@ -170,14 +170,9 @@ Examples:
 	"was not signed in": "not signed in: there was no browser profile to delete",
 	"all photos":        "all your photos",
 	"photos of":         "your photos of %d",
-	"get intro": `Homewend is about to ask Google Takeout for an export of %s.
-
-Google takes its time to prepare it, often hours. You do not have to wait
-here: close this window whenever you like, and run the same command again
-later. It picks up where it left off, and never asks Google twice.
-
-`,
-	"continue":          "Continue? [y/N] ",
+	"confirm new":       "you are about to ask Google for a new takeout of %s. Continue? [Y/n] ",
+	"have one":          "Google already has a takeout of %s: %s, made %s, %s, %s\n",
+	"that or new":       "download that one [D], or ask for a new one [n]? ",
 	"not asked":         "nothing asked: no new export was requested",
 	"already signed in": "already signed in",
 	"already as":        "already signed in as %s",

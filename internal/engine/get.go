@@ -53,42 +53,61 @@ func (g Get) Run(ctx context.Context, sess *session.Session, emit progress.Func)
 	return result, err
 }
 
-// WillAsk reports whether Run would ask Google for a new export, so that a
-// person can be asked first. The profile must be signed in.
-func (g Get) WillAsk(sess *session.Session) (bool, error) {
-	job, err := g.pick(sess)
-	return job == "", err
+// Found is the export Run would download rather than ask Google for a new one.
+type Found struct {
+	Takeout
+	// This library already holds some of it: Run carries on where it was.
+	Started bool
 }
 
-// pick is the export Run downloads, or "" when it has to ask for a new one.
-func (g Get) pick(sess *session.Session) (string, error) {
+// Existing reports the export Run would download, or nil when it would ask
+// Google for a new one, so that a person can be asked first: about a new
+// export, which takes Google hours, or about one already there, which may not
+// be the one they want. The profile must be signed in.
+func (g Get) Existing(sess *session.Session) (*Found, error) {
+	export, err := g.pick(sess)
+	if err != nil || export == nil {
+		return nil, err
+	}
+	_, err = os.Stat(filepath.Join(g.Library, library.WorkDir, export.Job))
+	return &Found{
+		Takeout: Takeout{Export: *export, ID: shortID(export.Job), Status: StatusOf(*export), Year: g.Year, Known: g.Takeout == ""},
+		Started: err == nil,
+	}, nil
+}
+
+// pick is the export Run downloads, or nil when it has to ask for a new one.
+func (g Get) pick(sess *session.Session) (*takeout.Export, error) {
 	exports, err := takeout.Exports(sess)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if g.Takeout != "" {
 		e, err := byID(exports, g.Takeout)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if StatusOf(e) == Expired {
-			return "", fmt.Errorf("%w: %s", ErrExpired, g.Takeout)
+			return nil, fmt.Errorf("%w: %s", ErrExpired, g.Takeout)
 		}
-		return e.Job, nil
+		return &e, nil
 	}
 	if g.New {
-		return "", nil
+		return nil, nil
 	}
 	notes, err := loadNotes(sess.Profile)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// A library from before the notes moved to the profile kept its own.
 	if old, err := loadRequest(g.libraryNote()); err == nil && !old.Asked.IsZero() && !noted(notes, old.Asked) {
 		notes = append(notes, note{Year: old.Year, Asked: old.Asked, Job: old.Job})
 	}
 	job, notes := latestFor(g.Year, notes, exports)
-	return job, saveNotes(sess.Profile, notes)
+	if err := saveNotes(sess.Profile, notes); err != nil || job == "" {
+		return nil, err
+	}
+	return &exports[indexOf(exports, job)], nil
 }
 
 func noted(notes []note, asked time.Time) bool {
@@ -114,9 +133,13 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 	if _, _, err := Login(ctx, sess, emit); err != nil {
 		return Result{}, err
 	}
-	job, err := g.pick(sess)
+	picked, err := g.pick(sess)
 	if err != nil {
 		return Result{}, err
+	}
+	job := ""
+	if picked != nil {
+		job = picked.Job
 	}
 	if job == "" {
 		// The note is written before the form is sent: a run stopped in

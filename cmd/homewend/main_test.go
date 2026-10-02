@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/ronalder100/homewend/internal/engine"
 	"github.com/ronalder100/homewend/internal/library"
 )
 
@@ -105,6 +106,38 @@ func TestACommandAskedWronglySaysWhatToType(t *testing.T) {
 		out, code := homewend(t, name)
 		if code != exitError || !strings.Contains(out, text[name+" needs library"]) || !strings.Contains(out, want) {
 			t.Errorf("homewend %s: exit %d, output\n%s", name, code, out)
+		}
+	}
+}
+
+// typing stands in for what the user types at the next question.
+func typing(t *testing.T, reply string) {
+	t.Helper()
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	write.WriteString(reply)
+	write.Close()
+	keyboard := os.Stdin
+	os.Stdin = read
+	t.Cleanup(func() { os.Stdin = keyboard; read.Close() })
+}
+
+// Before a new export, Enter is yes and only a no stops it. With an export
+// already there, Enter downloads it and only an n asks Google for a new one.
+func TestGetAsksBeforeGoogleIsAsked(t *testing.T) {
+	g := engine.Get{Year: 2025}
+	for reply, want := range map[string]bool{"\n": true, "y\n": true, "Y\n": true, "n\n": false, "no\n": false} {
+		typing(t, reply)
+		if got := confirmNew(g); got != want {
+			t.Errorf("a new export, reply %q: got %v, want %v", reply, got, want)
+		}
+	}
+	for reply, want := range map[string]bool{"\n": false, "d\n": false, "D\n": false, "n\n": true, "N\n": true} {
+		typing(t, reply)
+		if got := wantsNew(g, engine.Found{}); got != want {
+			t.Errorf("an export already there, reply %q: asks for a new one %v, want %v", reply, got, want)
 		}
 	}
 }

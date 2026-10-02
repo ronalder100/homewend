@@ -276,20 +276,25 @@ func get(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	// A person at a terminal is asked before Google is asked for an export:
-	// it takes hours. A script that runs get meant it.
+	// A person at a terminal is asked first: before Google is asked for a new
+	// export, which takes it hours, and when one is already there, which may
+	// not be the one they want. A script that runs get meant it; so did
+	// whoever named the export, and a library that has begun one carries on.
 	if !*asJSON && term.IsTerminal(int(os.Stdin.Fd())) {
 		if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
 			return out.fail(err)
 		}
-		ask, err := g.WillAsk(sess)
+		found, err := g.Existing(sess)
 		if err != nil {
 			return out.fail(err)
 		}
-		if ask {
+		if found == nil || g.Takeout == "" && !found.Started {
 			out.close()
-			if !confirmGet(g) {
+			if found == nil && !confirmNew(g) {
 				return exitOK
+			}
+			if found != nil && wantsNew(g, *found) {
+				g.New = true
 			}
 			out = newPrinter(*asJSON)
 		}
@@ -302,21 +307,40 @@ func get(args []string) int {
 	return out.finished(result.Verification)
 }
 
-// confirmGet says that get is about to ask Google for an export, and what
-// that means, and asks to go on.
-func confirmGet(g engine.Get) bool {
-	what := text["all photos"]
+// what names the photos a get is for.
+func what(g engine.Get) string {
 	if g.Year != 0 {
-		what = fmt.Sprintf(text["photos of"], g.Year)
+		return fmt.Sprintf(text["photos of"], g.Year)
 	}
-	fmt.Printf(text["get intro"], what)
-	fmt.Print(paint(os.Stdout, accentColour, text["continue"]))
-	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	switch strings.ToLower(strings.TrimSpace(answer)) {
-	case "y", "yes":
+	return text["all photos"]
+}
+
+// answer asks a question and reads the reply, in lower case.
+func answer(question string) string {
+	fmt.Print(paint(os.Stdout, accentColour, question))
+	reply, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	return strings.ToLower(strings.TrimSpace(reply))
+}
+
+// confirmNew says that get is about to ask Google for a new export, and asks
+// to go on. Enter is yes.
+func confirmNew(g engine.Get) bool {
+	switch answer(fmt.Sprintf(text["confirm new"], what(g))) {
+	case "", "y", "yes":
 		return true
 	}
 	fmt.Println(text["not asked"])
+	return false
+}
+
+// wantsNew says that Google already has an export of these photos, which one,
+// and asks whether to download it or to ask for a new one. Enter downloads it.
+func wantsNew(g engine.Get, found engine.Found) bool {
+	fmt.Printf(text["have one"], what(g), found.ID, found.Created.Local().Format("2006-01-02 15:04"), size(found.Bytes), found.Status)
+	switch answer(text["that or new"]) {
+	case "n", "new":
+		return true
+	}
 	return false
 }
 
