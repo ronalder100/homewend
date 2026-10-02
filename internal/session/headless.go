@@ -15,6 +15,7 @@ import (
 
 	cdpbrowser "github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
@@ -42,6 +43,26 @@ type Page struct {
 // 2026-09-26. It says what it is — its user-agent reads HeadlessChrome and
 // navigator.webdriver is true — and Takeout serves it all the same.
 func (s *Session) Headless(ctx context.Context, url string) (*Page, error) {
+	return s.headless(ctx, chromedp.Navigate(url))
+}
+
+// Glimpse is Headless for a page that only has to be reached, not used: it
+// returns as soon as the page has answered, without waiting for it to load.
+// By then the cookies the visit was for are set, and the start of the page is
+// there to read. Takeout's /manage answered in 0.8 seconds and took 3.9 to
+// load, 1.4 MB of it (2026-10-02).
+func (s *Session) Glimpse(ctx context.Context, url string) (*Page, error) {
+	return s.headless(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		_, _, failed, _, err := page.Navigate(url).Do(ctx)
+		if err == nil && failed != "" {
+			err = errors.New(failed)
+		}
+		return err
+	}))
+}
+
+// headless starts the browser and opens the page with open.
+func (s *Session) headless(ctx context.Context, open chromedp.Action) (*Page, error) {
 	browser, err := findBrowser()
 	if err != nil {
 		return nil, err
@@ -78,7 +99,7 @@ func (s *Session) Headless(ctx context.Context, url string) (*Page, error) {
 	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(ctx, ws, chromedp.NoModifyURL)
 	tabCtx, cancelTab := chromedp.NewContext(allocCtx)
 	p.ctx, p.cancel = tabCtx, func() { cancelTab(); cancelAlloc() }
-	if err := chromedp.Run(p.ctx, chromedp.Navigate(url)); err != nil {
+	if err := chromedp.Run(p.ctx, open); err != nil {
 		p.Close()
 		return nil, err
 	}
@@ -88,7 +109,7 @@ func (s *Session) Headless(ctx context.Context, url string) (*Page, error) {
 // browserSocket reads the address the browser writes once it listens: the
 // port on the first line, the browser's DevTools path on the second.
 func browserSocket(file string) (string, error) {
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(200 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
 		if data, err := os.ReadFile(file); err == nil {
 			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
 			if len(lines) == 2 {
@@ -139,6 +160,8 @@ func (p *Page) Close() {
 			}
 		}
 	}
-	p.cancel()
 	shutDown(p.browser, p.exited)
+	// chromedp takes a second to give up on a browser that is gone (measured
+	// 2026-10-02): nobody has to wait for that.
+	go p.cancel()
 }

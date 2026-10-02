@@ -174,18 +174,26 @@ func onDisk(sess *session.Session) bool {
 // them on the way. Closing the page waits for them to reach the disk.
 func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func) (account string, err error) {
 	emit.Emit(progress.Event{Stage: progress.SessionReady})
-	page, err := sess.Headless(ctx, takeout.ManageURL)
+	page, err := sess.Glimpse(ctx, takeout.ManageURL)
 	if err != nil {
 		return "", err
 	}
 	// Where the browser ended up says whether Takeout took the session, and
-	// the page it has says whose: asking again from here would cost the user
-	// the seconds of a second download of the same page.
+	// the start of the page says whose: the address is 17 KB into it, there
+	// a moment after the page answers.
 	var seen struct {
 		Host string `json:"host"`
 		Page string `json:"page"`
 	}
-	err = page.Eval(`({host: location.host, page: document.documentElement.outerHTML})`, &seen)
+	for range 40 {
+		if err = page.Eval(`({host: location.host, page: document.documentElement.outerHTML})`, &seen); err != nil {
+			break
+		}
+		if account = takeout.AccountIn([]byte(seen.Page)); account != "" || seen.Host != takeoutHost {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 	page.Close()
 	if err != nil {
 		return "", err
@@ -193,7 +201,11 @@ func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func)
 	if seen.Host != takeoutHost {
 		return "", ErrSessionNotAccepted
 	}
-	return takeout.AccountIn([]byte(seen.Page)), nil
+	// The profile on disk is not asked about again: closed this way the
+	// browser has written it, and a first request to Google from here costs
+	// from a fifth of a second to two and a half (2026-10-02). The next
+	// command checks the session before anything else, as every command does.
+	return account, nil
 }
 
 // cookiesLanded waits for the session cookies to reach the profile after the
