@@ -10,9 +10,9 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327
 	github.com/chromedp/chromedp v0.14.2
 	github.com/dustin/go-humanize v1.0.1
-	golang.org/x/crypto v0.31.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/term v0.27.0
+	golang.org/x/crypto v0.57.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/term v0.46.0
 	howett.net/plist v1.0.1
 	modernc.org/sqlite v1.59.0
 )
