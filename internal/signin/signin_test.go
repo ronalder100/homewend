@@ -63,7 +63,7 @@ func TestGoogleSendsTheUserBackHere(t *testing.T) {
 func TestSignedIn(t *testing.T) {
 	l := listen(t)
 	status, body := get(t, back(l, url.Values{"state": {l.state}, "code": {"x"}}))
-	if status != http.StatusOK || !strings.Contains(body, text["ok"]["title"]) {
+	if status != http.StatusOK || !strings.Contains(body, text["ok"]["title"]) || !strings.Contains(body, "window.close()") {
 		t.Errorf("status %d, body without %q", status, text["ok"]["title"])
 	}
 	if err := wait(t, l); err != nil {

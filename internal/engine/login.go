@@ -77,23 +77,63 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 		return "", false, ErrSignInClosed
 	case result = <-back.Done():
 	}
-	// Long enough for the page's animation to play out, so the user sees how
-	// it ended before the window goes.
-	select {
-	case <-time.After(3 * time.Second):
-	case <-w.Exited():
-	}
-	// Closing writes the profile out: the browser takes cookies to disk on
-	// shutdown, not only on its 30-second timer.
-	w.Close()
 	if result != nil {
+		leave(ctx, sess, w, declinedLeave)
 		return "", false, fmt.Errorf("%w (%v)", ErrSignInDeclined, result)
+	}
+	emit.Emit(progress.Event{Stage: progress.SessionReady})
+	leave(ctx, sess, w, signedInLeave)
+	if ctx.Err() != nil {
+		return "", false, ctx.Err()
 	}
 	if !cookiesLanded(sess) {
 		return "", false, ErrSessionNotWritten
 	}
 	account, err = openTakeout(ctx, sess, emit)
 	return account, false, err
+}
+
+// How long the browser is given to go by itself: after a sign-in, longer than
+// the 30 seconds Chrome takes at most to write its cookies; after one Google
+// declined, there is nothing to wait for but the page's goodbye.
+const (
+	signedInLeave = 45 * time.Second
+	declinedLeave = 5 * time.Second
+)
+
+// leave lets the browser go by itself. The page closes its own window, and a
+// browser with no window left quits and writes the profile out. It is not
+// stopped on the way: stopped three seconds after 60 cookies were set, it lost
+// every one of them four times in six, the write left half done; closing its
+// own window, it kept them five times in five (Chromium 144, 2026-10-02).
+//
+// A browser that stays open with no window, as on a Mac, or whose page could
+// not close its window, is stopped once the session is on disk, which its own
+// timer sees to; and after limit, whatever is there.
+func leave(ctx context.Context, sess *session.Session, w *session.Window, limit time.Duration) {
+	late := time.After(limit)
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-w.Exited():
+			return
+		case <-tick.C:
+			if !onDisk(sess) {
+				continue
+			}
+		case <-late:
+		case <-ctx.Done():
+		}
+		w.Close()
+		return
+	}
+}
+
+// onDisk reports whether the profile holds the session's cookies.
+func onDisk(sess *session.Session) bool {
+	_, names, err := sess.Cookies()
+	return err == nil && names["SID"] && names["SSID"]
 }
 
 // openTakeout opens Takeout once, out of sight, so the profile holds
@@ -122,7 +162,7 @@ func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func)
 // written 170 ms later.
 func cookiesLanded(sess *session.Session) bool {
 	for range 50 {
-		if _, names, err := sess.Cookies(); err == nil && names["SID"] && names["SSID"] {
+		if onDisk(sess) {
 			return true
 		}
 		time.Sleep(100 * time.Millisecond)

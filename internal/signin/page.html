@@ -62,5 +62,11 @@ h1 { color: var(--fg); font-size: 32px; font-weight: 700; letter-spacing: -0.03e
   <h1>{{index .Text "title"}}</h1>
   <p>{{index .Text "body"}}</p>
 </div>
+<script>
+// Once the animation has played, the window closes itself, and the browser,
+// with no window left, quits and writes the session out. Stopped from outside
+// instead, it loses the cookies of the last seconds.
+setTimeout(() => window.close(), 2500);
+</script>
 </body>
 </html>
