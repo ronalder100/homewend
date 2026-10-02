@@ -24,6 +24,7 @@ const (
 	Damaged       = "damaged"        // a part failed its check on unpacking and is downloaded again
 	Unpack        = "unpack"         // a part is being opened
 	Place         = "place"          // a photo is being placed in the library
+	Update        = "update"         // a new homewend is arriving; Done and Total are bytes
 )
 
 // Event is one thing that happened. Fields that do not apply are left empty.
