@@ -220,7 +220,12 @@ later. It picks up where it left off, and never asks Google twice.
 	"updated":        "homewend %s is installed (it was %s)",
 	"update damaged": "the download was damaged on the way, and nothing was installed: run homewend update again",
 
-	"missing flags":   "missing: %s",
+	"get needs library": `library folder missing:
+
+  homewend get --library ~/Pictures/Homewend`,
+	"verify needs library": `library folder missing:
+
+  homewend verify --library ~/Pictures/Homewend`,
 	"download":        "[%d/%d] %s  from %s of %s",
 	"downloaded":      "[%d/%d] downloaded, %s",
 	"short":           "[%d/%d] %s  stopped at %s of %s; run again to continue",

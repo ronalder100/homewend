@@ -61,11 +61,9 @@ func main() {
 		os.Exit(exitError)
 	}
 	name, args := os.Args[1], os.Args[2:]
-	if name != "version" && name != "--version" {
-		cleanScreen(args)
-	}
 	switch name {
 	case "help", "-h", "--help":
+		cleanScreen(args)
 		os.Exit(help(args))
 	case "version", "--version":
 		fmt.Println(version)
@@ -101,6 +99,7 @@ func updateProgram(args []string) int {
 	flags := newFlags("update")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
+	cleanScreen(args)
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -128,7 +127,9 @@ func updateProgram(args []string) int {
 // cleanScreen starts a command at the top of an empty screen, for a person
 // at a terminal: what it says is then the one thing to look at, not the last
 // lines under everything that came before. A script, or anyone asking for
-// JSON, gets nothing of it.
+// JSON, gets nothing of it. Each command calls it once it knows it has what
+// it needs: one that was asked wrongly says so under what was typed, where
+// the user is looking, and clears nothing.
 func cleanScreen(args []string) {
 	if !term.IsTerminal(int(os.Stdout.Fd())) || slices.Contains(args, "--json") || slices.Contains(args, "-json") {
 		return
@@ -209,6 +210,7 @@ func login(args []string) int {
 	fallback := flags.Bool("fallback", false, "sign in on Google Takeout's page, in a full browser window")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
+	cleanScreen(args)
 	out := newPrinter(*asJSON)
 	defer out.close()
 	// What to do in the browser is the one thing to look at while it is
@@ -260,10 +262,10 @@ func get(args []string) int {
 	fresh := flags.Bool("new", false, "ask Google for a new export even if there is one")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	if missing := unset(map[string]string{"--library": *libraryDir}); missing != "" {
-		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
-		return exitError
+	if *libraryDir == "" {
+		return askedWrongly(text["get needs library"])
 	}
+	cleanScreen(args)
 	g := engine.Get{Year: *year, Library: *libraryDir, Takeout: *takeoutID, New: *fresh}
 	out := newPrinter(*asJSON)
 	defer func() { out.close() }()
@@ -322,6 +324,7 @@ func logout(args []string) int {
 	flags := newFlags("logout")
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	flags.Parse(args)
+	cleanScreen(args)
 	dir, err := profileDir(*profile)
 	if err == nil {
 		var was bool
@@ -361,6 +364,7 @@ func takeouts(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
+	cleanScreen(args)
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -419,10 +423,10 @@ func verify(args []string) int {
 	takeoutID := flags.String("takeout", "", "the export to check against, by its id")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	if missing := unset(map[string]string{"--library": *libraryDir}); missing != "" {
-		fmt.Fprintf(os.Stderr, text["missing flags"]+"\n", missing)
-		return exitError
+	if *libraryDir == "" {
+		return askedWrongly(text["verify needs library"])
 	}
+	cleanScreen(args)
 	out := printer{json: *asJSON}
 
 	v, err := engine.Verify(*libraryDir, *takeoutID)
@@ -432,14 +436,19 @@ func verify(args []string) int {
 	return out.verification(v)
 }
 
-func unset(flags map[string]string) string {
-	var missing []string
-	for name, value := range flags {
-		if value == "" {
-			missing = append(missing, name)
+// askedWrongly says what a command was missing and shows what to type
+// instead, in the accent at a terminal like everything there is to type.
+func askedWrongly(said string) int {
+	lines := strings.Split(said, "\n")
+	if term.IsTerminal(int(os.Stderr.Fd())) {
+		for i, line := range lines {
+			if strings.HasPrefix(line, "  ") {
+				lines[i] = lipgloss.NewStyle().Foreground(accentColour).Render(line)
+			}
 		}
 	}
-	return strings.Join(missing, ", ")
+	fmt.Fprintln(os.Stderr, strings.Join(lines, "\n"))
+	return exitError
 }
 
 // printer shows engine output either as text or as JSON lines. In a

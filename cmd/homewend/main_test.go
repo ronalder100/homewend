@@ -95,6 +95,20 @@ func TestDressedKeepsEveryWord(t *testing.T) {
 	}
 }
 
+// A command asked for without what it needs says what that is and shows what
+// to type, in words a person can act on.
+func TestACommandAskedWronglySaysWhatToType(t *testing.T) {
+	for name, want := range map[string]string{
+		"get":    "homewend get --library ~/Pictures/Homewend",
+		"verify": "homewend verify --library ~/Pictures/Homewend",
+	} {
+		out, code := homewend(t, name)
+		if code != exitError || !strings.Contains(out, text[name+" needs library"]) || !strings.Contains(out, want) {
+			t.Errorf("homewend %s: exit %d, output\n%s", name, code, out)
+		}
+	}
+}
+
 func TestUnknownCommand(t *testing.T) {
 	out, code := homewend(t, "download")
 	if code != exitError || !strings.Contains(out, `unknown command "download"`) {
