@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
+	cdpbrowser "github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
-	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/runtime"
-	"github.com/chromedp/cdproto/storage"
 	"github.com/chromedp/chromedp"
 )
 
@@ -117,51 +116,29 @@ func (p *Page) Click(x, y float64) error {
 	return chromedp.Run(p.ctx, chromedp.MouseClickXY(x, y))
 }
 
-// Close stops the browser, cleanly, so the profile is written out.
+// Close closes the browser through DevTools, which writes the profile out at
+// once: closed this way right after a page set 60 cookies, the browser was
+// gone within a quarter of a second with all 60 on disk, four runs of four
+// (Chromium 144, 2026-10-02). Stopped by SIGTERM instead it loses them, and
+// left to its 30-second timer it kept the user waiting half a minute.
 //
-// It waits first for the browser's cookies to be on disk. A headless browser
-// commits them on Chrome's 30-second timer, and stopped before it, by SIGTERM,
-// it exits at once and loses them: Takeout's cookies, set by a visit, were
-// gone, and they were on disk 27 seconds after it (Chromium 144, 2026-10-01).
+// The command goes through the page's own session. chromedp refuses it on
+// the browser's, and its Cancel only closes the tab of a browser it did not
+// start itself.
+//
 // A cookie Google rotated and the profile never kept is a session going stale.
 func (p *Page) Close() {
 	if p.ctx != nil {
-		p.waitForDisk(40 * time.Second)
+		if target := chromedp.FromContext(p.ctx).Target; target != nil {
+			closing, cancel := context.WithTimeout(p.ctx, 5*time.Second)
+			cdpbrowser.Close().Do(cdp.WithExecutor(closing, target))
+			cancel()
+			select {
+			case <-p.exited:
+			case <-time.After(10 * time.Second):
+			}
+		}
 	}
 	p.cancel()
 	shutDown(p.browser, p.exited)
-}
-
-// waitForDisk waits, up to limit, until every lasting Google cookie the
-// browser holds is in the profile on disk, as the same value. Session cookies
-// are left out: Chrome never writes them.
-func (p *Page) waitForDisk(limit time.Duration) {
-	for deadline := time.Now().Add(limit); time.Now().Before(deadline); time.Sleep(time.Second) {
-		held, err := storage.GetCookies().Do(cdp.WithExecutor(p.ctx, chromedp.FromContext(p.ctx).Browser))
-		if err != nil {
-			return
-		}
-		header, _, err := p.sess.Cookies()
-		if err != nil {
-			return
-		}
-		onDisk := map[string]bool{}
-		for _, pair := range strings.Split(header, "; ") {
-			onDisk[pair] = true
-		}
-		if allOnDisk(held, onDisk) {
-			return
-		}
-	}
-}
-
-// allOnDisk reports whether every lasting Google cookie in held is among the
-// name=value pairs read from disk.
-func allOnDisk(held []*network.Cookie, onDisk map[string]bool) bool {
-	for _, c := range held {
-		if !c.Session && strings.HasSuffix(c.Domain, "google.com") && !onDisk[c.Name+"="+c.Value] {
-			return false
-		}
-	}
-	return true
 }
