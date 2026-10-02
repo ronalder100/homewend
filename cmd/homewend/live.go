@@ -76,10 +76,11 @@ func newStatus() status {
 	}
 }
 
-// pulse is one dot breathing from faint to accent and back, about once a
-// second. Each frame carries its colour and its trailing space.
+// pulse is one dot breathing from all but off to accent and back, slowly: a
+// breath every two and a half seconds. Each frame carries its colour and its
+// trailing space.
 func pulse() spinner.Spinner {
-	shades := lipgloss.Blend1D(12, faintColour, accentColour, faintColour)
+	shades := lipgloss.Blend1D(30, lineColour, accentColour, lineColour)
 	frames := make([]string, len(shades))
 	for i, shade := range shades {
 		frames[i] = lipgloss.NewStyle().Foreground(shade).Render("●") + " "
@@ -161,15 +162,18 @@ func (s status) line(now time.Time) string {
 	case progress.Place:
 		return fmt.Sprintf(text["place status"], s.bar.ViewAs(fraction(int64(e.N), int64(e.Of))), e.N, e.Of)
 	}
+	// Both in the muted grey: they say what is going on, not what was done.
+	muted := lipgloss.NewStyle().Foreground(mutedColour)
 	var line string
 	switch {
 	case s.asks != "":
-		line = lipgloss.NewStyle().Foreground(mutedColour).Render(s.asks)
+		line = muted.Render(s.asks)
 	case s.waiting != "":
-		line = s.dot.View() + s.waiting
+		waiting := s.waiting
 		if !s.since.IsZero() {
-			line += " · " + now.Sub(s.since).Round(time.Second).String()
+			waiting += " · " + now.Sub(s.since).Round(time.Second).String()
 		}
+		line = s.dot.View() + muted.Render(waiting)
 	}
 	if line != "" && s.apart {
 		line = "\n" + line

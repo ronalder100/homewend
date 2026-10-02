@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/ronalder100/homewend/internal/library"
 )
 
@@ -66,6 +69,29 @@ func TestHelp(t *testing.T) {
 		if out, code := homewend(t, args...); code != exitOK || strings.TrimSpace(out) != text["usage"] {
 			t.Errorf("homewend %s: exit %d, output\n%s", strings.Join(args, " "), code, out)
 		}
+	}
+}
+
+// Dressing a page for a terminal changes its colours and none of its words:
+// what to type stands out, and a flag's second line is not taken for a flag.
+func TestDressedKeepsEveryWord(t *testing.T) {
+	for key, page := range text {
+		if key != "usage" && !strings.HasPrefix(key, "help ") {
+			continue
+		}
+		if got := ansi.Strip(dressed(page)); got != page {
+			t.Errorf("%s: dressed changed the words:\n%s", key, got)
+		}
+	}
+	accent := lipgloss.NewStyle().Foreground(accentColour)
+	got := dressed(text["help login"])
+	for _, want := range []string{accent.Render("--profile DIR"), accent.Render("  homewend login")} {
+		if !strings.Contains(got, want) {
+			t.Errorf("dressed lacks %q", want)
+		}
+	}
+	if strings.Contains(got, accent.Render("config directory)")) || strings.Contains(got, accent.Render("                config directory)")) {
+		t.Error("the second line of a flag is dressed as a flag")
 	}
 }
 

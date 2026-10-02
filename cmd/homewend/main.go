@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/dustin/go-humanize"
 	"golang.org/x/term"
 
@@ -51,7 +53,7 @@ var commands = map[string]func(args []string) int{
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, text["usage"])
+		showHelp(os.Stderr, text["usage"])
 		os.Exit(exitError)
 	}
 	name, args := os.Args[1], os.Args[2:]
@@ -65,7 +67,7 @@ func main() {
 	run, ok := commands[name]
 	if !ok {
 		fmt.Fprintf(os.Stderr, text["unknown command"], name)
-		fmt.Fprintln(os.Stderr, text["usage"])
+		showHelp(os.Stderr, text["usage"])
 		os.Exit(exitError)
 	}
 	os.Exit(run(args))
@@ -74,21 +76,67 @@ func main() {
 // help prints the overview, or the page of one command.
 func help(args []string) int {
 	if len(args) == 0 {
-		fmt.Println(text["usage"])
+		showHelp(os.Stdout, text["usage"])
 		return exitOK
 	}
 	if _, ok := commands[args[0]]; !ok {
 		fmt.Fprintf(os.Stderr, text["unknown command"], args[0])
 		return exitError
 	}
-	fmt.Println(text["help "+args[0]])
+	showHelp(os.Stdout, text["help "+args[0]])
 	return exitOK
+}
+
+// showHelp prints a help page: as it is written for a program, with room
+// around it and its parts told apart for a person at a terminal.
+func showHelp(out *os.File, page string) {
+	if term.IsTerminal(int(out.Fd())) {
+		page = "\n" + dressed(page) + "\n"
+	}
+	fmt.Fprintln(out, page)
+}
+
+// dressed colours a help page by what each line is: the name in bold, the
+// headings in bold, what to type in the accent, the rest as it is. The pages
+// are plain text in the strings table; this reads their shape, so a page
+// written like the others is dressed like the others.
+func dressed(page string) string {
+	bold := lipgloss.NewStyle().Bold(true)
+	accent := lipgloss.NewStyle().Foreground(accentColour)
+	faint := lipgloss.NewStyle().Foreground(faintColour)
+	lines := strings.Split(page, "\n")
+	section := ""
+	for i, line := range lines {
+		indented := strings.HasPrefix(line, "  ")
+		switch {
+		case i == 0:
+			name, what, _ := strings.Cut(line, " — ")
+			lines[i] = bold.Render(name) + " — " + what
+		case line == "":
+		case !indented && strings.HasSuffix(line, ":"):
+			section = line
+			lines[i] = bold.Render(line)
+		case !indented && strings.HasPrefix(line, "https://"):
+			lines[i] = faint.Render(line)
+		case !indented:
+			section = ""
+		case section == "Commands:" || section == "Flags:":
+			// A term, a gap, what it means; a line that carries on has no term.
+			word, meaning, found := strings.Cut(line[2:], "  ")
+			if found && !strings.HasPrefix(line, "   ") {
+				lines[i] = "  " + accent.Render(word) + "  " + meaning
+			}
+		default:
+			lines[i] = accent.Render(line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // newFlags is the flag set of one command, whose -h shows its help page.
 func newFlags(name string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ExitOnError)
-	flags.Usage = func() { fmt.Fprintln(flags.Output(), text["help "+name]) }
+	flags.Usage = func() { showHelp(os.Stderr, text["help "+name]) }
 	return flags
 }
 
@@ -97,6 +145,10 @@ func login(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
+	if !*asJSON && term.IsTerminal(int(os.Stdout.Fd())) {
+		// Signing in starts on a clean screen: it is the one thing to look at.
+		fmt.Print(ansi.CursorHomePosition + ansi.EraseEntireScreen)
+	}
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -106,15 +158,22 @@ func login(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	already, err := engine.Login(ctx, sess, out.event)
+	account, already, err := engine.Login(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
-	if already {
-		out.line("signed_in", true, "%s", paint(os.Stdout, okColour, text["already signed in"]))
-	} else {
-		out.line("signed_in", true, "%s", paint(os.Stdout, okColour, text["signed in"]))
+	// With the account, when Google's page names it: a person with two
+	// accounts has to know whose photos these are.
+	said := text["signed in"]
+	switch {
+	case already && account != "":
+		said = fmt.Sprintf(text["already as"], account)
+	case already:
+		said = text["already signed in"]
+	case account != "":
+		said = fmt.Sprintf(text["signed in as"], account)
 	}
+	out.line("signed_in", true, "%s", paint(os.Stdout, okColour, said))
 	return exitOK
 }
 
@@ -144,7 +203,7 @@ func get(args []string) int {
 	// A person at a terminal is asked before Google is asked for an export:
 	// it takes hours. A script that runs get meant it.
 	if !*asJSON && term.IsTerminal(int(os.Stdin.Fd())) {
-		if _, err := engine.Login(ctx, sess, out.event); err != nil {
+		if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
 			return out.fail(err)
 		}
 		ask, err := g.WillAsk(sess)
@@ -237,7 +296,7 @@ func takeouts(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	if _, err := engine.Login(ctx, sess, out.event); err != nil {
+	if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
 		return out.fail(err)
 	}
 	list, err := engine.Takeouts(sess)

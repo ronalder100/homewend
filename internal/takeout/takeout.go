@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -133,20 +134,38 @@ const (
 //
 // Any other answer is an error, not a "no": it says nothing about the session.
 func SignedIn(g Getter) (bool, error) {
+	_, ok, err := Account(g)
+	return ok, err
+}
+
+// The page names the account it is shown to, in the data its scripts start
+// from: "oPEP7c":"<address>", the quotes escaped or not. Read on /manage,
+// 2026-10-02.
+var account = regexp.MustCompile(`oPEP7c\\?":\\?"([^"\\]+)`)
+
+// Account is SignedIn, and whose session it is: the address /manage is shown
+// to, so that a person with more than one Google account knows which one
+// their photos come from. The address is empty when the page does not name
+// it, which is no reason to doubt the session.
+func Account(g Getter) (address string, signedIn bool, err error) {
 	res, err := g.Get(ManageURL, nil)
 	if err != nil {
-		return false, fmt.Errorf("checking the session: %w", err)
+		return "", false, fmt.Errorf("checking the session: %w", err)
 	}
-	res.Body.Close()
+	defer res.Body.Close()
 	switch {
 	case res.StatusCode == http.StatusOK:
-		return true, nil
+		page, _ := io.ReadAll(res.Body)
+		if found := account.FindSubmatch(page); found != nil {
+			address = string(found[1])
+		}
+		return address, true, nil
 	case res.StatusCode >= 300 && res.StatusCode < 400:
 		if to, err := url.Parse(res.Header.Get("Location")); err == nil && to.Host == "accounts.google.com" {
-			return false, nil
+			return "", false, nil
 		}
 	}
-	return false, fmt.Errorf("checking the session: HTTP %d", res.StatusCode)
+	return "", false, fmt.Errorf("checking the session: HTTP %d", res.StatusCode)
 }
 
 // Exports lists the exports /manage shows, newest first.

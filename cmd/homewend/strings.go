@@ -15,7 +15,7 @@ Commands:
   login     sign in to Google, once, in your own browser
   logout    sign out: delete the browser profile login made
   get       bring your photos from Google into a folder
-  takeouts  list the exports on your Google Takeout, with their ids
+  takeouts  list the exports on your Google Takeout
   verify    count a library again against the export's manifest
   version   print the version
   help      show help for a command
@@ -25,7 +25,7 @@ Start here:
   homewend get --year 2025 --library ~/Pictures/Homewend
 
 Run "homewend help <command>" for its flags and examples.
-Exit codes: 0 done, 1 error, 2 something is missing, 3 not signed in.
+
 https://homewend.app`,
 
 	"help login": `homewend login — sign in to Google, once
@@ -36,9 +36,9 @@ Usage:
 Opens a small Chrome, Chromium, Brave or Edge window on a profile of its own
 and waits while you sign in to Google there. Google asks you to let Homewend
 see your email address: that is how the window knows you are done, and nothing
-is read with it. Homewend never sees your password: it keeps the
-browser profile, and every later command reads the session from it. Run it
-again whenever a command says the session expired.
+is read with it. Homewend never sees your password: it keeps the browser
+profile, and every later command reads the session from it. Run it again
+whenever a command says the session expired.
 
 Flags:
   --profile DIR   browser profile to use (default: homewend/profile in your
@@ -142,6 +142,7 @@ Examples:
 
 	"sign in":           "sign in to Google in a separate window",
 	"signed in":         "signed in",
+	"signed in as":      "signed in as %s",
 	"signed out":        "signed out: the browser profile is deleted",
 	"was not signed in": "not signed in: there was no browser profile to delete",
 	"all photos":        "all your photos",
@@ -156,6 +157,7 @@ later. It picks up where it left off, and never asks Google twice.
 	"continue":          "Continue? [y/N] ",
 	"not asked":         "nothing asked: no new export was requested",
 	"already signed in": "already signed in",
+	"already as":        "already signed in as %s",
 	"not signed in":     "sign-in did not finish: run homewend login again",
 	"no browser":        "no Chrome, Chromium, Brave or Edge found on this machine: install one, or set BROWSER_BIN to its path",
 	"in library":        "\nthis export is already all in this folder: nothing to download, checking it again",

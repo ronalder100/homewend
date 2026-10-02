@@ -158,6 +158,11 @@ the page. The fields read, by position (two exports, one live and one expired,
 | 23 | when Google finished preparing it |
 | 24, 25 | expiry while live; the day it expired, once expired |
 | 27 | the manifest's archive, shaped like a part; `null` once expired |
+
+The page also names the account it is shown to, in the data its scripts start
+from: `"oPEP7c":"<address>"`, the quotes escaped (2026-10-02). `login` reads it
+there to say whose session it is, on the screen and nowhere else: a person
+with two Google accounts has to know which one their photos come from.
 | 31 | the long user id |
 
 So one page gives every export, whether it can be downloaded, and every part by

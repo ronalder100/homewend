@@ -19,6 +19,7 @@ import (
 var (
 	mutedColour = lipgloss.Color("#9AA5CE") // --muted: what to do next, said quietly
 	faintColour = lipgloss.Color("#565F89") // --faint: what is over
+	lineColour  = lipgloss.Color("#292E42") // --line: a hairline, all but off
 
 	okColour     = lipgloss.Color("#9ECE6A") // --ok: done
 	errColour    = lipgloss.Color("#F7768E") // --err: failed, or missing

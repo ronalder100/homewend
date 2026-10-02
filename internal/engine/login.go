@@ -34,19 +34,20 @@ func DefaultProfile() (string, error) {
 // opens Google's sign-in in a small browser window, waits until Google sends
 // the user back to our page, and closes the window.
 //
-// It reports whether the profile was already signed in.
-func Login(ctx context.Context, sess *session.Session, emit progress.Func) (already bool, err error) {
-	if ok, err := signedIn(sess); ok || err != nil {
-		return ok, err
+// It reports whose session it is, as Google names the account, and whether the
+// profile was already signed in.
+func Login(ctx context.Context, sess *session.Session, emit progress.Func) (account string, already bool, err error) {
+	if account, ok, err := signedIn(sess); ok || err != nil {
+		return account, ok, err
 	}
 	back, err := signin.Listen()
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	defer back.Close()
 	w, err := sess.OpenSignIn(back.URL())
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	emit.Emit(progress.Event{Stage: progress.SignIn})
 
@@ -54,9 +55,9 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (alre
 	select {
 	case <-ctx.Done():
 		w.Close()
-		return false, ctx.Err()
+		return "", false, ctx.Err()
 	case <-w.Exited():
-		return false, ErrNotSignedIn
+		return "", false, ErrNotSignedIn
 	case result = <-back.Done():
 	}
 	// Long enough for the page's animation to play out, so the user sees how
@@ -69,12 +70,13 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (alre
 	// shutdown, not only on its 30-second timer.
 	w.Close()
 	if result != nil {
-		return false, ErrNotSignedIn
+		return "", false, ErrNotSignedIn
 	}
 	if !cookiesLanded(sess) {
-		return false, ErrNotSignedIn
+		return "", false, ErrNotSignedIn
 	}
-	return false, openTakeout(ctx, sess, emit)
+	account, err = openTakeout(ctx, sess, emit)
+	return account, false, err
 }
 
 // openTakeout opens Takeout once, out of sight, so the profile holds
@@ -83,18 +85,18 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (alre
 // opening Takeout signed in, and without them Takeout sends the session to
 // sign in (measured 2026-10-01). The old sign-in started at Takeout and got
 // them on the way. Closing the page waits for them to reach the disk.
-func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func) error {
+func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func) (account string, err error) {
 	emit.Emit(progress.Event{Stage: progress.SessionReady})
 	page, err := sess.Headless(ctx, takeout.ManageURL)
 	if err != nil {
-		return err
+		return "", err
 	}
 	page.Close()
-	ok, err := signedIn(sess)
+	account, ok, err := signedIn(sess)
 	if err == nil && !ok {
 		err = ErrNotSignedIn
 	}
-	return err
+	return account, err
 }
 
 // cookiesLanded waits for the session cookies to reach the profile after the
@@ -111,11 +113,12 @@ func cookiesLanded(sess *session.Session) bool {
 	return false
 }
 
-// signedIn reports whether the profile holds a session Google accepts.
-func signedIn(sess *session.Session) (bool, error) {
+// signedIn reports whether the profile holds a session Google accepts, and
+// whose.
+func signedIn(sess *session.Session) (account string, ok bool, err error) {
 	_, names, err := sess.Cookies()
 	if err != nil || !names["SID"] || !names["SSID"] {
-		return false, nil
+		return "", false, nil
 	}
-	return takeout.SignedIn(sess)
+	return takeout.Account(sess)
 }

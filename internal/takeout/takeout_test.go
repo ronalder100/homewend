@@ -120,6 +120,7 @@ func TestUserFromDownload(t *testing.T) {
 type answer struct {
 	status   int
 	location string
+	body     string
 }
 
 func (a answer) Get(string, map[string]string) (*http.Response, error) {
@@ -127,7 +128,22 @@ func (a answer) Get(string, map[string]string) (*http.Response, error) {
 	if a.location != "" {
 		header.Set("Location", a.location)
 	}
-	return &http.Response{StatusCode: a.status, Header: header, Body: io.NopCloser(strings.NewReader(""))}, nil
+	return &http.Response{StatusCode: a.status, Header: header, Body: io.NopCloser(strings.NewReader(a.body))}, nil
+}
+
+// The page says whose session it is, with its quotes escaped or not; a page
+// that does not is still a session.
+func TestAccountReadsTheAddress(t *testing.T) {
+	for body, want := range map[string]string{
+		`x,\"oPEP7c\":\"someone@example.com\",\"p9hQne\":\"y\"`: "someone@example.com",
+		`{"oPEP7c":"someone@example.com","p9hQne":"y"}`:         "someone@example.com",
+		`<html>no such thing</html>`:                            "",
+	} {
+		address, ok, err := Account(answer{status: 200, body: body})
+		if address != want || !ok || err != nil {
+			t.Errorf("%s: got %q, %v, %v; want %q, signed in", body, address, ok, err, want)
+		}
+	}
 }
 
 func TestSignedInAsksGoogle(t *testing.T) {
@@ -137,9 +153,9 @@ func TestSignedInAsksGoogle(t *testing.T) {
 		err    bool
 	}{
 		{answer{status: 200}, true, false},
-		{answer{302, "https://accounts.google.com/ServiceLogin?passive=1209600&continue=https://takeout.google.com/manage"}, false, false},
+		{answer{status: 302, location: "https://accounts.google.com/ServiceLogin?passive=1209600&continue=https://takeout.google.com/manage"}, false, false},
 		// A redirect anywhere else, or a failure, says nothing about the session.
-		{answer{302, "https://takeout.google.com/"}, false, true},
+		{answer{status: 302, location: "https://takeout.google.com/"}, false, true},
 		{answer{status: 500}, false, true},
 	}
 	for _, c := range cases {

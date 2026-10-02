@@ -111,7 +111,7 @@ func (g Get) libraryNote() string {
 }
 
 func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func) (Result, error) {
-	if _, err := Login(ctx, sess, emit); err != nil {
+	if _, _, err := Login(ctx, sess, emit); err != nil {
 		return Result{}, err
 	}
 	job, err := g.pick(sess)
