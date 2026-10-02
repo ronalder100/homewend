@@ -31,7 +31,7 @@ https://homewend.app`,
 	"help login": `homewend login — sign in to Google, once
 
 Usage:
-  homewend login [--profile DIR] [--json]
+  homewend login [--profile DIR] [--fallback] [--json]
 
 Opens a small Chrome, Chromium, Brave or Edge window on a profile of its own
 and waits while you sign in to Google there. Google asks you to let Homewend
@@ -43,10 +43,14 @@ whenever a command says the session expired.
 Flags:
   --profile DIR   browser profile to use (default: homewend/profile in your
                   config directory)
+  --fallback      sign in on Google Takeout's page, in a full browser window:
+                  for when the small window shows a Google error instead of
+                  the sign-in
   --json          one JSON object per line, for scripts
 
 Examples:
   homewend login
+  homewend login --fallback
   BROWSER_BIN=/usr/bin/brave-browser homewend login`,
 
 	"help logout": `homewend logout — sign out of Google
@@ -178,7 +182,7 @@ later. It picks up where it left off, and never asks Google twice.
 	"already signed in": "already signed in",
 	"already as":        "already signed in as %s",
 	"not signed in":     "sign-in did not finish: run homewend login again",
-	"sign-in closed":    "the sign-in window was closed before Google finished: run homewend login again",
+	"sign-in closed":    "the sign-in window was closed before Google finished: run homewend login again, or homewend login --fallback if the window showed a Google error",
 	"sign-in declined":  "Google did not sign you in: run homewend login again",
 	"session lost":      "you signed in, but the session was not kept (%v): run homewend login again",
 	"no browser":        "no Chrome, Chromium, Brave or Edge found on this machine: install one, or set BROWSER_BIN to its path",

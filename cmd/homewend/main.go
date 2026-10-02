@@ -206,6 +206,7 @@ func newFlags(name string) *flag.FlagSet {
 func login(args []string) int {
 	flags := newFlags("login")
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
+	fallback := flags.Bool("fallback", false, "sign in on Google Takeout's page, in a full browser window")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
 	out := newPrinter(*asJSON)
@@ -220,7 +221,11 @@ func login(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	account, already, err := engine.Login(ctx, sess, out.event)
+	signIn := engine.Login
+	if *fallback {
+		signIn = engine.LoginAtTakeout
+	}
+	account, already, err := signIn(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
 	}

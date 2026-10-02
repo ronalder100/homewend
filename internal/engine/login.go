@@ -98,6 +98,46 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 	return account, false, err
 }
 
+// LoginAtTakeout is Login with nothing of ours on Google's side: for the day
+// Google refuses our client, as it did on 2026-10-01 ("Error 401:
+// disabled_client"), when sign-in stopped for every installed copy. It opens
+// the browser on Takeout, which sends the user through Google's sign-in,
+// waits for them, and closes it once they are in. The window is a full one
+// and ends on Takeout; the app knows it is over when Chrome writes the
+// cookies, up to 30 seconds later. Takeout's own cookies come on the way.
+func LoginAtTakeout(ctx context.Context, sess *session.Session, emit progress.Func) (account string, already bool, err error) {
+	emit.Emit(progress.Event{Stage: progress.Checking})
+	if ok, err := signedIn(sess); ok || err != nil {
+		return "", ok, err
+	}
+	err = inWindow(ctx, sess, takeout.PhotosURL, progress.SignIn, signInDone(sess), emit)
+	if errors.Is(err, errWindowClosed) {
+		return "", false, ErrSignInClosed
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return Account(sess), false, nil
+}
+
+// signInDone is the check the Takeout sign-in window polls. It asks Google
+// only when the cookies have changed since it last asked: the window looks
+// every two seconds, a revoked session keeps its old cookies until the user
+// signs in again, and a person does not refresh a page that often. A failed
+// check counts as not yet, and is tried again when the cookies next change.
+func signInDone(sess *session.Session) func() bool {
+	var asked string
+	return func() bool {
+		cookies, names, err := sess.Cookies()
+		if err != nil || !names["SID"] || !names["SSID"] || cookies == asked {
+			return false
+		}
+		asked = cookies
+		ok, _ := takeout.SignedIn(sess)
+		return ok
+	}
+}
+
 // accountFile keeps the address of the account the profile is signed in to.
 // It is inside the profile, so that it goes when the profile does.
 func accountFile(sess *session.Session) string {
