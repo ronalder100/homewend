@@ -1,0 +1,14 @@
+# homewend — Copyright (C) 2026 Ron Alder
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Pinned actions and Go modules only stay safe if someone bumps them.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
