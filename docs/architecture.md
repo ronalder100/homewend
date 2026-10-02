@@ -115,6 +115,20 @@ through OAuth. The user sees one extra screen, Google naming Homewend and
 asking to share their email address; that screen is also what says who is
 asking.
 
+**The profile never offers to save a password.** Its cookie key is a fixed
+one, and so is the key of anything else it stores: a password saved there
+would be as good as written in the clear. Before the browser starts, the app
+sets `credentials_enable_service` to false in `Default/Preferences`
+(`components/password_manager/core/common/password_manager_pref_names.h`);
+the browser keeps it, in a new profile and in one it made itself (Chromium
+144, 2026-10-02). Not seen yet: a sign-in with no bubble.
+
+**A sign-in that does not finish says how.** The window closed before Google
+sent the user back, with how the browser ended when it did not end cleanly;
+Google sent them back without signing them in, with Google's word for it;
+they signed in and the session did not reach the disk, or Takeout did not
+accept it.
+
 Shutting the browser down writes the cookies out, but its main process can
 exit before they reach the disk: a read right after the exit found none, and
 the file was written 170 ms later (2026-10-01). The app waits for them, up to

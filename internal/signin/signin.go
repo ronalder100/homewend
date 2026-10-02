@@ -25,6 +25,7 @@ import (
 	"crypto/rand"
 	"embed"
 	"errors"
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -124,7 +125,8 @@ func (l *Listener) redirect(w http.ResponseWriter, r *http.Request) {
 	var result error
 	shown := "ok"
 	if q.Get("code") == "" {
-		result, shown = ErrCancelled, "cancelled"
+		// With Google's own word for why, for whoever has to find out.
+		result, shown = fmt.Errorf("%w: %s", ErrCancelled, q.Get("error")), "cancelled"
 	}
 	page.Execute(w, map[string]any{"OK": result == nil, "Text": text[shown]})
 	select {

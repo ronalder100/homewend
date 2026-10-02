@@ -6,6 +6,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,6 +20,19 @@ import (
 // ErrNotSignedIn means sign-in did not complete: the window was closed first,
 // or the user declined.
 var ErrNotSignedIn = errors.New("sign-in did not complete")
+
+// The ways it does not, each one an ErrNotSignedIn: told apart because what
+// the user does next differs, and so that a failure can be found.
+var (
+	// The browser went before Google sent the user back: closed, or stopped.
+	ErrSignInClosed = fmt.Errorf("%w: the browser closed before Google sent the user back", ErrNotSignedIn)
+	// Google sent the user back without signing them in.
+	ErrSignInDeclined = fmt.Errorf("%w: Google sent the user back without signing them in", ErrNotSignedIn)
+	// Signed in, but the session never reached the profile on disk.
+	ErrSessionNotWritten = fmt.Errorf("%w: the browser closed without writing the session", ErrNotSignedIn)
+	// Signed in, but Takeout does not accept the session.
+	ErrSessionNotAccepted = fmt.Errorf("%w: Takeout does not accept the new session", ErrNotSignedIn)
+)
 
 // DefaultProfile is where the browser profile lives unless told otherwise: in
 // the user's config directory, because it is settings and a session, not data.
@@ -57,7 +71,10 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 		w.Close()
 		return "", false, ctx.Err()
 	case <-w.Exited():
-		return "", false, ErrNotSignedIn
+		if err := w.Err(); err != nil {
+			return "", false, fmt.Errorf("%w (%v)", ErrSignInClosed, err)
+		}
+		return "", false, ErrSignInClosed
 	case result = <-back.Done():
 	}
 	// Long enough for the page's animation to play out, so the user sees how
@@ -70,10 +87,10 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 	// shutdown, not only on its 30-second timer.
 	w.Close()
 	if result != nil {
-		return "", false, ErrNotSignedIn
+		return "", false, fmt.Errorf("%w (%v)", ErrSignInDeclined, result)
 	}
 	if !cookiesLanded(sess) {
-		return "", false, ErrNotSignedIn
+		return "", false, ErrSessionNotWritten
 	}
 	account, err = openTakeout(ctx, sess, emit)
 	return account, false, err
@@ -94,7 +111,7 @@ func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func)
 	page.Close()
 	account, ok, err := signedIn(sess)
 	if err == nil && !ok {
-		err = ErrNotSignedIn
+		err = ErrSessionNotAccepted
 	}
 	return account, err
 }

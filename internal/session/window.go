@@ -4,8 +4,11 @@
 package session
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 )
 
@@ -13,6 +16,7 @@ import (
 type Window struct {
 	cmd    *exec.Cmd
 	exited chan struct{}
+	err    error
 }
 
 // Open launches the browser on the session's profile, at url, in a window the
@@ -40,6 +44,9 @@ func (s *Session) launch(open ...string) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.neverSavePasswords(); err != nil {
+		return nil, err
+	}
 	args := []string{
 		"--user-data-dir=" + s.Profile,
 		// A fixed password for the cookie key, so that we can read the cookies
@@ -58,11 +65,48 @@ func (s *Session) launch(open ...string) (*Window, error) {
 	}
 	w := &Window{cmd: cmd, exited: make(chan struct{})}
 	go func() {
-		cmd.Wait()
+		w.err = cmd.Wait()
 		close(w.exited)
 	}()
 	return w, nil
 }
+
+// neverSavePasswords tells the browser not to offer to save a password in
+// this profile. The profile's cookie key is a fixed one (see derivedKey), and
+// so is the key of anything else it stores: a password saved here would be as
+// good as written in the clear. It also takes one bubble off the sign-in.
+//
+// The preference is credentials_enable_service
+// (components/password_manager/core/common/password_manager_pref_names.h:
+// "When it is false, it doesn't ask if you want to save passwords"). Written
+// into Default/Preferences before the browser starts, it is kept, in a new
+// profile and in one the browser made itself: Chromium 144, 2026-10-02.
+func (s *Session) neverSavePasswords() error {
+	path := filepath.Join(s.Profile, "Default", "Preferences")
+	prefs := map[string]any{}
+	if raw, err := os.ReadFile(path); err == nil {
+		// A file that does not parse is the browser's to repair, not ours.
+		if json.Unmarshal(raw, &prefs) != nil {
+			return nil
+		}
+	}
+	if prefs["credentials_enable_service"] == false {
+		return nil
+	}
+	prefs["credentials_enable_service"] = false
+	raw, err := json.Marshal(prefs)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(path, raw, 0o600)
+}
+
+// Err is how the browser ended, once Exited is closed: nil when it exited
+// cleanly, as it does when the user closes it.
+func (w *Window) Err() error { return w.err }
 
 // Exited is closed when the user closes the browser.
 func (w *Window) Exited() <-chan struct{} { return w.exited }

@@ -4,6 +4,7 @@
 package session
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -46,6 +47,42 @@ func TestCloseAsksTheBrowserToShutDown(t *testing.T) {
 	}
 	if _, err := os.Stat(asked); err != nil {
 		t.Error("the browser was not asked to shut down")
+	}
+}
+
+// The browser is told not to offer to save passwords before it starts, in a
+// new profile and in one that has preferences already, whose others are kept.
+func TestOpenNeverOffersToSavePasswords(t *testing.T) {
+	dir := t.TempDir()
+	browser := filepath.Join(dir, "browser")
+	if err := os.WriteFile(browser, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BROWSER_BIN", browser)
+
+	for _, before := range []string{"", `{"credentials_enable_service":true,"other":7}`} {
+		sess, err := New(filepath.Join(t.TempDir(), "profile"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(sess.Profile, "Default", "Preferences")
+		if before != "" {
+			os.MkdirAll(filepath.Dir(path), 0o700)
+			os.WriteFile(path, []byte(before), 0o600)
+		}
+		w, err := sess.Open("about:blank")
+		if err != nil {
+			t.Fatal(err)
+		}
+		<-w.Exited()
+		raw, _ := os.ReadFile(path)
+		var prefs map[string]any
+		if err := json.Unmarshal(raw, &prefs); err != nil || prefs["credentials_enable_service"] != false {
+			t.Errorf("after %q: preferences %s", before, raw)
+		}
+		if before != "" && prefs["other"] != float64(7) {
+			t.Errorf("the other preferences were lost: %s", raw)
+		}
 	}
 }
 

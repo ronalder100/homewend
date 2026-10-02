@@ -528,6 +528,12 @@ func (p printer) fail(err error) int {
 		message = fmt.Sprintf(text["not offered"], notOffered.Year, strings.Join(years, ", "), strings.Join(albums, "\n  "))
 	case errors.Is(err, download.ErrSessionExpired):
 		code, message = exitSignIn, text["session expired"]
+	case errors.Is(err, engine.ErrSignInClosed):
+		code, message = exitSignIn, text["sign-in closed"]
+	case errors.Is(err, engine.ErrSignInDeclined):
+		code, message = exitSignIn, text["sign-in declined"]
+	case errors.Is(err, engine.ErrSessionNotWritten), errors.Is(err, engine.ErrSessionNotAccepted):
+		code, message = exitSignIn, fmt.Sprintf(text["session lost"], err)
 	case errors.Is(err, engine.ErrNotSignedIn):
 		code, message = exitSignIn, text["not signed in"]
 	case errors.Is(err, context.Canceled):
