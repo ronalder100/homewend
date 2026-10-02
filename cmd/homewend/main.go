@@ -257,6 +257,11 @@ func login(args []string) int {
 	// which then is the first line of an empty screen.
 	out.clear()
 	out.line("signed_in", true, "%s", paint(os.Stdout, okColour, said))
+	// Whoever has just signed in is told what comes next, with the line to
+	// type; a script is told nothing it did not ask for.
+	if !already && !*asJSON {
+		out.say("%s", toType(os.Stdout, text["after login"]))
+	}
 	return exitOK
 }
 
@@ -490,16 +495,23 @@ func askedWrongly(said string, typed []string) int {
 		}
 		given += word + " "
 	}
-	lines := strings.Split(fmt.Sprintf(said, given), "\n")
-	if term.IsTerminal(int(os.Stderr.Fd())) {
-		for i, line := range lines {
-			if strings.HasPrefix(line, "  ") {
-				lines[i] = lipgloss.NewStyle().Foreground(accentColour).Render(line)
-			}
+	fmt.Fprintln(os.Stderr, toType(os.Stderr, fmt.Sprintf(said, given)))
+	return exitError
+}
+
+// toType puts the lines of said that are commands, the indented ones, in the
+// accent, when out is a terminal.
+func toType(out *os.File, said string) string {
+	if !term.IsTerminal(int(out.Fd())) {
+		return said
+	}
+	lines := strings.Split(said, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "  ") {
+			lines[i] = lipgloss.NewStyle().Foreground(accentColour).Render(line)
 		}
 	}
-	fmt.Fprintln(os.Stderr, strings.Join(lines, "\n"))
-	return exitError
+	return strings.Join(lines, "\n")
 }
 
 // printer shows engine output either as text or as JSON lines. In a

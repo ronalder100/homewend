@@ -164,8 +164,12 @@ Examples:
 
 	"unknown command": "unknown command %q\n",
 
-	"sign in":           "sign in to Google in a separate window",
-	"signed in":         "signed in",
+	"sign in":   "sign in to Google in a separate window",
+	"signed in": "signed in",
+	"after login": `
+now bring your photos home, here one year of them:
+
+  homewend get --year 2025 --library ~/Pictures/Homewend`,
 	"signed in as":      "signed in as %s",
 	"signed out":        "signed out: the browser profile is deleted",
 	"was not signed in": "not signed in: there was no browser profile to delete",

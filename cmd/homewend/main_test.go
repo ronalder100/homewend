@@ -141,6 +141,23 @@ func TestGetAsksBeforeGoogleIsAsked(t *testing.T) {
 	}
 }
 
+// What comes after a sign-in is said with the command to type, and stays
+// plain text where there is no terminal to colour it for.
+func TestAfterLoginSaysWhatToType(t *testing.T) {
+	said := text["after login"]
+	if !strings.Contains(said, "\n  homewend get --year 2025 --library ~/Pictures/Homewend") {
+		t.Errorf("no command to type in %q", said)
+	}
+	file, err := os.CreateTemp(t.TempDir(), "out")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if got := toType(file, said); got != said {
+		t.Errorf("coloured outside a terminal: %q", got)
+	}
+}
+
 func TestUnknownCommand(t *testing.T) {
 	out, code := homewend(t, "download")
 	if code != exitError || !strings.Contains(out, `unknown command "download"`) {
