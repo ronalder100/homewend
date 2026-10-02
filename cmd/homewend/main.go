@@ -584,7 +584,10 @@ func (p printer) event(e progress.Event) {
 			p.say("%s", text["session status"])
 		}
 	case progress.Request:
-		p.say("%s", text["request"])
+		// In a terminal the status line says it, and counts.
+		if p.live == nil {
+			p.say("%s", text["request"])
+		}
 	case progress.Waiting:
 		p.say("%s", text["waiting"])
 		p.say("%s", p.notice(text["restart"]))

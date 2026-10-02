@@ -208,7 +208,7 @@ Examples:
 
 	"checking status": "checking your Google session",
 	"session status":  "setting up your Google account",
-	"asking status":   "asking Google for the export, a minute or two",
+	"asking status":   "sending the request to Google",
 	"waiting status":  "waiting for Google, it can take a few hours",
 	"download status": "[%d/%d] %s · %s of %s",
 	"download rate":   " · %s/s · %s left",
