@@ -131,8 +131,6 @@ Homewend/
 - You sign in **in your own browser**. Homewend never sees your password.
 - It proves everything Google put in the export reached your disk. It cannot prove Google exported your whole library; nobody outside Google can.
 
-In detail: [`architecture.md`](docs/architecture.md) · [`principles.md`](docs/principles.md) · [`engine.md`](docs/engine.md)
-
 ## License
 
 [AGPL-3.0](LICENSE): free to use on your computer or NAS; run a changed version as a service and you publish your changes.

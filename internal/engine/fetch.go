@@ -271,8 +271,8 @@ func (st state) save(work string) error {
 
 // unpackOrAgain unpacks a downloaded part and, when its bytes turn out damaged,
 // deletes it and downloads it once more. Again costs none of Google's five
-// downloads: the URL is built, not reached through Takeout's redirect
-// (docs/architecture.md). A part damaged twice is not a fluke, and stops the run.
+// downloads: the URL is built, not reached through Takeout's redirect. A part
+// damaged twice is not a fluke, and stops the run.
 func unpackOrAgain(path string, unpack, download func() error, damaged func()) error {
 	err := unpack()
 	if !errors.Is(err, library.ErrDamaged) {

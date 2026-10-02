@@ -64,8 +64,8 @@ func Part(ctx context.Context, g Getter, target takeout.Target, part takeout.Par
 	// One segment at a time, each from exactly where the last one stopped, and
 	// no blind retry loop inside the HTTP client: the point is to know how much
 	// arrived. A connection that drops after bringing bytes is picked up again
-	// at once — on the file host, which spends none of Google's five downloads
-	// (docs/architecture.md). One that brings nothing ends the attempt.
+	// at once — on the file host, which spends none of Google's five downloads.
+	// One that brings nothing ends the attempt.
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
