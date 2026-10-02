@@ -60,9 +60,10 @@ func TestCheckingTheSessionShowsAtOnce(t *testing.T) {
 	}
 }
 
-// What to do in the browser is in the middle of the window while it is
-// asked, and only then: the wait that follows is a line at the top again.
-func TestTheBrowserPromptIsInTheMiddle(t *testing.T) {
+// A sign-in is in the middle of the window, from the browser opening to the
+// account being set up, and only then: the check before it is a line at the
+// top, and so is whatever comes after.
+func TestASignInIsInTheMiddle(t *testing.T) {
 	var m tea.Model = newStatus()
 	for _, msg := range []tea.Msg{centre{}, tea.WindowSizeMsg{Width: 80, Height: 24}, progress.Event{Stage: progress.Checking}} {
 		m, _ = m.Update(msg)
@@ -86,8 +87,13 @@ func TestTheBrowserPromptIsInTheMiddle(t *testing.T) {
 		t.Errorf("%d spaces before the words, want about %d", before, want)
 	}
 	m, _ = m.Update(progress.Event{Stage: progress.SessionReady})
+	view := ansi.Strip(m.(status).View().Content)
+	if rows := strings.Split(view, "\n"); len(rows) != 23 || !strings.Contains(rows[11], text["session status"]) {
+		t.Errorf("setting up is not in the middle:\n%s", view)
+	}
+	m, _ = m.Update(progress.Event{Stage: progress.Request})
 	if rows := strings.Split(m.(status).View().Content, "\n"); len(rows) > 2 {
-		t.Errorf("setting up takes %d rows, want a line", len(rows))
+		t.Errorf("after the sign-in the status takes %d rows, want a line", len(rows))
 	}
 }
 

@@ -192,6 +192,9 @@ func login(args []string) int {
 	case account != "":
 		said = fmt.Sprintf(text["signed in as"], account)
 	}
+	// The sign-in leaves the middle of the window before its result is said,
+	// which then is the first line of an empty screen.
+	out.clear()
 	out.line("signed_in", true, "%s", paint(os.Stdout, okColour, said))
 	return exitOK
 }
@@ -403,10 +406,17 @@ func newPrinter(json bool) printer {
 
 // close takes the status line down. It can be called more than once.
 func (p printer) close() {
+	p.clear()
 	if p.live != nil {
-		p.live.Send(idle{})
 		p.live.Quit()
 		p.live.Wait()
+	}
+}
+
+// clear empties the status, so that what is said next is not said around it.
+func (p printer) clear() {
+	if p.live != nil {
+		p.live.Send(idle{})
 	}
 }
 

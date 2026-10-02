@@ -39,15 +39,16 @@ func startLive() *tea.Program {
 // a stale bar.
 type idle struct{}
 
-// centre puts what the user is asked to do in the browser in the middle of
-// the window, for as long as it is asked: for a command with no log above it,
-// like login. Everything else stays a line at the top.
+// centre puts a sign-in in the middle of the window, from the browser opening
+// to the account being set up: for a command with no log above it, like
+// login. Everything else stays a line at the top.
 type centre struct{}
 
 type status struct {
-	// What the user is asked to do goes in the middle of a window this wide
-	// and tall, when centring.
+	// A sign-in goes in the middle of a window this wide and tall, when
+	// centring; middle is whether one is going on.
 	centring      bool
+	middle        bool
 	width, height int
 
 	// Two ways of saying "not stuck": a dot that pulses while there is only
@@ -128,6 +129,7 @@ func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (s *status) show(e progress.Event, now time.Time) {
 	if e.Stage != progress.Receiving {
 		s.asks, s.apart = "", false
+		s.middle = e.Stage == progress.SignIn || e.Stage == progress.SessionReady
 	}
 	switch e.Stage {
 	case progress.Checking:
@@ -164,7 +166,7 @@ func (s *status) show(e progress.Event, now time.Time) {
 
 func (s status) View() tea.View {
 	line := s.line(time.Now())
-	if !s.centring || s.asks == "" || s.width == 0 {
+	if !s.centring || !s.middle || s.width == 0 {
 		return tea.NewView(line)
 	}
 	// A line longer than the window breaks between words, and each piece is
