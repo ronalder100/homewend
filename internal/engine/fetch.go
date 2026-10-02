@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -50,8 +49,9 @@ type Result struct {
 // for them are placed in the library: it fills up while the download goes
 // on, and whoever watches sees photos, not a promise of them. Nothing proves
 // that a photo's sidecar travels in the same part as the photo, so one that
-// has not got its sidecar yet waits for it, and is placed when it arrives; a
-// photo that never gets one is placed at the end, by what else is known.
+// has not got its sidecar yet waits for it, in the library's unassigned
+// folder, where it can be seen, and is filed when the sidecar arrives; a
+// photo that never gets one is filed at the end, by what else is known.
 // Placing is a rename on the same disk, so the peak stays about the size of
 // the export plus one part.
 //
@@ -120,21 +120,36 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	defer catalog.Close()
 
 	// place moves what has been unpacked into the library: what came with its
-	// sidecar, or, once every part is here, all that is left.
+	// sidecar, or, once every part is here, all that is left. What still
+	// waits is shown in the library's unassigned folder, so that the library
+	// is never empty while the download is not.
 	var organized library.Organized
 	place := func(all bool) error {
 		items, err := library.ReadTakeout(unpacked)
 		if err != nil {
 			return err
 		}
+		var waiting []library.Item
 		if !all {
-			items = slices.DeleteFunc(items, func(item library.Item) bool { return item.Capture.Source != library.FromSidecar })
+			ready := items[:0:0]
+			for _, item := range items {
+				if item.Capture.Source == library.FromSidecar {
+					ready = append(ready, item)
+				} else {
+					waiting = append(waiting, item)
+				}
+			}
+			items = ready
 		}
-		if len(items) == 0 {
-			return nil
+		if len(items) > 0 {
+			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, years.following(emit))
+			organized.Add(placed)
+			if err != nil {
+				return err
+			}
 		}
-		placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, years.following(emit))
-		organized.Add(placed)
+		shown, err := library.ShowUnassigned(f.Library, waiting)
+		emit.Emit(progress.Event{Stage: progress.Unassigned, N: shown})
 		return err
 	}
 	// What a run that was stopped left unpacked.

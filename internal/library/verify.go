@@ -118,6 +118,9 @@ func mediaOnDisk(dir string) (map[string]bool, error) {
 			if entry.Name() == WorkDir {
 				return filepath.SkipDir // our own working files, not the library
 			}
+			if path == filepath.Join(dir, Unassigned) {
+				return filepath.SkipDir // arrived, not filed: not in the library yet
+			}
 			return nil
 		}
 		name := entry.Name()

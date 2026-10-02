@@ -164,19 +164,30 @@ func TestPhotosArePlacedAsTheirPartsArrive(t *testing.T) {
 		Library:  t.TempDir(),
 		Location: time.UTC,
 	}
+	waiting := filepath.Join(f.Library, "unassigned", "Photos from 2024", "b.jpg")
 	var story []string
 	result, err := f.Run(context.Background(), served, func(e progress.Event) {
 		switch e.Stage {
 		case progress.Year:
 			story = append(story, fmt.Sprintf("%s %d/%d", e.Name, e.N, e.Of))
+		case progress.Unassigned:
+			story = append(story, fmt.Sprintf("unassigned %d", e.N))
 		case progress.Download:
 			story = append(story, "download "+e.Name)
+			// While the second part comes down, the photo that waits for it
+			// is there to be seen.
+			if _, err := os.Stat(waiting); e.Name == "part-002.zip" && err != nil {
+				t.Errorf("the waiting photo is not shown: %v", err)
+			}
 		}
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "download manifest.zip, 2024 0/2, download part-001.zip, 2024 1/2, download part-002.zip, 2024 2/2"
+	if _, err := os.Stat(filepath.Join(f.Library, "unassigned")); !os.IsNotExist(err) {
+		t.Error("the unassigned folder is still there at the end")
+	}
+	want := "download manifest.zip, 2024 0/2, unassigned 0, download part-001.zip, 2024 1/2, unassigned 1, download part-002.zip, 2024 2/2, unassigned 0, unassigned 0"
 	if got := strings.Join(story, ", "); got != want {
 		t.Errorf("it went\n  %s\nwant\n  %s", got, want)
 	}

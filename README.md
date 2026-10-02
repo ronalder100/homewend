@@ -127,6 +127,7 @@ Homewend/
 - One folder per year and month. `unknown-month/` when Google knows only the year.
 - Albums link to the same photos: no extra space, where the disk allows links.
 - `undated/` for photos with no date at all.
+- `unassigned/`, only while a download is going on: photos that have arrived and still wait for their date. It empties as the dates arrive, and is gone at the end.
 - `.homewend/` keeps Google's `.json` files, the catalogue and the progress.
 
 ## How Homewend works with Google

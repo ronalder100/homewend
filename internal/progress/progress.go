@@ -25,6 +25,7 @@ const (
 	Damaged       = "damaged"        // a part failed its check on unpacking and is downloaded again
 	Unpack        = "unpack"         // a part is being opened
 	Place         = "place"          // a photo is being placed in the library
+	Unassigned    = "unassigned"     // photos that have arrived and wait for their date, shown in the library's unassigned folder: N of them
 	Year          = "year"           // one year of the export: Name is the year, Of the photos Google lists for it, N those in the library so far
 	Update        = "update"         // a new homewend is arriving; Done and Total are bytes
 )
