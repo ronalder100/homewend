@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # The identity the checksums are signed with.
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,6 +27,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test ./...
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           distribution: goreleaser
@@ -32,3 +35,11 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The check SECURITY.md tells people to run, run here on what was just
+      # published: if it does not pass, the release says so.
+      - run: >
+          cosign verify-blob
+          --certificate-identity-regexp '^https://github\.com/ronalder100/homewend/\.github/workflows/release\.yml@refs/tags/v'
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          --bundle dist/homewend_checksums.txt.sigstore.json
+          dist/homewend_checksums.txt

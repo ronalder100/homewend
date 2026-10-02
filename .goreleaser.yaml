@@ -25,3 +25,16 @@ archives:
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
+
+# The checksums are signed, and with them every binary they name: keyless,
+# with the identity of the release workflow, into one Sigstore bundle beside
+# the file (goreleaser.com/customization/sign).
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - "sign-blob"
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
