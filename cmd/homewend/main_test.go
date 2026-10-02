@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"io"
 	"os"
 	"os/exec"
@@ -111,22 +112,17 @@ func TestACommandAskedWronglySaysWhatToType(t *testing.T) {
 	}
 }
 
-// typing stands in for what the user types at the next question.
+// typing stands in for what the user types at the questions that follow.
 func typing(t *testing.T, reply string) {
 	t.Helper()
-	read, write, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	write.WriteString(reply)
-	write.Close()
-	keyboard := os.Stdin
-	os.Stdin = read
-	t.Cleanup(func() { os.Stdin = keyboard; read.Close() })
+	keyboard := replies
+	replies = bufio.NewReader(strings.NewReader(reply))
+	t.Cleanup(func() { replies = keyboard })
 }
 
 // Before a new export, Enter is yes and only a no stops it. With an export
-// already there, Enter downloads it and only an n asks Google for a new one.
+// already there, the choice is by number: Enter or 1 downloads it, 2 asks
+// Google for a new one.
 func TestGetAsksBeforeGoogleIsAsked(t *testing.T) {
 	g := engine.Get{Year: 2025}
 	for reply, want := range map[string]bool{"\n": true, "y\n": true, "Y\n": true, "n\n": false, "no\n": false} {
@@ -135,7 +131,9 @@ func TestGetAsksBeforeGoogleIsAsked(t *testing.T) {
 			t.Errorf("a new export, reply %q: got %v, want %v", reply, got, want)
 		}
 	}
-	for reply, want := range map[string]bool{"\n": false, "d\n": false, "D\n": false, "n\n": true, "N\n": true} {
+	// A reply that is neither number is asked again: here the n of a habit,
+	// then the answer.
+	for reply, want := range map[string]bool{"\n": false, "1\n": false, "2\n": true, "n\n2\n": true, "n\n\n": false} {
 		typing(t, reply)
 		if got := wantsNew(g, engine.Found{}); got != want {
 			t.Errorf("an export already there, reply %q: asks for a new one %v, want %v", reply, got, want)

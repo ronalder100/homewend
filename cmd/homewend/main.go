@@ -325,9 +325,13 @@ func what(g engine.Get) string {
 // answer asks a question and reads the reply, in lower case.
 func answer(question string) string {
 	fmt.Print(paint(os.Stdout, accentColour, question))
-	reply, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	reply, _ := replies.ReadString('\n')
 	return strings.ToLower(strings.TrimSpace(reply))
 }
+
+// replies is what the user types. One reader for every question: a second
+// one would not see what the first had already read ahead.
+var replies = bufio.NewReader(os.Stdin)
 
 // confirmNew says that get is about to ask Google for a new export, and asks
 // to go on. Enter is yes.
@@ -341,14 +345,22 @@ func confirmNew(g engine.Get) bool {
 }
 
 // wantsNew says that Google already has an export of these photos, which one,
-// and asks whether to download it or to ask for a new one. Enter downloads it.
+// and asks which of two things to do, by number: download it, or ask for a
+// new one. Enter downloads it; anything that is neither number is asked again.
 func wantsNew(g engine.Get, found engine.Found) bool {
+	number := func(n string) string { return paint(os.Stdout, accentColour, n) }
 	fmt.Printf(text["have one"], what(g), found.ID, found.Created.Local().Format("2006-01-02 15:04"), size(found.Bytes), found.Status)
-	switch answer(text["that or new"]) {
-	case "n", "new":
-		return true
+	fmt.Printf(text["option"], number("1"), text["download that"])
+	fmt.Printf(text["option"], number("2"), text["ask for new"])
+	fmt.Println()
+	for {
+		switch answer(text["choose"]) {
+		case "", "1":
+			return false
+		case "2":
+			return true
+		}
 	}
-	return false
 }
 
 func logout(args []string) int {
