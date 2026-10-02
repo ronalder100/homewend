@@ -11,10 +11,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/takeout"
@@ -127,5 +130,63 @@ func TestTheManifestComesFirstAndTheYearsAreFollowed(t *testing.T) {
 	}
 	if len(served.asked) != 0 || strings.Join(years, ", ") != "2024 1/1, 2025 2/2" {
 		t.Errorf("a second run asked for %v and said %q", served.asked, strings.Join(years, ", "))
+	}
+}
+
+// The library fills while the download goes on: a photo is placed as soon as
+// the part with its sidecar is unpacked, before the next part is asked for.
+// One whose sidecar travels in a later part waits for it, and is filed by it.
+func TestPhotosArePlacedAsTheirPartsArrive(t *testing.T) {
+	const taken = `{"photoTakenTime":{"timestamp":"1721000000"}}` // July 2024
+	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
+		<div class="extracted-folder-name">Photos from 2024</div>
+		<div class="extracted-file-name">a.jpg</div>
+		<div class="extracted-file-name">b.jpg</div>`})
+	first := archive(t, map[string]string{
+		"Takeout/Google Photos/Photos from 2024/a.jpg":                            "photo a",
+		"Takeout/Google Photos/Photos from 2024/a.jpg.supplemental-metadata.json": taken,
+		"Takeout/Google Photos/Photos from 2024/b.jpg":                            "photo b",
+	})
+	second := archive(t, map[string]string{
+		"Takeout/Google Photos/Photos from 2024/b.jpg.supplemental-metadata.json": taken,
+	})
+	served := &host{files: map[string][]byte{"part-001.zip": first, "part-002.zip": second, "manifest.zip": manifest}}
+	f := Fetch{
+		Target: takeout.Target{Job: "job", User: "1"},
+		Export: takeout.Export{
+			Job: "job",
+			Parts: []takeout.Part{
+				{Index: 0, Filename: "part-001.zip", Size: int64(len(first))},
+				{Index: 1, Filename: "part-002.zip", Size: int64(len(second))},
+			},
+			Manifest: takeout.Part{Index: 2, Filename: "manifest.zip", Size: int64(len(manifest))},
+		},
+		Library:  t.TempDir(),
+		Location: time.UTC,
+	}
+	var story []string
+	result, err := f.Run(context.Background(), served, func(e progress.Event) {
+		switch e.Stage {
+		case progress.Year:
+			story = append(story, fmt.Sprintf("%s %d/%d", e.Name, e.N, e.Of))
+		case progress.Download:
+			story = append(story, "download "+e.Name)
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "download manifest.zip, 2024 0/2, download part-001.zip, 2024 1/2, download part-002.zip, 2024 2/2"
+	if got := strings.Join(story, ", "); got != want {
+		t.Errorf("it went\n  %s\nwant\n  %s", got, want)
+	}
+	// Both by the sidecar's date, the late one too: not by the year folder.
+	for _, name := range []string{"a.jpg", "b.jpg"} {
+		if _, err := os.Stat(filepath.Join(f.Library, "2024", "07", name)); err != nil {
+			t.Errorf("%s is not filed under July 2024: %v", name, err)
+		}
+	}
+	if result.Organized.Placed != 2 || !result.Verification.Complete() {
+		t.Errorf("placed %d, verification %+v", result.Organized.Placed, result.Verification)
 	}
 }

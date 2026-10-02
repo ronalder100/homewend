@@ -34,6 +34,28 @@ type Organized struct {
 	ByOrigin map[Origin]int `json:"by_origin"`
 }
 
+// Add counts another pass in with this one.
+func (o *Organized) Add(more Organized) {
+	o.Placed += more.Placed
+	o.Bytes += more.Bytes
+	o.Linked += more.Linked
+	o.Copied += more.Copied
+	o.Skipped += more.Skipped
+	o.Undated += more.Undated
+	if o.BySource == nil {
+		o.BySource = map[DateSource]int{}
+	}
+	for source, n := range more.BySource {
+		o.BySource[source] += n
+	}
+	if o.ByOrigin == nil {
+		o.ByOrigin = map[Origin]int{}
+	}
+	for origin, n := range more.ByOrigin {
+		o.ByOrigin[origin] += n
+	}
+}
+
 // Options for an organise pass.
 type Options struct {
 	// The timezone the dates are read in. Google's sidecars are UTC, and the

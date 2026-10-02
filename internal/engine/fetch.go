@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,11 +46,14 @@ type Result struct {
 // placed, whatever order Google's parts arrive in.
 //
 // Parts are taken one at a time: downloaded, unpacked, recorded, and only
-// then deleted, so the disk holds the growing unpacked tree plus one part.
-// Placing waits until every part is unpacked, because nothing proves that a
-// photo's sidecar travels in the same part as the photo. Placing is a rename
-// on the same disk, so the peak stays about the size of the export plus one
-// part.
+// then deleted. After each one, the photos that came with Google's own date
+// for them are placed in the library: it fills up while the download goes
+// on, and whoever watches sees photos, not a promise of them. Nothing proves
+// that a photo's sidecar travels in the same part as the photo, so one that
+// has not got its sidecar yet waits for it, and is placed when it arrives; a
+// photo that never gets one is placed at the end, by what else is known.
+// Placing is a rename on the same disk, so the peak stays about the size of
+// the export plus one part.
 //
 // Every step can be interrupted and run again: a part resumes from its last
 // byte, an unpacked part is not unpacked twice, and the organiser finishes any
@@ -109,6 +113,35 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	}
 	years.report(emit)
 
+	catalog, err := library.OpenCatalog(filepath.Join(f.Library, library.WorkDir, "catalog.db"))
+	if err != nil {
+		return Result{}, err
+	}
+	defer catalog.Close()
+
+	// place moves what has been unpacked into the library: what came with its
+	// sidecar, or, once every part is here, all that is left.
+	var organized library.Organized
+	place := func(all bool) error {
+		items, err := library.ReadTakeout(unpacked)
+		if err != nil {
+			return err
+		}
+		if !all {
+			items = slices.DeleteFunc(items, func(item library.Item) bool { return item.Capture.Source != library.FromSidecar })
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, years.following(emit))
+		organized.Add(placed)
+		return err
+	}
+	// What a run that was stopped left unpacked.
+	if err := place(false); err != nil {
+		return Result{}, err
+	}
+
 	for i, part := range f.Export.Parts {
 		path := filepath.Join(parts, part.Filename)
 		if !st.Unpacked[part.Filename] {
@@ -130,6 +163,12 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			if err := st.save(work); err != nil {
 				return Result{}, err
 			}
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return Result{}, err
+			}
+			if err := place(false); err != nil {
+				return Result{}, err
+			}
 		}
 		// Deleted only once it is recorded as unpacked, and again on every
 		// run, in case the last one stopped in between.
@@ -138,18 +177,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		}
 	}
 
-	catalog, err := library.OpenCatalog(filepath.Join(f.Library, library.WorkDir, "catalog.db"))
-	if err != nil {
-		return Result{}, err
-	}
-	defer catalog.Close()
-
-	items, err := library.ReadTakeout(unpacked)
-	if err != nil {
-		return Result{}, err
-	}
-	organized, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, years.following(emit))
-	if err != nil {
+	if err := place(true); err != nil {
 		return Result{}, err
 	}
 
