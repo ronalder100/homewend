@@ -151,10 +151,16 @@ func login(args []string) int {
 		fmt.Print(ansi.CursorHomePosition + ansi.EraseEntireScreen)
 	}
 	out := newPrinter(*asJSON)
-	// Signing in has one thing to say at a time, and the screen to itself.
-	// Before the deferred close, which has to know.
-	out.centre()
-	defer out.close()
+	defer func() { out.close() }()
+	// Signing in has one thing to say at a time, and the screen to itself:
+	// from the moment the browser opens, the status is in the middle of the
+	// window. A session already there is one line, like any other answer.
+	event := func(e progress.Event) {
+		if e.Stage == progress.SignIn {
+			out.centre()
+		}
+		out.event(e)
+	}
 
 	sess, err := openSession(*profile)
 	if err != nil {
@@ -162,7 +168,7 @@ func login(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	account, already, err := engine.Login(ctx, sess, out.event)
+	account, already, err := engine.Login(ctx, sess, event)
 	if err != nil {
 		return out.fail(err)
 	}
