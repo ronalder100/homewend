@@ -101,6 +101,16 @@ func Install(ctx context.Context, target string, emit progress.Func) error {
 	return os.Rename(file.Name(), target)
 }
 
+// Program is the homewend that is running, as a file: the one Install
+// replaces. A link to it is followed, so that the link stays a link.
+func Program() (string, error) {
+	program, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(program)
+}
+
 // checksum reads the SHA-256 the release declares for name: one line per
 // file, "<hex>  <name>".
 func checksum(ctx context.Context, name string) (string, error) {
@@ -147,15 +157,17 @@ func (c *counted) Write(p []byte) (int, error) {
 }
 
 // Newer reports the latest release when it is not the one running, asking
-// GitHub at most once a day: the answer is kept in dir, the user's cache.
-// It is for a line at the end of a command, so it never fails and never
-// waits long: no answer is "".
+// GitHub at most once a day: the answer is kept in the user's cache
+// directory. It is for a line at the end of a command, so it never fails and
+// never waits long: no answer is "".
 //
 // A build that is not a release, whose version is "dev", is never told.
-func Newer(ctx context.Context, running, dir string) string {
-	if running == "dev" {
+func Newer(ctx context.Context, running string) string {
+	cache, err := os.UserCacheDir()
+	if err != nil || running == "dev" {
 		return ""
 	}
+	dir := filepath.Join(cache, "homewend")
 	kept := filepath.Join(dir, "latest")
 	version := ""
 	if info, err := os.Stat(kept); err == nil && time.Since(info.ModTime()) < 24*time.Hour {

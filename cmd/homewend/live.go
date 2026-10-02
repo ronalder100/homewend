@@ -156,7 +156,7 @@ func (s *status) show(e progress.Event, now time.Time) {
 			}
 		}
 		s.current, s.lastAt, s.lastDone = e, now, e.Done
-	case progress.Place:
+	case progress.Place, progress.Update:
 		s.waiting, s.current = "", e
 	case progress.Ready, progress.InLibrary, progress.Downloaded, progress.Short, progress.Damaged, progress.Unpack:
 		s.waiting = ""
@@ -188,6 +188,9 @@ func (s status) line(now time.Time) string {
 			line += fmt.Sprintf(text["download rate"], size(int64(s.rate)), left.Round(time.Second))
 		}
 		return line
+	case progress.Update:
+		return s.spin.View() + fmt.Sprintf(text["update status"],
+			s.bar.ViewAs(fraction(e.Done, e.Total)), size(e.Done), size(e.Total))
 	case progress.Place:
 		return fmt.Sprintf(text["place status"], s.bar.ViewAs(fraction(int64(e.N), int64(e.Of))), e.N, e.Of)
 	}

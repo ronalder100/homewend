@@ -16,6 +16,7 @@ Commands:
   get       bring your photos from Google into a folder
   takeouts  list the exports on your Google Takeout
   verify    count a library again against the export's manifest
+  update    get the latest homewend
   version   print the version
   help      show help for a command
 
@@ -137,6 +138,25 @@ Examples:
   homewend verify --library ~/Pictures/Homewend
   homewend verify --library ~/Pictures/Homewend --takeout 8f6c3233`,
 
+	"help update": `homewend update — get the latest homewend
+
+Usage:
+  homewend update [--json]
+
+Downloads the latest release from GitHub, checks it against the release's
+checksums, and puts it in place of the homewend you are running. Your Google
+session, your photos and your libraries are not touched.
+
+Once a day, at the end of a command, homewend asks GitHub whether a newer
+release is out, and says so in one line. Nothing is installed until you run
+this command.
+
+Flags:
+  --json          one JSON object per line, for scripts
+
+Examples:
+  homewend update`,
+
 	"unknown command": "unknown command %q\n",
 
 	"sign in":           "sign in to Google in a separate window",
@@ -189,6 +209,12 @@ later. It picks up where it left off, and never asks Google twice.
 	"download status": "[%d/%d] %s · %s of %s",
 	"download rate":   " · %s/s · %s left",
 	"place status":    "%s  placing %d of %d",
+	"update status":   "%s · %s of %s",
+
+	"newer":          "\nhomewend %s is out: run homewend update",
+	"up to date":     "homewend %s is the latest",
+	"updated":        "homewend %s is installed (it was %s)",
+	"update damaged": "the download was damaged on the way, and nothing was installed: run homewend update again",
 
 	"missing flags":   "missing: %s",
 	"download":        "[%d/%d] %s  from %s of %s",

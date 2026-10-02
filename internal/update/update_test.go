@@ -94,24 +94,38 @@ func TestInstallRefusesADamagedDownload(t *testing.T) {
 	}
 }
 
+// cache points the user's cache directory at a temporary one.
+func cache(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", dir)
+	t.Setenv("HOME", dir)
+	got, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(got, "homewend")
+}
+
 // GitHub is asked once a day at most; the running release and a build that is
 // not a release are told nothing.
 func TestNewerAsksOnceADay(t *testing.T) {
 	asked := github(t, "0.1.3", nil, "")
-	dir := t.TempDir()
+	cache(t)
 	ctx := context.Background()
 	for range 2 {
-		if got := Newer(ctx, "0.1.2", dir); got != "0.1.3" {
+		if got := Newer(ctx, "0.1.2"); got != "0.1.3" {
 			t.Errorf("got %q, want 0.1.3", got)
 		}
 	}
 	if *asked != 1 {
 		t.Errorf("asked %d times, want once", *asked)
 	}
-	if got := Newer(ctx, "0.1.3", dir); got != "" {
+	if got := Newer(ctx, "0.1.3"); got != "" {
 		t.Errorf("the running release: got %q", got)
 	}
-	if got := Newer(ctx, "dev", t.TempDir()); got != "" || *asked != 1 {
+	cache(t)
+	if got := Newer(ctx, "dev"); got != "" || *asked != 1 {
 		t.Errorf("a dev build: got %q, asked %d times", got, *asked)
 	}
 }
@@ -121,8 +135,8 @@ func TestNewerWithNoAnswer(t *testing.T) {
 	was := latest
 	latest = "http://127.0.0.1:1/releases/latest"
 	t.Cleanup(func() { latest = was })
-	dir := t.TempDir()
-	if got := Newer(context.Background(), "0.1.2", dir); got != "" {
+	dir := cache(t)
+	if got := Newer(context.Background(), "0.1.2"); got != "" {
 		t.Errorf("got %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "latest")); err == nil {

@@ -101,10 +101,12 @@ Good to know:
 | `get` | Ask Google for an export, download it, check it |
 | `takeouts` | List the exports on your Google Takeout; `get --takeout ID` downloads one |
 | `verify` | Count a library again against its export |
+| `update` | Get the latest Homewend |
 | `version` | Print the version |
 | `help <command>` | Flags and examples |
 
 `--json` on `login`, `get`, `takeouts` and `verify` prints one JSON object per line, for scripts.
+Once a day, at the end of a command, Homewend asks GitHub whether a newer release is out and says so in one line; `homewend update` installs it.
 Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed in or session expired: run `homewend login`.
 
 ## On your disk

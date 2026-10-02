@@ -30,6 +30,7 @@ import (
 	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
+	"github.com/ronalder100/homewend/internal/update"
 )
 
 const (
@@ -49,6 +50,7 @@ var commands = map[string]func(args []string) int{
 	"logout":   logout,
 	"get":      get,
 	"takeouts": takeouts,
+	"update":   updateProgram,
 	"verify":   verify,
 }
 
@@ -75,7 +77,52 @@ func main() {
 		showHelp(os.Stderr, text["usage"])
 		os.Exit(exitError)
 	}
-	os.Exit(run(args))
+	code := run(args)
+	if name != "update" {
+		sayNewer()
+	}
+	os.Exit(code)
+}
+
+// sayNewer ends a command with one line when a newer release is out. Only
+// for a person: a script reading the output is told nothing, and GitHub is
+// not asked on its behalf.
+func sayNewer() {
+	if !term.IsTerminal(int(os.Stderr.Fd())) {
+		return
+	}
+	if newer := update.Newer(context.Background(), version); newer != "" {
+		fmt.Fprintln(os.Stderr, paint(os.Stderr, mutedColour, fmt.Sprintf(text["newer"], newer)))
+	}
+}
+
+// updateProgram replaces the running homewend with the latest release.
+func updateProgram(args []string) int {
+	flags := newFlags("update")
+	asJSON := flags.Bool("json", false, "one JSON object per line")
+	flags.Parse(args)
+	out := newPrinter(*asJSON)
+	defer out.close()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	latest, err := update.Latest(ctx)
+	if err != nil {
+		return out.fail(err)
+	}
+	if latest == version {
+		out.line("version", version, "%s", paint(os.Stdout, okColour, fmt.Sprintf(text["up to date"], version)))
+		return exitOK
+	}
+	program, err := update.Program()
+	if err != nil {
+		return out.fail(err)
+	}
+	if err := update.Install(ctx, program, out.event); err != nil {
+		return out.fail(err)
+	}
+	out.line("version", latest, "%s", paint(os.Stdout, okColour, fmt.Sprintf(text["updated"], latest, version)))
+	return exitOK
 }
 
 // cleanScreen starts a command at the top of an empty screen, for a person
@@ -573,6 +620,8 @@ func (p printer) fail(err error) int {
 		code, message = exitSignIn, fmt.Sprintf(text["session lost"], err)
 	case errors.Is(err, engine.ErrNotSignedIn):
 		code, message = exitSignIn, text["not signed in"]
+	case errors.Is(err, update.ErrDamaged):
+		message = text["update damaged"]
 	case errors.Is(err, context.Canceled):
 		message = text["stopped"]
 	case errors.Is(err, takeout.ErrFormChanged), errors.Is(err, engine.ErrNotRequested):
