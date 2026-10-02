@@ -9,6 +9,9 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg" alt="Platform: macOS | Linux" />
+  <a href="https://scorecard.dev/viewer/?uri=github.com/ronalder100/homewend"><img src="https://api.scorecard.dev/projects/github.com/ronalder100/homewend/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://github.com/ronalder100/homewend/actions/workflows/codeql.yml"><img src="https://github.com/ronalder100/homewend/actions/workflows/codeql.yml/badge.svg" alt="CodeQL" /></a>
+  <a href="https://github.com/ronalder100/homewend/releases/latest"><img src="https://img.shields.io/badge/VirusTotal-every%20release-blue.svg" alt="VirusTotal: every release, links in the release notes" /></a>
 </p>
 
 <p align="center">

@@ -30,3 +30,25 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Every binary goes to VirusTotal, and the links to its reports are added
+      # to the release notes, where anyone about to download can open them.
+      - id: virustotal
+        uses: crazy-max/ghaction-virustotal@v5
+        with:
+          vt_api_key: ${{ secrets.VT_API_KEY }}
+          request_rate: 4
+          files: |
+            dist/homewend_*_amd64
+            dist/homewend_*_arm64
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANALYSIS: ${{ steps.virustotal.outputs.analysis }}
+        run: |
+          {
+            gh release view "$GITHUB_REF_NAME" --json body -q .body
+            printf '\n\n**VirusTotal**\n\n'
+            echo "$ANALYSIS" | tr ',' '\n' | while IFS='=' read -r file url; do
+              echo "- [$(basename "$file")]($url)"
+            done
+          } > notes.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file notes.md

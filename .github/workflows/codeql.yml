@@ -1,0 +1,31 @@
+# homewend — Copyright (C) 2026 Ron Alder
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# GitHub's static analysis of the Go code. Findings show in the Security tab.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: autobuild
+      - uses: github/codeql-action/analyze@v4
