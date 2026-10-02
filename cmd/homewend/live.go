@@ -5,9 +5,7 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"os"
-	"strings"
 	"time"
 
 	bar "charm.land/bubbles/v2/progress"
@@ -21,7 +19,8 @@ import (
 )
 
 // startLive shows a status line under the log while a command runs in a
-// terminal: a spinner while Google works, a bar while a part downloads.
+// terminal: what the user is asked to do, a pulsing dot while Google works, a
+// spinner and a bar while a part downloads.
 // Hours of silence look like a hang; this says what is being waited for.
 // Nil when stdout is not a terminal, where a redrawn line is only noise.
 func startLive() *tea.Program {
@@ -35,54 +34,30 @@ func startLive() *tea.Program {
 	return p
 }
 
-// The spinner's colour, as in the demo in docs/demo.
-var spinColour = lipgloss.Color("#7571F9")
-
-// States in homewend.app's dark-theme colours: --ok for what is done, --err
-// for what failed or is missing, --accent for what to type, --faint for what
-// is over.
-var (
-	okColour     = lipgloss.Color("#9ECE6A")
-	errColour    = lipgloss.Color("#F7768E")
-	accentColour = lipgloss.Color("#7AA2F7")
-	faintColour  = lipgloss.Color("#565F89")
-)
-
-// paint colours s when out is a terminal, and leaves it plain anywhere else.
-func paint(out *os.File, c color.Color, s string) string {
-	if !term.IsTerminal(int(out.Fd())) {
-		return s
-	}
-	return lipgloss.NewStyle().Foreground(c).Render(s)
-}
-
-// The one line a person must not skim past runs from the site's dark-theme
-// grey to its blue, homewend.app's --faint and --accent.
-var noticeFrom, noticeTo = lipgloss.Color("#565F89"), lipgloss.Color("#7AA2F7")
-
-// blended colours s letter by letter from noticeFrom to noticeTo.
-func blended(s string) string {
-	letters := []rune(s)
-	colours := lipgloss.Blend1D(len(letters), noticeFrom, noticeTo)
-	var b strings.Builder
-	for i, r := range letters {
-		b.WriteString(lipgloss.NewStyle().Foreground(colours[i]).Render(string(r)))
-	}
-	return b.String()
-}
-
 // idle clears the status line, so a command's last words are not followed by
 // a stale bar.
 type idle struct{}
 
 type status struct {
+	// Two ways of saying "not stuck": a dot that pulses while there is only
+	// waiting to do, a spinner while files are coming down.
+	dot  spinner.Model
 	spin spinner.Model
 	bar  bar.Model
 
-	// Beside the spinner while Google works, and since when; no time while
-	// Google prepares the export, where hours on a counter read as a hang.
+	// What the user is asked to do in the browser. It is here, not in the
+	// log, so that it goes once they have done it.
+	asks string
+
+	// Beside the dot while Google works, and since when; no time while
+	// Google prepares the export, where hours on a counter read as a hang,
+	// nor while the account is set up, which is ours to wait for, not theirs
+	// to count.
 	waiting string
 	since   time.Time
+
+	// Sign-in stands apart from the log above it, by an empty line.
+	apart bool
 
 	// The part downloading, or the photos being placed; zero when neither.
 	current progress.Event
@@ -95,19 +70,33 @@ type status struct {
 
 func newStatus() status {
 	return status{
-		spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(lipgloss.NewStyle().Foreground(spinColour))),
+		dot:  spinner.New(spinner.WithSpinner(pulse())),
+		spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(lipgloss.NewStyle().Foreground(accentColour))),
 		bar:  bar.New(bar.WithDefaultBlend(), bar.WithWidth(18)),
 	}
 }
 
-func (s status) Init() tea.Cmd { return s.spin.Tick }
+// pulse is one dot breathing from faint to accent and back, about once a
+// second. Each frame carries its colour and its trailing space.
+func pulse() spinner.Spinner {
+	shades := lipgloss.Blend1D(12, faintColour, accentColour, faintColour)
+	frames := make([]string, len(shades))
+	for i, shade := range shades {
+		frames[i] = lipgloss.NewStyle().Foreground(shade).Render("●") + " "
+	}
+	return spinner.Spinner{Frames: frames, FPS: time.Second / 12}
+}
+
+func (s status) Init() tea.Cmd { return tea.Batch(s.dot.Tick, s.spin.Tick) }
 
 func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
-		var cmd tea.Cmd
-		s.spin, cmd = s.spin.Update(msg)
-		return s, cmd
+		// Each takes its own ticks and lets the other's pass.
+		var dot, spin tea.Cmd
+		s.dot, dot = s.dot.Update(msg)
+		s.spin, spin = s.spin.Update(msg)
+		return s, tea.Batch(dot, spin)
 	case idle:
 		return newStatus(), nil
 	case progress.Event:
@@ -118,9 +107,15 @@ func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // show takes in one event from the engine.
 func (s *status) show(e progress.Event, now time.Time) {
+	if e.Stage != progress.Receiving {
+		s.asks, s.apart = "", false
+	}
 	switch e.Stage {
+	case progress.SignIn:
+		s.asks, s.apart = text["sign in"], true
+		s.waiting, s.current = "", progress.Event{}
 	case progress.SessionReady:
-		s.waiting, s.since, s.current = text["session status"], now, progress.Event{}
+		s.waiting, s.since, s.current, s.apart = text["session status"], time.Time{}, progress.Event{}, true
 	case progress.Request:
 		s.waiting, s.since, s.current = text["asking status"], now, progress.Event{}
 	case progress.Waiting:
@@ -155,7 +150,8 @@ func (s status) line(now time.Time) string {
 	switch e.Stage {
 	case progress.Download, progress.Receiving:
 		// The name is in the log above; the line has to fit a narrow terminal.
-		line := fmt.Sprintf(text["download status"], e.N, e.Of,
+		// The spinner's frames carry their own trailing space.
+		line := s.spin.View() + fmt.Sprintf(text["download status"], e.N, e.Of,
 			s.bar.ViewAs(fraction(e.Done, e.Total)), size(e.Done), size(e.Total))
 		if s.rate > 0 {
 			left := time.Duration(float64(e.Total-e.Done) / s.rate * float64(time.Second))
@@ -165,15 +161,20 @@ func (s status) line(now time.Time) string {
 	case progress.Place:
 		return fmt.Sprintf(text["place status"], s.bar.ViewAs(fraction(int64(e.N), int64(e.Of))), e.N, e.Of)
 	}
-	if s.waiting != "" {
-		// The spinner's frames carry their own trailing space.
-		line := s.spin.View() + s.waiting
+	var line string
+	switch {
+	case s.asks != "":
+		line = lipgloss.NewStyle().Foreground(mutedColour).Render(s.asks)
+	case s.waiting != "":
+		line = s.dot.View() + s.waiting
 		if !s.since.IsZero() {
 			line += " · " + now.Sub(s.since).Round(time.Second).String()
 		}
-		return line
 	}
-	return ""
+	if line != "" && s.apart {
+		line = "\n" + line
+	}
+	return line
 }
 
 func fraction(done, total int64) float64 {

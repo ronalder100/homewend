@@ -140,8 +140,7 @@ Examples:
 
 	"unknown command": "unknown command %q\n",
 
-	"sign in":           "a small browser window is open: sign in to Google there",
-	"session ready":     "signed in to Google",
+	"sign in":           "sign in to Google in a separate window",
 	"signed in":         "signed in",
 	"signed out":        "signed out: the browser profile is deleted",
 	"was not signed in": "not signed in: there was no browser profile to delete",
@@ -179,7 +178,7 @@ later. It picks up where it left off, and never asks Google twice.
 	"expired":           "%v: Google keeps an export for 7 days after it is ready. Run get without --takeout to ask for a new one",
 	"no space":          "not enough space for this export: %s needed, %s free",
 
-	"session status":  "getting Takeout ready, about half a minute",
+	"session status":  "setting up your Google account",
 	"asking status":   "asking Google for the export, a minute or two",
 	"waiting status":  "waiting for Google, it can take a few hours",
 	"download status": "[%d/%d] %s · %s of %s",

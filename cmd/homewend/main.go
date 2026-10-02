@@ -367,9 +367,14 @@ func (p printer) event(e progress.Event) {
 	}
 	switch e.Stage {
 	case progress.SignIn:
-		p.say("%s", text["sign in"])
+		// In a terminal the status line says both, and takes them away.
+		if p.live == nil {
+			p.say("%s", text["sign in"])
+		}
 	case progress.SessionReady:
-		p.say("%s", text["session ready"])
+		if p.live == nil {
+			p.say("%s", text["session status"])
+		}
 	case progress.Request:
 		p.say("%s", text["request"])
 	case progress.Waiting:

@@ -124,8 +124,9 @@ five seconds.
 service's: `OSID` and `__Secure-OSID` on `takeout.google.com` are set only
 when Takeout is opened signed in, and without them `/manage` sends the
 session to sign in (2026-10-01). The old sign-in started at Takeout and got
-them on the way. Now a headless browser opens `/manage` once, and the user
-is told it takes about half a minute.
+them on the way. Now a headless browser opens `/manage` once, about half a
+minute that the user sees as their account being set up: how is not theirs
+to know.
 
 **A headless browser is closed only once its cookies are on disk.** It
 commits them on Chrome's 30-second timer, and stopped by SIGTERM before that
