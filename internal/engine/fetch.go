@@ -41,8 +41,8 @@ type Result struct {
 //
 // The manifest comes first. It is small, and it says what the export holds,
 // year by year: whoever watches is told how much of each year is here from
-// the first minute, and a year is complete the moment its last photo is
-// placed, whatever order Google's parts arrive in.
+// the first minute, and a year is complete the moment its last photo has
+// arrived, whatever order Google's parts come in.
 //
 // Parts are taken one at a time: downloaded, unpacked, recorded, and only
 // then deleted. After each one, the photos that came with Google's own date
@@ -129,6 +129,9 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		if err != nil {
 			return err
 		}
+		// Arrived is arrived, filed or not: the year a photo belongs to is the
+		// manifest's, and does not wait for anything.
+		years.arrived(items, emit)
 		var waiting []library.Item
 		if !all {
 			ready := items[:0:0]
@@ -142,7 +145,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			items = ready
 		}
 		if len(items) > 0 {
-			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, years.following(emit))
+			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, emit)
 			organized.Add(placed)
 			if err != nil {
 				return err
@@ -203,15 +206,16 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	return Result{Organized: organized, Verification: verification}, nil
 }
 
-// years follows how much of each year of an export is in the library, for
-// whoever watches the download. The count that decides is still the
-// verification at the end: this one moves as photos are placed, and a photo
-// is announced a moment before it is.
+// years follows how much of each year of an export has arrived, for whoever
+// watches the download. A photo counts for its year, the one the manifest
+// lists it under, as soon as it is on this disk: filed in the library, or
+// shown in unassigned while it waits for its date. The date decides where a
+// photo is filed, not whether it is here.
 type years struct {
 	order    []string
 	declared map[string]int
 	of       map[string]string          // a photo's name -> its year
-	here     map[string]map[string]bool // year -> the names in the library
+	here     map[string]map[string]bool // year -> the names that have arrived
 }
 
 // newYears reads the years off the manifest and what is already in the
@@ -251,16 +255,16 @@ func (y *years) report(emit progress.Func) {
 	}
 }
 
-// following passes every event on and, as each photo is placed, says where
-// its year now stands.
-func (y *years) following(emit progress.Func) progress.Func {
-	return func(e progress.Event) {
-		emit.Emit(e)
-		year, known := y.of[e.Name]
-		if e.Stage != progress.Place || !known || y.here[year][e.Name] {
-			return
+// arrived counts the photos just unpacked, and says where each year they
+// belong to now stands.
+func (y *years) arrived(items []library.Item, emit progress.Func) {
+	for _, item := range items {
+		name := filepath.Base(item.Path)
+		year, known := y.of[name]
+		if !known || y.here[year][name] {
+			continue
 		}
-		y.here[year][e.Name] = true
+		y.here[year][name] = true
 		emit.Emit(progress.Event{Stage: progress.Year, Name: year, N: len(y.here[year]), Of: y.declared[year]})
 	}
 }

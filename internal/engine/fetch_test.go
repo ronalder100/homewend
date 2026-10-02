@@ -66,7 +66,7 @@ func (h *host) Get(address string, extra map[string]string) (*http.Response, err
 
 // The manifest is fetched before the parts, so that whoever watches is told,
 // year by year, how much there is and how much of it is here: nothing at
-// first, then each year filling up as its photos are placed.
+// first, then each year filling up as its photos arrive.
 func TestTheManifestComesFirstAndTheYearsAreFollowed(t *testing.T) {
 	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
 		<div class="extracted-folder-name">Photos from 2024</div>
@@ -187,7 +187,9 @@ func TestPhotosArePlacedAsTheirPartsArrive(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(f.Library, "unassigned")); !os.IsNotExist(err) {
 		t.Error("the unassigned folder is still there at the end")
 	}
-	want := "download manifest.zip, 2024 0/2, unassigned 0, download part-001.zip, 2024 1/2, unassigned 1, download part-002.zip, 2024 2/2, unassigned 0, unassigned 0"
+	// The year is full when both photos have arrived, the one still waiting
+	// for its date included: where it is filed is another matter.
+	want := "download manifest.zip, 2024 0/2, unassigned 0, download part-001.zip, 2024 1/2, 2024 2/2, unassigned 1, download part-002.zip, unassigned 0, unassigned 0"
 	if got := strings.Join(story, ", "); got != want {
 		t.Errorf("it went\n  %s\nwant\n  %s", got, want)
 	}
