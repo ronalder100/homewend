@@ -7,11 +7,6 @@ package main
 var text = map[string]string{
 	"usage": `homewend — Google Photos, on your own disk.
 
-Google Photos to your disk in one click: no zips to babysit, no
-download to restart by hand. Homewend does the heavy lifting; you
-get your photos in plain folders, sorted by date and album. Open
-source, and nothing passes through our servers.
-
 Usage:
   homewend <command> [flags]
 
