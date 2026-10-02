@@ -139,9 +139,11 @@ func TestAccountReadsTheAddress(t *testing.T) {
 		`{"oPEP7c":"someone@example.com","p9hQne":"y"}`:         "someone@example.com",
 		`<html>no such thing</html>`:                            "",
 	} {
-		address, ok, err := Account(answer{status: 200, body: body})
-		if address != want || !ok || err != nil {
-			t.Errorf("%s: got %q, %v, %v; want %q, signed in", body, address, ok, err, want)
+		if got := AccountIn([]byte(body)); got != want {
+			t.Errorf("%s: got %q, want %q", body, got, want)
+		}
+		if got, err := Account(answer{status: 200, body: body}); got != want || err != nil {
+			t.Errorf("%s: fetched %q, %v; want %q", body, got, err, want)
 		}
 	}
 }

@@ -48,11 +48,11 @@ func DefaultProfile() (string, error) {
 // opens Google's sign-in in a small browser window, waits until Google sends
 // the user back to our page, and closes the window.
 //
-// It reports whose session it is, as Google names the account, and whether the
-// profile was already signed in.
+// It reports whether the profile was already signed in and, after a sign-in,
+// whose session it is, as Google names the account.
 func Login(ctx context.Context, sess *session.Session, emit progress.Func) (account string, already bool, err error) {
-	if account, ok, err := signedIn(sess); ok || err != nil {
-		return account, ok, err
+	if ok, err := signedIn(sess); ok || err != nil {
+		return "", ok, err
 	}
 	back, err := signin.Listen()
 	if err != nil {
@@ -97,6 +97,10 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 // the 30 seconds Chrome takes at most to write its cookies; after one Google
 // declined, there is nothing to wait for but the page's goodbye.
 const (
+	// takeoutHost is where a headless visit to Takeout ends when the session
+	// is accepted; one that is not ends at accounts.google.com.
+	takeoutHost = "takeout.google.com"
+
 	signedInLeave = 45 * time.Second
 	declinedLeave = 5 * time.Second
 )
@@ -148,12 +152,22 @@ func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func)
 	if err != nil {
 		return "", err
 	}
-	page.Close()
-	account, ok, err := signedIn(sess)
-	if err == nil && !ok {
-		err = ErrSessionNotAccepted
+	// Where the browser ended up says whether Takeout took the session, and
+	// the page it has says whose: asking again from here would cost the user
+	// the seconds of a second download of the same page.
+	var seen struct {
+		Host string `json:"host"`
+		Page string `json:"page"`
 	}
-	return account, err
+	err = page.Eval(`({host: location.host, page: document.documentElement.outerHTML})`, &seen)
+	page.Close()
+	if err != nil {
+		return "", err
+	}
+	if seen.Host != takeoutHost {
+		return "", ErrSessionNotAccepted
+	}
+	return takeout.AccountIn([]byte(seen.Page)), nil
 }
 
 // cookiesLanded waits for the session cookies to reach the profile after the
@@ -170,12 +184,11 @@ func cookiesLanded(sess *session.Session) bool {
 	return false
 }
 
-// signedIn reports whether the profile holds a session Google accepts, and
-// whose.
-func signedIn(sess *session.Session) (account string, ok bool, err error) {
+// signedIn reports whether the profile holds a session Google accepts.
+func signedIn(sess *session.Session) (bool, error) {
 	_, names, err := sess.Cookies()
 	if err != nil || !names["SID"] || !names["SSID"] {
-		return "", false, nil
+		return false, nil
 	}
-	return takeout.Account(sess)
+	return takeout.SignedIn(sess)
 }
