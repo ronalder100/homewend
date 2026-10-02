@@ -8,6 +8,7 @@ package progress
 
 // The stages an event can come from.
 const (
+	Checking      = "checking"       // Google is being asked whether it accepts the session
 	SignIn        = "sign-in"        // the browser is open, waiting for the user to sign in
 	SessionReady  = "session-ready"  // signed in; Takeout is opened out of sight, once, for its own cookies
 	FirstDownload = "first-download" // the browser is open on the export, for the user to download one part, once per account

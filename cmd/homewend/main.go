@@ -164,9 +164,9 @@ func login(args []string) int {
 	}
 	// With the account, when Google's page names it: a person with two
 	// accounts has to know whose photos these are. A sign-in brings it; for a
-	// session already there it is asked for, here only.
+	// session already there it is the one kept at sign-in.
 	if already {
-		account, _ = takeout.Account(sess)
+		account = engine.Account(sess)
 	}
 	said := text["signed in"]
 	switch {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -51,6 +52,7 @@ func DefaultProfile() (string, error) {
 // It reports whether the profile was already signed in and, after a sign-in,
 // whose session it is, as Google names the account.
 func Login(ctx context.Context, sess *session.Session, emit progress.Func) (account string, already bool, err error) {
+	emit.Emit(progress.Event{Stage: progress.Checking})
 	if ok, err := signedIn(sess); ok || err != nil {
 		return "", ok, err
 	}
@@ -90,7 +92,31 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 		return "", false, ErrSessionNotWritten
 	}
 	account, err = openTakeout(ctx, sess, emit)
+	if account != "" {
+		os.WriteFile(accountFile(sess), []byte(account+"\n"), 0o600)
+	}
 	return account, false, err
+}
+
+// accountFile keeps the address of the account the profile is signed in to.
+// It is inside the profile, so that it goes when the profile does.
+func accountFile(sess *session.Session) string {
+	return filepath.Join(sess.Profile, "homewend-account")
+}
+
+// Account says whose session the profile holds, as Google named the account
+// at sign-in. It is kept beside the session because asking Google again means
+// downloading Takeout's whole page, seconds of it; a profile signed in before
+// the address was kept is asked for it once.
+func Account(sess *session.Session) string {
+	if kept, err := os.ReadFile(accountFile(sess)); err == nil {
+		return strings.TrimSpace(string(kept))
+	}
+	account, _ := takeout.Account(sess)
+	if account != "" {
+		os.WriteFile(accountFile(sess), []byte(account+"\n"), 0o600)
+	}
+	return account
 }
 
 // How long the browser is given to go by itself: after a sign-in, longer than

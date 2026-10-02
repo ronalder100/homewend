@@ -62,3 +62,16 @@ func TestLeaveStopsABrowserThatStays(t *testing.T) {
 		t.Error("the browser was not asked to stop")
 	}
 }
+
+// The account kept at sign-in is read from the profile: Google is not asked,
+// and this profile, with no session, could not ask.
+func TestAccountIsTheOneKeptAtSignIn(t *testing.T) {
+	sess, err := session.New(filepath.Join(t.TempDir(), "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(accountFile(sess), []byte("someone@example.com\n"), 0o600)
+	if got := Account(sess); got != "someone@example.com" {
+		t.Errorf("got %q", got)
+	}
+}

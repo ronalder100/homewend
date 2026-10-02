@@ -48,6 +48,16 @@ func TestSignInIsAskedThenGoes(t *testing.T) {
 	}
 }
 
+// A command that begins by asking Google about the session says so at once:
+// a second of empty screen reads as a program that is stuck.
+func TestCheckingTheSessionShowsAtOnce(t *testing.T) {
+	s := newStatus()
+	s.show(progress.Event{Stage: progress.Checking}, time.Now())
+	if line := s.line(time.Now()); !strings.Contains(line, "●") || !strings.Contains(line, text["checking status"]) {
+		t.Errorf("status line %q, want the dot and the check", line)
+	}
+}
+
 // Once the export is ready the wait is over, and the spinner with it.
 func TestReadyEndsTheWait(t *testing.T) {
 	s := newStatus()

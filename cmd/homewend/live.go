@@ -112,6 +112,8 @@ func (s *status) show(e progress.Event, now time.Time) {
 		s.asks, s.apart = "", false
 	}
 	switch e.Stage {
+	case progress.Checking:
+		s.waiting, s.since, s.current, s.apart = text["checking status"], time.Time{}, progress.Event{}, true
 	case progress.SignIn:
 		s.asks, s.apart = text["sign in"], true
 		s.waiting, s.current = "", progress.Event{}

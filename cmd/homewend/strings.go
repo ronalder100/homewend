@@ -187,6 +187,7 @@ later. It picks up where it left off, and never asks Google twice.
 	"expired":           "%v: Google keeps an export for 7 days after it is ready. Run get without --takeout to ask for a new one",
 	"no space":          "not enough space for this export: %s needed, %s free",
 
+	"checking status": "checking your Google session",
 	"session status":  "setting up your Google account",
 	"asking status":   "asking Google for the export, a minute or two",
 	"waiting status":  "waiting for Google, it can take a few hours",
