@@ -99,7 +99,6 @@ func updateProgram(args []string) int {
 	flags := newFlags("update")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	cleanScreen(args)
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -127,9 +126,11 @@ func updateProgram(args []string) int {
 // cleanScreen starts a command at the top of an empty screen, for a person
 // at a terminal: what it says is then the one thing to look at, not the last
 // lines under everything that came before. A script, or anyone asking for
-// JSON, gets nothing of it. Each command calls it once it knows it has what
-// it needs: one that was asked wrongly says so under what was typed, where
-// the user is looking, and clears nothing.
+// JSON, gets nothing of it.
+//
+// Only what takes the screen for itself does it: the help pages, and signing
+// in and out. A command that adds a few lines, or a bar, to what the user was
+// doing leaves the rest where it was.
 func cleanScreen(args []string) {
 	if !term.IsTerminal(int(os.Stdout.Fd())) || slices.Contains(args, "--json") || slices.Contains(args, "-json") {
 		return
@@ -265,7 +266,6 @@ func get(args []string) int {
 	if *libraryDir == "" {
 		return askedWrongly(text["get needs library"])
 	}
-	cleanScreen(args)
 	g := engine.Get{Year: *year, Library: *libraryDir, Takeout: *takeoutID, New: *fresh}
 	out := newPrinter(*asJSON)
 	defer func() { out.close() }()
@@ -388,7 +388,6 @@ func takeouts(args []string) int {
 	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	cleanScreen(args)
 	out := newPrinter(*asJSON)
 	defer out.close()
 
@@ -450,7 +449,6 @@ func verify(args []string) int {
 	if *libraryDir == "" {
 		return askedWrongly(text["verify needs library"])
 	}
-	cleanScreen(args)
 	out := printer{json: *asJSON}
 
 	v, err := engine.Verify(*libraryDir, *takeoutID)
