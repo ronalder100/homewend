@@ -17,6 +17,7 @@ package session
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/pbkdf2"
 	"crypto/sha1"
 	"database/sql"
 	"errors"
@@ -32,8 +33,6 @@ import (
 	// The pure-Go SQLite driver: no cgo, so the app still cross-compiles to the
 	// three desktops from one machine, which is half the reason for choosing Go.
 	_ "modernc.org/sqlite"
-
-	"golang.org/x/crypto/pbkdf2"
 )
 
 // A real Chrome user-agent. The engine underneath really is Chromium, so this
@@ -94,12 +93,20 @@ func transport() *http.Transport {
 // password is "mock_password", derived with 1003 iterations: Chromium's
 // crypto/apple/fake_keychain_v2.mm and
 // components/os_crypt/async/browser/keychain_key_provider.mm, read 2026-09-26.
-func derivedKey() []byte {
+func derivedKey() []byte { return keyFor(runtime.GOOS) }
+
+func keyFor(system string) []byte {
 	password, iterations := "peanuts", 1
-	if runtime.GOOS == "darwin" {
+	if system == "darwin" {
 		password, iterations = "mock_password", 1003
 	}
-	return pbkdf2.Key([]byte(password), []byte("saltysalt"), iterations, 16, sha1.New)
+	// The standard library's PBKDF2. It fails only for a key length out of
+	// range, which 16 is not.
+	key, err := pbkdf2.Key(sha1.New, password, []byte("saltysalt"), iterations, 16)
+	if err != nil {
+		panic(err)
+	}
+	return key
 }
 
 func (s *Session) decrypt(raw []byte) string {

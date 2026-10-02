@@ -5,6 +5,7 @@ package session
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -97,5 +98,19 @@ func TestDownloadURLsSeeRowsStillInTheWAL(t *testing.T) {
 	}
 	if len(got) != 1 || got[0] != "https://a.example/end" {
 		t.Errorf("got %q", got)
+	}
+}
+
+// The cookie keys are Chrome's, not ours to change. These are the ones real
+// profiles were read with, on Linux and on a Mac, derived then by
+// golang.org/x/crypto: whatever does the deriving has to give the same.
+func TestTheCookieKeysAreChromes(t *testing.T) {
+	for system, want := range map[string]string{
+		"linux":  "fd621fe5a2b402539dfa147ca9272778",
+		"darwin": "af0f762aaf6d7d11581b7aa8ce7218de",
+	} {
+		if got := hex.EncodeToString(keyFor(system)); got != want {
+			t.Errorf("%s: key %s, want %s", system, got, want)
+		}
 	}
 }
