@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -55,6 +57,33 @@ func TestCheckingTheSessionShowsAtOnce(t *testing.T) {
 	s.show(progress.Event{Stage: progress.Checking}, time.Now())
 	if line := s.line(time.Now()); !strings.Contains(line, "●") || !strings.Contains(line, text["checking status"]) {
 		t.Errorf("status line %q, want the dot and the check", line)
+	}
+}
+
+// Centred, the status sits in the middle of the window, and the last word
+// takes its place; a line longer than the window breaks, each piece centred.
+func TestCentredIsInTheMiddle(t *testing.T) {
+	var m tea.Model = newStatus()
+	for _, msg := range []tea.Msg{centre{}, tea.WindowSizeMsg{Width: 80, Height: 24}, progress.Event{Stage: progress.SignIn}} {
+		m, _ = m.Update(msg)
+	}
+	rows := strings.Split(ansi.Strip(m.(status).View().Content), "\n")
+	at := -1
+	for i, row := range rows {
+		if strings.Contains(row, text["sign in"]) {
+			at = i
+		}
+	}
+	if len(rows) != 23 || at < 10 || at > 12 {
+		t.Fatalf("%d rows, the words on row %d", len(rows), at)
+	}
+	before := len(rows[at]) - len(strings.TrimLeft(rows[at], " "))
+	if want := (80 - len(text["sign in"])) / 2; before < want-1 || before > want+1 {
+		t.Errorf("%d spaces before the words, want about %d", before, want)
+	}
+	m, _ = m.Update(last("signed in as someone@example.com"))
+	if view := ansi.Strip(m.(status).View().Content); !strings.Contains(view, "signed in as someone@example.com") || strings.Contains(view, text["sign in"]) {
+		t.Errorf("the last word did not take the place of the status:\n%s", view)
 	}
 }
 

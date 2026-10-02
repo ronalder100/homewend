@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	bar "charm.land/bubbles/v2/progress"
@@ -38,7 +39,21 @@ func startLive() *tea.Program {
 // a stale bar.
 type idle struct{}
 
+// centre puts the status in the middle of the window: for a command that has
+// one thing to say at a time and no log above it, like login.
+type centre struct{}
+
+// last is a command's last word, when the status is in the middle of the
+// window: it takes the status's place and stays there when the program ends.
+type last string
+
 type status struct {
+	// In the middle of a window this wide and tall, when centred; the last
+	// word, once said.
+	centred       bool
+	width, height int
+	last          string
+
 	// Two ways of saying "not stuck": a dot that pulses while there is only
 	// waiting to do, a spinner while files are coming down.
 	dot  spinner.Model
@@ -100,6 +115,12 @@ func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return s, tea.Batch(dot, spin)
 	case idle:
 		return newStatus(), nil
+	case centre:
+		s.centred = true
+	case tea.WindowSizeMsg:
+		s.width, s.height = msg.Width, msg.Height
+	case last:
+		s.last = string(msg)
 	case progress.Event:
 		s.show(msg, time.Now())
 	}
@@ -145,7 +166,17 @@ func (s *status) show(e progress.Event, now time.Time) {
 }
 
 func (s status) View() tea.View {
-	return tea.NewView(s.line(time.Now()))
+	line := s.line(time.Now())
+	if s.last != "" {
+		line = s.last
+	}
+	if !s.centred || s.width == 0 || line == "" {
+		return tea.NewView(line)
+	}
+	// A line longer than the window breaks between words, and each piece is
+	// centred. One row short of the window, so that nothing scrolls.
+	block := lipgloss.NewStyle().Width(min(s.width-4, 64)).Align(lipgloss.Center).Render(strings.TrimPrefix(line, "\n"))
+	return tea.NewView(lipgloss.Place(s.width, s.height-1, lipgloss.Center, lipgloss.Center, block))
 }
 
 func (s status) line(now time.Time) string {
