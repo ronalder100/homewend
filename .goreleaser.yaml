@@ -23,6 +23,13 @@ archives:
   - formats: [binary]
     name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
 
+# A release stays a draft, out of the installer's reach, until the workflow
+# has checked its signature and attached its provenance: nobody is handed one
+# that is half made (.github/workflows/release.yml).
+release:
+  draft: true
+  replace_existing_draft: true
+
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
 
