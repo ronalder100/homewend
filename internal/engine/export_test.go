@@ -45,14 +45,14 @@ func TestUserIsReadFromADownloadAndKept(t *testing.T) {
 	// No browser is opened: the id is already in the history. BROWSER_BIN
 	// points nowhere so that opening one would fail the test.
 	t.Setenv("BROWSER_BIN", filepath.Join(profile, "no-browser"))
-	id, err := User(context.Background(), sess, "x", nil)
+	id, err := User(context.Background(), sess, takeout.Export{Job: "x"}, nil)
 	if err != nil || id != "123456" {
 		t.Fatalf("got %q, %v; want 123456", id, err)
 	}
 
 	// Kept: found again with the history gone.
 	os.Remove(filepath.Join(profile, "Default", "History"))
-	if id, err := User(context.Background(), sess, "x", nil); err != nil || id != "123456" {
+	if id, err := User(context.Background(), sess, takeout.Export{Job: "x"}, nil); err != nil || id != "123456" {
 		t.Errorf("second time: got %q, %v; want 123456", id, err)
 	}
 }

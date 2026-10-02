@@ -77,7 +77,7 @@ Good to know:
 
 - Google needs time to prepare your photos: minutes for a year, hours for everything. You do not have to wait: close the terminal, run the same command later, and it picks up where it left off.
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
-- The first time, a browser window opens on your export: **click Download on the first part**. Only once.
+- The first time, Google asks for your password once more, in a browser window: **type it there**. Only once.
 - You need Chrome, Chromium, Brave or Edge. Windows is not supported yet.
 - You need room for your library plus one zip. Homewend checks before it starts.
 - The installer checks the download and puts `homewend` in `~/.local/bin`. No root needed.

@@ -11,7 +11,7 @@ const (
 	Checking      = "checking"       // Google is being asked whether it accepts the session
 	SignIn        = "sign-in"        // the browser is open, waiting for the user to sign in
 	SessionReady  = "session-ready"  // signed in; Takeout is opened out of sight, once, for its own cookies
-	FirstDownload = "first-download" // the browser is open on the export, for the user to download one part, once per account
+	FirstDownload = "first-download" // the browser is open on Google's password page, before a download the app starts, once per account; Name is the account
 	Request       = "request"        // an export is being asked for
 	Waiting       = "waiting"        // Google is preparing the export; Name is its job
 	InLibrary     = "in-library"     // the export is already all in this library: nothing to download, only to check

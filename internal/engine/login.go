@@ -110,7 +110,7 @@ func LoginAtTakeout(ctx context.Context, sess *session.Session, emit progress.Fu
 	if ok, err := signedIn(sess); ok || err != nil {
 		return "", ok, err
 	}
-	err = inWindow(ctx, sess, takeout.PhotosURL, progress.SignIn, signInDone(sess), emit)
+	err = inWindow(ctx, sess, takeout.PhotosURL, progress.Event{Stage: progress.SignIn}, signInDone(sess), emit)
 	if errors.Is(err, errWindowClosed) {
 		return "", false, ErrSignInClosed
 	}

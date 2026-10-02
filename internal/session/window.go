@@ -82,26 +82,52 @@ func (s *Session) launch(open ...string) (*Window, error) {
 // into Default/Preferences before the browser starts, it is kept, in a new
 // profile and in one the browser made itself: Chromium 144, 2026-10-02.
 func (s *Session) neverSavePasswords() error {
+	return s.prefer(func(prefs map[string]any) { prefs["credentials_enable_service"] = false })
+}
+
+// DownloadsTo makes the browser put what it downloads in dir, without asking
+// where, from the next time it is opened; "" gives the choice back to the
+// browser. A download the app starts for its own reasons must not land among
+// the user's.
+//
+// The preferences are download.default_directory and
+// download.prompt_for_download (chrome/common/pref_names.h). With both set, a
+// download reached through a redirect landed in the directory given and not
+// in ~/Downloads: Chromium 144, 2026-10-02.
+func (s *Session) DownloadsTo(dir string) error {
+	return s.prefer(func(prefs map[string]any) {
+		if dir == "" {
+			delete(prefs, "download")
+			return
+		}
+		prefs["download"] = map[string]any{"default_directory": dir, "prompt_for_download": false}
+	})
+}
+
+// prefer changes the profile's preferences, read by the browser when it
+// starts. The browser must not be running: it writes them back when it exits.
+func (s *Session) prefer(change func(prefs map[string]any)) error {
 	path := filepath.Join(s.Profile, "Default", "Preferences")
 	prefs := map[string]any{}
-	if raw, err := os.ReadFile(path); err == nil {
+	before, err := os.ReadFile(path)
+	if err == nil {
 		// A file that does not parse is the browser's to repair, not ours.
-		if json.Unmarshal(raw, &prefs) != nil {
+		if json.Unmarshal(before, &prefs) != nil {
 			return nil
 		}
 	}
-	if prefs["credentials_enable_service"] == false {
-		return nil
-	}
-	prefs["credentials_enable_service"] = false
-	raw, err := json.Marshal(prefs)
+	change(prefs)
+	after, err := json.Marshal(prefs)
 	if err != nil {
 		return err
+	}
+	if string(after) == string(before) {
+		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o600)
+	return os.WriteFile(path, after, 0o600)
 }
 
 // Err is how the browser ended, once Exited is closed: nil when it exited

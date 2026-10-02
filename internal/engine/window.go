@@ -26,12 +26,12 @@ var errWindowClosed = errors.New("the browser was closed")
 // (net/extras/sqlite/sqlite_persistent_cookie_store.cc), history every 10
 // seconds (components/history/core/browser/history_backend.cc). Polling every
 // two seconds adds nothing to that.
-func inWindow(ctx context.Context, sess *session.Session, url, stage string, done func() bool, emit progress.Func) error {
+func inWindow(ctx context.Context, sess *session.Session, url string, opened progress.Event, done func() bool, emit progress.Func) error {
 	w, err := sess.Open(url)
 	if err != nil {
 		return err
 	}
-	emit.Emit(progress.Event{Stage: stage})
+	emit.Emit(opened)
 
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()

@@ -105,3 +105,21 @@ func TestLoginAtTakeoutOpensTakeout(t *testing.T) {
 		t.Errorf("browser started with %q", lines)
 	}
 }
+
+// The address to open is Google's own, for the export's smallest file: the
+// one with the manifest's index; any other of the export's when that one is
+// not there; none when the page has no download on it.
+func TestPickLinkTakesTheManifestsDownload(t *testing.T) {
+	part := "https://takeout.google.com/takeout/download?j=job&i=0&user=123456789012345678901"
+	manifest := "https://takeout.google.com/takeout/download?j=job&i=1&user=123456789012345678901"
+	page := []string{"https://takeout.google.com/manage", manifest, part, "https://support.google.com/download"}
+	if got := pickLink(page, 1); got != manifest {
+		t.Errorf("got %q, want the manifest's", got)
+	}
+	if got := pickLink(page, 7); got != manifest {
+		t.Errorf("no such index: got %q, want the first download", got)
+	}
+	if got := pickLink(page[:1], 1); got != "" {
+		t.Errorf("a page with no download: got %q", got)
+	}
+}

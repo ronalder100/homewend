@@ -165,7 +165,7 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 	if err != nil {
 		return Result{}, err
 	}
-	user, err := User(ctx, sess, export.Job, emit)
+	user, err := User(ctx, sess, export, emit)
 	if err != nil {
 		return Result{}, err
 	}
