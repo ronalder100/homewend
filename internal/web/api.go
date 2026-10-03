@@ -94,6 +94,11 @@ func apiRoutes() http.Handler {
 		}
 		http.ServeFile(w, r, path)
 	})
+	// Where a photo is on disk, for the shell to show it in the file manager.
+	mux.HandleFunc("GET /api/path/{hash}", func(w http.ResponseWriter, r *http.Request) {
+		path, err := engine.Original(r.PathValue("hash"))
+		reply(w, map[string]string{"path": path}, err)
+	})
 	mux.HandleFunc("GET /api/library", func(w http.ResponseWriter, r *http.Request) {
 		dir, err := engine.DefaultLibrary()
 		reply(w, map[string]string{"dir": dir}, err)
@@ -129,6 +134,20 @@ func apiRoutes() http.Handler {
 		account := r.URL.Query().Get("account")
 		jobs.Stop(account)
 		reply(w, jobs.State(account), nil)
+	})
+	// Signing out deletes the account's browser profile: its Google cookies
+	// go, its photos stay.
+	mux.HandleFunc("POST /api/logout", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("account")
+		dir, err := engine.ProfileOf(id)
+		if err == nil {
+			jobs.Stop(id)
+			_, err = engine.Logout(dir)
+		}
+		reply(w, map[string]string{}, err)
+	})
+	mux.HandleFunc("GET /api/about", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, map[string]string{"version": Version}, nil)
 	})
 	mux.HandleFunc("GET /api/takeouts", func(w http.ResponseWriter, r *http.Request) {
 		sess, err := engine.AccountSession(r.URL.Query().Get("account"))

@@ -8,7 +8,11 @@
 	import type { GridPhoto } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 
-	let { photos, header }: { photos: GridPhoto[]; header?: Snippet } = $props();
+	let {
+		photos,
+		header,
+		onopen
+	}: { photos: GridPhoto[]; header?: Snippet; onopen?: (index: number) => void } = $props();
 
 	// The design's tile: at least 104px, as many columns as fit, gap 8.
 	const MIN_TILE = 104;
@@ -85,15 +89,16 @@
 				</h3>
 			{:else}
 				{#each row.items as p, c (p.hash)}
-					<div
+					<button
 						class="tile"
 						style:width="{tile}px"
 						style:height="{tile}px"
 						style:transform="translate({c * (tile + GAP)}px, {row.top}px)"
+						onclick={() => onopen?.(photos.indexOf(p))}
 					>
 						<img src="/api/thumb/{p.hash}" alt={p.name} loading="lazy" decoding="async" />
 						{#if p.video}<span class="video"><Play size={14} fill="currentColor" /></span>{/if}
-					</div>
+					</button>
 				{/each}
 			{/if}
 		{/each}

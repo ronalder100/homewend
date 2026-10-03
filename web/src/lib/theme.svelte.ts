@@ -8,7 +8,11 @@ import { app } from './app.svelte.js';
 // browser.
 declare global {
 	interface Window {
-		shell?: { setTheme(theme: Theme): void; chooseFolder(start?: string): Promise<string> };
+		shell?: {
+			setTheme(theme: Theme): void;
+			chooseFolder(start?: string): Promise<string>;
+			showInFolder(path: string): void;
+		};
 	}
 }
 

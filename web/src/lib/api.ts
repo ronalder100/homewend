@@ -97,3 +97,8 @@ export interface Takeout {
 }
 
 export const getTakeouts = (account: string) => call<Takeout[]>('GET', `/api/takeouts?${q({ account })}`);
+
+export const logout = (account: string) => call<object>('POST', `/api/logout?${q({ account })}`);
+export const getAbout = () => call<{ version: string }>('GET', '/api/about');
+
+export const pathOf = (hash: string) => call<{ path: string }>('GET', `/api/path/${hash}`);

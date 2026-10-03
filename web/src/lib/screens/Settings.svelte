@@ -1,20 +1,61 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- C4: where the photos go, how the window looks, each account's cookies. -->
 <script lang="ts">
-	import { Monitor, Sun, Moon } from '@lucide/svelte';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { Monitor, Sun, Moon, Trash2, Plus, Code } from '@lucide/svelte';
 	import { text } from '#lib/strings.js';
 	import { theme, setTheme } from '#lib/theme.svelte.js';
-	import type { Theme } from '#lib/api.js';
+	import { app, refresh, sidebarOf } from '#lib/app.svelte.js';
+	import { getAbout, getLibrary, logout, putLibrary, type Theme } from '#lib/api.js';
+	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
 
 	const choices: { value: Theme; label: string; icon: typeof Sun }[] = [
 		{ value: 'system', label: text.themeSystem, icon: Monitor },
 		{ value: 'light', label: text.themeLight, icon: Sun },
 		{ value: 'dark', label: text.themeDark, icon: Moon }
 	];
+
+	let dir = $state('');
+	let version = $state('');
+	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
+
+	onMount(async () => {
+		dir = (await getLibrary()).dir;
+		version = (await getAbout()).version;
+	});
+
+	async function change() {
+		const picked = await window.shell?.chooseFolder(dir);
+		if (picked) dir = (await putLibrary(picked)).dir;
+		await refresh();
+	}
+
+	async function purge(id: string) {
+		await logout(id);
+		await refresh();
+		if ((app.overview?.accounts.length ?? 0) === 0) goto('/');
+	}
 </script>
 
 <div class="page">
 	<h1>{text.settingsTitle}</h1>
+
+	<section>
+		<h2>{text.library}</h2>
+		<div class="card">
+			<div class="item">
+				<div class="text">
+					<h3>{text.whereTheyGo}</h3>
+					<p class="mono">{dir || text.noLibraryYet}</p>
+				</div>
+				<SecondaryButton onclick={change}>{dir ? text.change : text.chooseFolder}</SecondaryButton>
+			</div>
+		</div>
+	</section>
+
 	<section>
 		<h2>{text.appearance}</h2>
 		<div class="card">
@@ -36,11 +77,51 @@
 			</div>
 		</div>
 	</section>
+
+	<section>
+		<h2>{text.privacy}</h2>
+		<div class="card">
+			<div class="item">
+				<div class="text">
+					<h3>{text.googleCookies}</h3>
+					<p>{text.googleCookiesDesc}</p>
+				</div>
+			</div>
+			{#each accounts as a, i (a.id)}
+				<div class="item account">
+					<Avatar account={a} index={i} />
+					<div class="text">
+						<h3>{a.name}</h3>
+						<p>{a.email}</p>
+					</div>
+					<button class="danger" onclick={() => purge(a.id)}><Trash2 size={14} />{text.purge}</button>
+				</div>
+			{/each}
+			<div class="item">
+				<button class="link" onclick={() => goto('/add')}><Plus size={14} />{text.addAccount}</button>
+			</div>
+		</div>
+	</section>
+
+	<section>
+		<h2>{text.about}</h2>
+		<div class="card">
+			<div class="item">
+				<div class="text">
+					<h3>Homewend {version}</h3>
+					<p>{text.aboutDesc}</p>
+				</div>
+				<a class="link" href="https://github.com/ronalder100/homewend" target="_blank" rel="noreferrer"
+					><Code size={14} />{text.sourceCode}</a
+				>
+			</div>
+		</div>
+	</section>
 </div>
 
 <style>
 	.page {
-		padding: 32px 40px;
+		padding: 32px 40px 40px;
 		display: flex;
 		flex-direction: column;
 		gap: 32px;
@@ -73,8 +154,16 @@
 		gap: 24px;
 		padding: 16px 24px;
 	}
+	.item + .item {
+		border-top: 1px solid var(--line);
+	}
+	.item.account {
+		gap: 12px;
+		padding: 12px 24px;
+	}
 	.text {
 		flex: 1;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -86,7 +175,12 @@
 	}
 	p {
 		font-size: var(--text-callout);
+		line-height: 1.5;
 		color: var(--muted);
+	}
+	.mono {
+		font-family: var(--font-mono);
+		user-select: text;
 	}
 	.segments {
 		display: flex;
@@ -118,5 +212,21 @@
 	}
 	.segments button.on :global(svg) {
 		color: var(--fg);
+	}
+	.danger,
+	.link {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: var(--text-callout);
+		font-weight: 600;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.danger {
+		color: var(--err);
+	}
+	.link {
+		color: var(--accent);
 	}
 </style>

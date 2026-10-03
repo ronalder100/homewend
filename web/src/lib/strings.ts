@@ -101,5 +101,29 @@ export const text = {
 	download: 'Download',
 	newTakeout: 'New takeout',
 	readingTakeouts: 'Reading your takeouts from Google…',
-	noTakeouts: 'No takeouts on Google yet.'
+	noTakeouts: 'No takeouts on Google yet.',
+
+	library: 'LIBRARY',
+	whereTheyGo: 'Where your photos go',
+	privacy: 'PRIVACY',
+	googleCookies: 'Google cookies',
+	googleCookiesDesc:
+		'Homewend keeps the Google cookies of each account in a browser profile of its own, on this computer. Purging them signs Homewend out of that account only; its photos stay where they are.',
+	purge: 'Purge cookies',
+	addAccount: 'Add a Google account',
+	about: 'ABOUT',
+	aboutDesc: 'Open source, AGPL-3.0. Nothing passes through our servers.',
+	sourceCode: 'Source code',
+	upcoming: 'Upcoming',
+	importTitle: 'Import a folder',
+	importDesc:
+		'Photos from a phone backup, a camera card or an old disk, sorted into the same library, with what was already there counted once.',
+	close: 'Close',
+	openInFolder: /Mac/.test(globalThis.navigator?.platform ?? '')
+		? 'Open in Finder'
+		: /Win/.test(globalThis.navigator?.platform ?? '')
+			? 'Show in Explorer'
+			: 'Open folder',
+	previous: 'Previous',
+	next: 'Next'
 } as const;

@@ -15,6 +15,7 @@
 	// On the Mac the corner belongs to the traffic lights: the sidebar opens
 	// from the View menu and ⌃⌘S there, as in Apple's own apps.
 	const mac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+	let importing = $state(false);
 </script>
 
 <header>
@@ -25,8 +26,22 @@
 	{/if}
 	<Brand />
 	<span class="spacer"></span>
-	<SecondaryButton small><FolderInput size={14} />{text.importFolder}</SecondaryButton>
+	<span class="anchor">
+		<SecondaryButton small onclick={() => (importing = !importing)}
+			><FolderInput size={14} />{text.importFolder}</SecondaryButton
+		>
+		{#if importing}
+			<!-- C3: importing a folder is phase 2; the button says what is coming. -->
+			<div class="popover" role="dialog" aria-label={text.importTitle}>
+				<div class="row">
+					<b>{text.importTitle}</b><span class="chip">{text.upcoming}</span>
+				</div>
+				<p>{text.importDesc}</p>
+			</div>
+		{/if}
+	</span>
 </header>
+<svelte:window onkeydown={(e) => e.key === 'Escape' && (importing = false)} />
 
 <style>
 	header {
@@ -94,5 +109,45 @@
 	}
 	.spacer {
 		flex: 1;
+	}
+	.anchor {
+		position: relative;
+	}
+	.popover {
+		position: absolute;
+		right: 0;
+		top: 40px;
+		z-index: 20;
+		width: 320px;
+		padding: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		box-shadow: 0 12px 40px rgba(10, 10, 30, 0.16);
+		-webkit-app-region: no-drag;
+	}
+	.popover .row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.popover b {
+		color: var(--fg);
+	}
+	.chip {
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: var(--chip);
+		color: #0a0a0a;
+		font-size: var(--text-subheadline);
+		font-weight: 600;
+	}
+	.popover p {
+		font-size: var(--text-callout);
+		line-height: 1.5;
+		color: var(--muted);
 	}
 </style>

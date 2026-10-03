@@ -75,16 +75,25 @@ func addressOf(profile string) string {
 	return Account(sess)
 }
 
-// AccountSession opens the session of the account whose profile is id.
-func AccountSession(id string) (*session.Session, error) {
+// ProfileOf is the folder of the account whose profile is id.
+func ProfileOf(id string) (string, error) {
 	if !profileName.MatchString(id) {
-		return nil, ErrNoSuchAccount
+		return "", ErrNoSuchAccount
 	}
 	first, err := DefaultProfile()
 	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(first), id), nil
+}
+
+// AccountSession opens the session of the account whose profile is id.
+func AccountSession(id string) (*session.Session, error) {
+	dir, err := ProfileOf(id)
+	if err != nil {
 		return nil, err
 	}
-	return session.New(filepath.Join(filepath.Dir(first), id))
+	return session.New(dir)
 }
 
 // ErrNoSuchAccount is an id that names no profile.

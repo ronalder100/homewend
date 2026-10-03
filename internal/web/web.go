@@ -31,6 +31,9 @@ const fallback = "200.html"
 
 const cookieName = "homewend"
 
+// Version is the program's, as the release build set it: Settings shows it.
+var Version = "dev"
+
 // Server is the interface on 127.0.0.1, on a port the system picks.
 type Server struct {
 	// URL opens the page; it carries the token once, the cookie after that.

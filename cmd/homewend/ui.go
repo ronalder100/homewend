@@ -18,6 +18,7 @@ import (
 // app holds our stdin, so if it dies without stopping us we stop anyway.
 func ui(args []string) int {
 	newFlags("ui").Parse(args)
+	web.Version = version
 	srv, err := web.Listen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

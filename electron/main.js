@@ -72,6 +72,9 @@ async function open() {
 	ipcMain.on('theme', (_event, theme) => {
 		if (['system', 'light', 'dark'].includes(theme)) nativeTheme.themeSource = theme;
 	});
+	ipcMain.on('show-in-folder', (_event, file) => {
+		if (typeof file === 'string' && path.isAbsolute(file)) shell.showItemInFolder(file);
+	});
 	ipcMain.handle('choose-folder', async (_event, start) => {
 		const r = await dialog.showOpenDialog(win, {
 			defaultPath: start || undefined,

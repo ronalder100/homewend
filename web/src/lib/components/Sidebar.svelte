@@ -54,7 +54,12 @@
 				: []
 	);
 	const is = (p: Place) => samePlace(p, place);
-	const go = (p: Place) => (rail ? onexpand?.() : onplace?.(p));
+	// On the rail a row opens the sidebar and its page; an account only opens
+	// the sidebar, where its checkbox is.
+	const go = (p: Place) => {
+		if (rail) onexpand?.();
+		onplace?.(p);
+	};
 	const toggle = (id: string) => (rail ? onexpand?.() : many && ontoggle?.(id));
 </script>
 

@@ -8,6 +8,9 @@
 	import { text } from '#lib/strings.js';
 	import Grid from '#lib/components/Grid.svelte';
 	import EmptyLibrary from '#lib/screens/EmptyLibrary.svelte';
+	import Viewer from '#lib/components/Viewer.svelte';
+
+	let open = $state<number | null>(null);
 
 	const place = $derived(placeOf(page.url));
 	const title = $derived(
@@ -49,7 +52,7 @@
 {#if app.overview && app.overview.total === 0}
 	<EmptyLibrary />
 {:else}
-	<Grid {photos}>
+	<Grid {photos} onopen={(i) => (open = i)}>
 		{#snippet header()}
 			<div class="head">
 				<h1>{title}</h1>
@@ -57,6 +60,7 @@
 			</div>
 		{/snippet}
 	</Grid>
+	<Viewer {photos} bind:index={open} />
 {/if}
 
 <style>
