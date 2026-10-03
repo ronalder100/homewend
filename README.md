@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.webp" alt="homewend login, then homewend get, in a terminal" width="800" />
+  <img src="docs/demo.webp" alt="homewend login, then homewend takeout, in a terminal" width="800" />
 </p>
 
 Google Photos to your disk in one click: no zips to babysit, no download to restart by hand. Homewend does the heavy lifting; you get your photos in plain folders, sorted by date and album. Open source, and nothing passes through our servers.
@@ -61,16 +61,16 @@ Sign in to Google. A small window opens; you sign in there, once:
 homewend login
 ```
 
-Bring home one year of photos, to try it. Homewend says what it is about to ask Google, and waits for your yes:
+Bring home one year of photos, to try it. The first time, Homewend asks where your photos go, and remembers it. It says what it is about to ask Google, and waits for your yes:
 
 ```bash
-homewend get --year 2025 --library ~/Pictures/Homewend
+homewend takeout 2025
 ```
 
 Then everything:
 
 ```bash
-homewend get --library ~/Pictures/Homewend
+homewend takeout
 ```
 
 Good to know:
@@ -96,16 +96,16 @@ Good to know:
 
 | Command | What it does |
 |---|---|
-| `login` | Sign in to Google, in a browser profile that belongs to Homewend |
-| `logout` | Sign out: delete that browser profile |
-| `get` | Ask Google for an export, download it, check it |
-| `takeouts` | List the exports on your Google Takeout; `get --takeout ID` downloads one |
-| `verify` | Count a library again against its export |
-| `update` | Get the latest Homewend |
-| `version` | Print the version |
+| `login` | Sign in to Google, in a window that belongs to Homewend |
+| `logout` | Sign out and forget the Google sign-in |
+| `status` | Show the account, the export and the library |
+| `takeout [YEAR]` | Ask Google for an export, download it, check it; `--list` lists the exports on your Google Takeout |
+| `verify [DIR]` | Count a library again against its export |
+| `update` | Install the latest Homewend |
+| `version` | Show the version |
 | `help <command>` | Flags and examples |
 
-`--json` on `login`, `get`, `takeouts` and `verify` prints one JSON object per line, for scripts.
+`--json` on `login`, `status`, `takeout` and `verify` prints JSON, for scripts; `--yes` on `takeout` answers its questions. `--library DIR` puts the photos somewhere else for one run.
 Once a day, at the end of a command, Homewend asks GitHub whether a newer release is out and says so in one line; `homewend update` installs it.
 Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed in or session expired: run `homewend login`.
 

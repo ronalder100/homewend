@@ -7,7 +7,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,14 +14,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
-	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/dustin/go-humanize"
 	"golang.org/x/term"
 
 	"github.com/ronalder100/homewend/internal/download"
@@ -47,19 +45,19 @@ var version = "dev"
 // commands maps each subcommand to its shell. Every one has a help page,
 // text["help <name>"].
 var commands = map[string]func(args []string) int{
-	"login":    login,
-	"logout":   logout,
-	"get":      get,
-	"takeouts": takeouts,
-	"update":   updateProgram,
-	"verify":   verify,
+	"login":   login,
+	"logout":  logout,
+	"status":  status,
+	"takeout": takeoutCommand,
+	"update":  updateProgram,
+	"verify":  verify,
 }
 
 func main() {
 	if len(os.Args) < 2 {
 		cleanScreen(nil)
-		showHelp(os.Stderr, text["usage"])
-		os.Exit(exitError)
+		showHelp(os.Stdout, text["usage"])
+		os.Exit(exitOK)
 	}
 	name, args := os.Args[1], os.Args[2:]
 	switch name {
@@ -72,8 +70,7 @@ func main() {
 	}
 	run, ok := commands[name]
 	if !ok {
-		fmt.Fprintf(os.Stderr, text["unknown command"], name)
-		showHelp(os.Stderr, text["usage"])
+		failed(fmt.Sprintf(text["unknown command"], name), nil, text["unknown hint"])
 		os.Exit(exitError)
 	}
 	code := run(args)
@@ -83,60 +80,45 @@ func main() {
 	os.Exit(code)
 }
 
-// sayNewer ends a command with one line when a newer release is out. Only
-// for a person: a script reading the output is told nothing, and GitHub is
-// not asked on its behalf.
+// typed is the command as the user typed it, to show and to repeat in a hint.
+func typed() string {
+	words := []string{"homewend"}
+	for _, w := range os.Args[1:] {
+		if strings.ContainsAny(w, " \t") {
+			w = strconv.Quote(w)
+		}
+		words = append(words, w)
+	}
+	return strings.Join(words, " ")
+}
+
+// sayNewer ends a command with a hint when a newer release is out. Only for
+// a person: a script is told nothing, and GitHub is not asked on its behalf.
 func sayNewer() {
 	if !term.IsTerminal(int(os.Stderr.Fd())) {
 		return
 	}
 	if newer := update.Newer(context.Background(), version); newer != "" {
-		fmt.Fprintln(os.Stderr, paint(os.Stderr, mutedColour, fmt.Sprintf(text["newer"], newer)))
+		fmt.Fprintln(os.Stderr, "\n"+lookFor(os.Stderr).hint(fmt.Sprintf(text["newer"], newer)))
 	}
 }
 
-// updateProgram replaces the running homewend with the latest release.
-func updateProgram(args []string) int {
-	flags := newFlags("update")
-	asJSON := flags.Bool("json", false, "one JSON object per line")
-	flags.Parse(args)
-	out := newPrinter(*asJSON)
-	defer out.close()
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-	latest, err := update.Latest(ctx)
-	if err != nil {
-		return out.fail(err)
+// begin clears the screen and shows the command as typed, for a person at a
+// terminal: what it says is then the one thing to look at. A script, or
+// anyone asking for JSON, gets nothing of it.
+func begin(args []string) *printer {
+	asJSON := slices.Contains(args, "--json") || slices.Contains(args, "-json")
+	cleanScreen(args)
+	if !asJSON {
+		// Before the live line starts: what is printed through it before it
+		// runs is lost.
+		fmt.Println(lookFor(os.Stdout).header(typed()))
+		fmt.Println()
 	}
-	if latest == version {
-		out.line("version", version, "%s", paint(os.Stdout, okColour, fmt.Sprintf(text["up to date"], version)))
-		return exitOK
-	}
-	program, err := update.Program()
-	if err != nil {
-		return out.fail(err)
-	}
-	// The status line names the version that is arriving.
-	arriving := func(e progress.Event) {
-		e.Name = latest
-		out.event(e)
-	}
-	if err := update.Install(ctx, program, arriving); err != nil {
-		return out.fail(err)
-	}
-	out.line("version", latest, "%s", paint(os.Stdout, okColour, fmt.Sprintf(text["updated"], latest, version)))
-	return exitOK
+	return newPrinter(asJSON)
 }
 
-// cleanScreen starts a command at the top of an empty screen, for a person
-// at a terminal: what it says is then the one thing to look at, not the last
-// lines under everything that came before. A script, or anyone asking for
-// JSON, gets nothing of it.
-//
-// Every command does it once it knows it has what it needs, but update: a
-// bar and one line, added to what the user was doing. A command asked wrongly
-// clears nothing either, and answers under what was typed.
+// cleanScreen starts at the top of an empty screen, in a terminal.
 func cleanScreen(args []string) {
 	if !term.IsTerminal(int(os.Stdout.Fd())) || slices.Contains(args, "--json") || slices.Contains(args, "-json") {
 		return
@@ -151,30 +133,27 @@ func help(args []string) int {
 		return exitOK
 	}
 	if _, ok := commands[args[0]]; !ok {
-		fmt.Fprintf(os.Stderr, text["unknown command"], args[0])
+		failed(fmt.Sprintf(text["unknown command"], args[0]), nil, text["unknown hint"])
 		return exitError
 	}
 	showHelp(os.Stdout, text["help "+args[0]])
 	return exitOK
 }
 
-// showHelp prints a help page: as it is written for a program, with room
-// around it and its parts told apart for a person at a terminal.
+// showHelp prints a help page: as it is written for a program, its parts
+// told apart for a person at a terminal.
 func showHelp(out *os.File, page string) {
-	if term.IsTerminal(int(out.Fd())) {
-		page = "\n" + dressed(page) + "\n"
+	if coloured(out) {
+		page = dressed(lookFor(out), page) + "\n"
 	}
 	fmt.Fprintln(out, page)
 }
 
-// dressed colours a help page by what each line is: the name in bold, the
-// headings in bold, what to type in the accent, the rest as it is. The pages
-// are plain text in the strings table; this reads their shape, so a page
-// written like the others is dressed like the others.
-func dressed(page string) string {
-	bold := lipgloss.NewStyle().Bold(true)
-	accent := lipgloss.NewStyle().Foreground(accentColour)
-	faint := lipgloss.NewStyle().Foreground(faintColour)
+// dressed draws a help page by the shape of each line: the name bold, a
+// section heading as a heading, what to type bold, the rest as it is. The
+// pages are plain text in the strings table, so a page written like the
+// others is drawn like the others.
+func dressed(l look, page string) string {
 	lines := strings.Split(page, "\n")
 	section := ""
 	for i, line := range lines {
@@ -182,53 +161,58 @@ func dressed(page string) string {
 		switch {
 		case i == 0:
 			name, what, _ := strings.Cut(line, " — ")
-			lines[i] = bold.Render(name) + " — " + what
+			lines[i] = l.paint(name, nil, true) + "  " + l.paint(what, mutedColour, false)
 		case line == "":
 		case !indented && strings.HasSuffix(line, ":"):
 			section = line
-			lines[i] = bold.Render(line)
+			lines[i] = l.heading(strings.TrimSuffix(line, ":"))
 		case !indented && strings.HasPrefix(line, "https://"):
-			lines[i] = faint.Render(line)
+			lines[i] = l.paint(line, faintColour, false)
 		case !indented:
 			section = ""
+			if before, cmd, ok := strings.Cut(line, ": "); ok && strings.HasPrefix(cmd, "homewend ") {
+				lines[i] = before + ": " + l.paint(cmd, nil, true)
+			}
 		case section == "Commands:" || section == "Flags:":
 			// A term, a gap, what it means; a line that carries on has no term.
 			word, meaning, found := strings.Cut(line[2:], "  ")
 			if found && !strings.HasPrefix(line, "   ") {
-				lines[i] = "  " + accent.Render(word) + "  " + meaning
+				lines[i] = "  " + l.paint(word, nil, true) + "  " + l.paint(meaning, mutedColour, false)
+			} else {
+				lines[i] = l.paint(line, mutedColour, false)
 			}
 		default:
-			lines[i] = accent.Render(line)
+			lines[i] = l.paint(line, nil, true)
 		}
 	}
 	return strings.Join(lines, "\n")
 }
 
-// newFlags is the flag set of one command, whose -h shows its help page.
 func newFlags(name string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ExitOnError)
 	flags.Usage = func() { showHelp(os.Stderr, text["help "+name]) }
 	return flags
 }
 
+// interrupted is the context of a command, done on Ctrl-C.
+func interrupted() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt)
+}
+
 func login(args []string) int {
 	flags := newFlags("login")
-	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
-	fallback := flags.Bool("fallback", false, "sign in on Google Takeout's page, in a full browser window")
-	asJSON := flags.Bool("json", false, "one JSON object per line")
+	profile := flags.String("profile", "", "where the sign-in is kept")
+	fallback := flags.Bool("fallback", false, "sign in on Google Takeout's page, in a full window")
+	flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	cleanScreen(args)
-	out := newPrinter(*asJSON)
+	out := begin(args)
 	defer out.close()
-	// What to do in the browser is the one thing to look at while it is
-	// open, and login has no log above it to push away.
-	out.centre()
 
 	sess, err := openSession(*profile)
 	if err != nil {
 		return out.fail(err)
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := interrupted()
 	defer stop()
 	signIn := engine.Login
 	if *fallback {
@@ -238,183 +222,47 @@ func login(args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	// With the account, when Google's page names it: a person with two
-	// accounts has to know whose photos these are. A sign-in brings it; for a
-	// session already there it is the one kept at sign-in.
+	// With the account: a person with two accounts has to know whose photos
+	// these are. For a sign-in already there it is the one kept at sign-in.
 	if already {
 		account = engine.Account(sess)
 	}
-	said := text["signed in"]
-	switch {
-	case already && account != "":
-		said = fmt.Sprintf(text["already as"], account)
-	case already:
-		said = text["already signed in"]
-	case account != "":
-		said = fmt.Sprintf(text["signed in as"], account)
+	said := map[bool]string{false: "signed in", true: "already"}[already]
+	if account != "" {
+		said = fmt.Sprintf(text[said+" as"], account)
+	} else {
+		said = text[said]
 	}
-	// The sign-in leaves the middle of the window before its result is said,
-	// which then is the first line of an empty screen.
-	out.clear()
-	out.line("signed_in", true, "%s", paint(os.Stdout, okColour, said))
-	// Whoever has just signed in is told what comes next, with the line to
-	// type; a script is told nothing it did not ask for.
-	if !already && !*asJSON {
-		out.say("%s", toType(os.Stdout, text["after login"]))
+	out.now(going{})
+	out.line("signed_in", true, out.out.done(said, ""))
+	if !already {
+		year := time.Now().Year() - 1
+		out.say("")
+		out.say(out.out.hint(fmt.Sprintf(text["after login"], year, year)))
 	}
 	return exitOK
 }
 
-func get(args []string) int {
-	flags := newFlags("get")
-	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
-	year := flags.Int("year", 0, "the year whose photos to get (default: all of them)")
-	libraryDir := flags.String("library", "", "library directory")
-	takeoutID := flags.String("takeout", "", "the export to download, by its id")
-	fresh := flags.Bool("new", false, "ask Google for a new export even if there is one")
-	asJSON := flags.Bool("json", false, "one JSON object per line")
-	flags.Parse(args)
-	if *libraryDir == "" {
-		return askedWrongly(text["get needs library"], args)
-	}
-	cleanScreen(args)
-	g := engine.Get{Year: *year, Library: *libraryDir, Takeout: *takeoutID, New: *fresh}
-	out := newPrinter(*asJSON)
-	defer func() { out.close() }()
-
-	sess, err := openSession(*profile)
-	if err != nil {
-		return out.fail(err)
-	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-	// A person at a terminal is asked first: before Google is asked for a new
-	// export, which takes it hours, and when one is already there, which may
-	// not be the one they want. A script that runs get meant it; so did
-	// whoever named the export, and a library that has begun one carries on.
-	if !*asJSON && term.IsTerminal(int(os.Stdin.Fd())) {
-		if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
-			return out.fail(err)
-		}
-		found, err := g.Existing(sess)
-		if err != nil {
-			return out.fail(err)
-		}
-		if found == nil || g.Takeout == "" && !found.Started {
-			out.close()
-			if found == nil {
-				yes, err := confirmNew(ctx, g)
-				if err != nil {
-					return newPrinter(*asJSON).fail(err)
-				}
-				if !yes {
-					return exitOK
-				}
-			} else if g.New, err = wantsNew(ctx, g, *found); err != nil {
-				return newPrinter(*asJSON).fail(err)
-			}
-			// The question is answered: what follows starts on a clean screen,
-			// as every command does.
-			cleanScreen(args)
-			out = newPrinter(*asJSON)
-		}
-	}
-	result, err := g.Run(ctx, sess, out.event)
-	if err != nil {
-		return out.fail(err)
-	}
-	out.organized(result.Organized)
-	return out.finished(result.Verification, *libraryDir)
-}
-
-// what names the photos a get is for.
-func what(g engine.Get) string {
-	if g.Year != 0 {
-		return fmt.Sprintf(text["photos of"], g.Year)
-	}
-	return text["all photos"]
-}
-
-// answer asks a question and reads the reply, in lower case. Ctrl-C there
-// stops the command, as it does anywhere else: the interrupt is caught for
-// the work that follows, so the read must not be all that is waited on.
-func answer(ctx context.Context, question string) (string, error) {
-	fmt.Print(paint(os.Stdout, accentColour, question))
-	reply := make(chan string, 1)
-	go func() {
-		r, _ := replies.ReadString('\n')
-		reply <- r
-	}()
-	select {
-	case r := <-reply:
-		return strings.ToLower(strings.TrimSpace(r)), nil
-	case <-ctx.Done():
-		fmt.Println()
-		return "", ctx.Err()
-	}
-}
-
-// replies is what the user types. One reader for every question: a second
-// one would not see what the first had already read ahead.
-var replies = bufio.NewReader(os.Stdin)
-
-// confirmNew says that get is about to ask Google for a new export, and asks
-// to go on. Enter is yes.
-func confirmNew(ctx context.Context, g engine.Get) (bool, error) {
-	reply, err := answer(ctx, fmt.Sprintf(text["confirm new"], what(g)))
-	if err != nil {
-		return false, err
-	}
-	switch reply {
-	case "", "y", "yes":
-		return true, nil
-	}
-	fmt.Println(text["not asked"])
-	return false, nil
-}
-
-// wantsNew says that Google already has an export of these photos, which one,
-// and asks which of two things to do, by number: download it, or ask for a
-// new one. Enter downloads it; anything that is neither number is asked again.
-func wantsNew(ctx context.Context, g engine.Get, found engine.Found) (bool, error) {
-	number := func(n string) string { return paint(os.Stdout, accentColour, n) }
-	fmt.Printf(text["have one"], what(g), found.ID, found.Created.Local().Format("2006-01-02 15:04"), size(found.Bytes), found.Status)
-	fmt.Printf(text["option"], number("1"), text["download that"])
-	fmt.Printf(text["option"], number("2"), text["ask for new"])
-	fmt.Println()
-	for {
-		reply, err := answer(ctx, text["choose"])
-		if err != nil {
-			return false, err
-		}
-		switch reply {
-		case "", "1":
-			return false, nil
-		case "2":
-			return true, nil
-		}
-	}
-}
-
 func logout(args []string) int {
 	flags := newFlags("logout")
-	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
+	profile := flags.String("profile", "", "where the sign-in is kept")
 	flags.Parse(args)
-	cleanScreen(args)
+	out := begin(args)
+	defer out.close()
 	dir, err := profileDir(*profile)
-	if err == nil {
-		var was bool
-		if was, err = engine.Logout(dir); err == nil {
-			if was {
-				fmt.Println(paint(os.Stdout, okColour, text["signed out"]))
-			} else {
-				fmt.Println(text["was not signed in"])
-			}
-			return exitOK
-		}
+	if err != nil {
+		return out.fail(err)
 	}
-	fmt.Fprintln(os.Stderr, paint(os.Stderr, errColour, err.Error()))
-	return exitError
+	was, err := engine.Logout(dir)
+	if err != nil {
+		return out.fail(err)
+	}
+	if was {
+		out.say(out.out.done(text["signed out"], ""))
+	} else {
+		out.say(out.out.stopped(text["was not signed"], ""))
+	}
+	return exitOK
 }
 
 // profileDir is profile, or the default profile when none is given.
@@ -425,8 +273,8 @@ func profileDir(profile string) (string, error) {
 	return engine.DefaultProfile()
 }
 
-// openSession opens the session over profile, or over the default profile when
-// none is given.
+// openSession opens the session over profile, or over the default profile
+// when none is given.
 func openSession(profile string) (*session.Session, error) {
 	dir, err := profileDir(profile)
 	if err != nil {
@@ -435,265 +283,317 @@ func openSession(profile string) (*session.Session, error) {
 	return session.New(dir)
 }
 
-func takeouts(args []string) int {
-	flags := newFlags("takeouts")
-	profile := flags.String("profile", "", "browser profile directory (default: in the user's config directory)")
-	asJSON := flags.Bool("json", false, "one JSON object per line")
+func status(args []string) int {
+	flags := newFlags("status")
+	profile := flags.String("profile", "", "where the sign-in is kept")
+	asJSON := flags.Bool("json", false, "one JSON object")
 	flags.Parse(args)
-	cleanScreen(args)
-	out := newPrinter(*asJSON)
+	out := begin(args)
 	defer out.close()
-
 	sess, err := openSession(*profile)
 	if err != nil {
 		return out.fail(err)
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	out.now(going{said: text["checking"], bar: -1})
+	st, err := engine.Now(sess)
+	out.now(going{})
+	if err != nil {
+		return out.fail(err)
+	}
+	newer := update.Newer(context.Background(), version)
+	if *asJSON {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"status": st, "version": version, "newer": newer})
+		return exitOK
+	}
+	l := out.out
+	none := func(name, said string) string { return l.field(name, signStopped, mutedColour, said, "") }
+	if st.SignedIn {
+		out.say(l.field(text["field google"], signDone, okColour, st.Account, ""))
+	} else {
+		out.say(none(text["field google"], text["not signed in"]))
+	}
+	switch e := st.Export; {
+	case e == nil:
+		out.say(none(text["field takeout"], text["not requested"]))
+	default:
+		details := fmt.Sprintf(text["export of"], e.ID, e.Status)
+		switch e.Status {
+		case engine.Ready:
+			out.say(l.field(text["field takeout"], signDone, okColour, what(e.Year), " · "+details))
+		case engine.Expired:
+			out.say(l.field(text["field takeout"], signStopped, mutedColour, what(e.Year), " · "+details))
+		default:
+			out.say(l.field(text["field takeout"], signWaiting, warnColour, what(e.Year), " · "+details))
+		}
+	}
+	if st.Library != "" {
+		out.say(l.field(text["field library"], "", nil, st.Library, ""))
+	} else {
+		out.say(none(text["field library"], text["not chosen"]))
+	}
+	if newer != "" {
+		out.say(l.field(text["field version"], signWarning, warnColour, version, fmt.Sprintf(text["available"], newer)))
+	} else {
+		out.say(l.field(text["field version"], "", nil, version, text["latest"]))
+	}
+	if !st.SignedIn {
+		out.say("")
+		out.say(l.hint(text["status start"]))
+	}
+	return exitOK
+}
+
+// what names the photos of a year, or all of them.
+func what(year int) string {
+	if year != 0 {
+		return fmt.Sprintf(text["photos of"], year)
+	}
+	return text["all photos"]
+}
+
+// interactive is whether a person can be asked: not with --json, and not when
+// the input is not a terminal.
+func interactive(asJSON bool) bool { return !asJSON && term.IsTerminal(int(os.Stdin.Fd())) }
+
+func takeoutCommand(args []string) int {
+	flags := newFlags("takeout")
+	profile := flags.String("profile", "", "where the sign-in is kept")
+	list := flags.Bool("list", false, "list the exports on Google Takeout")
+	libraryDir := flags.String("library", "", "where the photos go, for this run")
+	exportID := flags.String("export", "", "this export, by its id")
+	fresh := flags.Bool("new", false, "ask Google for a new export even if there is one")
+	yes := flags.Bool("yes", false, "answer yes to every question")
+	asJSON := flags.Bool("json", false, "one JSON object per line")
+	// The year may come before the flags or after them.
+	flags.Parse(args)
+	year := 0
+	if rest := flags.Args(); len(rest) > 0 {
+		y, err := strconv.Atoi(rest[0])
+		if err != nil || len(rest[0]) != 4 {
+			return failed(fmt.Sprintf(text["not a year"], rest[0]), nil, fmt.Sprintf(text["year hint"], time.Now().Year()-1))
+		}
+		year = y
+		flags.Parse(rest[1:])
+	}
+	if *list {
+		return takeoutList(args, *profile, *asJSON)
+	}
+
+	ctx, stop := interrupted()
+	defer stop()
+	dir, code := libraryFor(ctx, *libraryDir, *asJSON)
+	if dir == "" {
+		return code
+	}
+	out := begin(args)
+	defer func() { out.close() }()
+	out.what = what(year)
+	sess, err := openSession(*profile)
+	if err != nil {
+		return out.fail(err)
+	}
+	account, _, err := engine.Login(ctx, sess, out.event)
+	if err != nil {
+		return out.fail(err)
+	}
+	if account == "" {
+		account = engine.Account(sess)
+	}
+	out.now(going{})
+	if account != "" {
+		out.say(out.out.done(fmt.Sprintf(text["signed in as"], account), ""))
+	}
+
+	g := engine.Get{Year: year, Library: dir, Takeout: *exportID, New: *fresh}
+	// A person is asked first: before Google is asked for a new export, which
+	// takes it hours, and when one is already there, which may not be the one
+	// they want. A script meant it; so did whoever named the export, and a
+	// library that has begun one carries on.
+	if interactive(*asJSON) && !*yes && !*fresh {
+		found, err := g.Existing(sess)
+		if err != nil {
+			return out.fail(err)
+		}
+		if found == nil || g.Takeout == "" && !found.Started {
+			out.close()
+			fmt.Println()
+			if found == nil {
+				at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), text["ask new meta"], []string{text["yes"], text["no"]})
+				if err != nil {
+					return newPrinter(*asJSON).fail(err)
+				}
+				if at != 0 {
+					fmt.Println(lookFor(os.Stdout).stopped(text["not asked"], ""))
+					return exitOK
+				}
+			} else {
+				detail := fmt.Sprintf(text["have one meta"], found.ID, found.Created.Local().Format("2 Jan 15:04"), size(found.Bytes)) + string(found.Status)
+				at, err := choose(ctx, fmt.Sprintf(text["have one"], out.what), detail, []string{text["download it"], text["ask for new"]})
+				if err != nil {
+					return newPrinter(*asJSON).fail(err)
+				}
+				g.New = at == 1
+			}
+			what := out.what
+			out = newPrinter(*asJSON)
+			out.what = what
+		}
+	}
+	result, err := g.Run(ctx, sess, out.event)
+	if err != nil {
+		return out.fail(err)
+	}
+	out.now(going{})
+	out.sorted(result.Organized)
+	return out.checked(result.Verification, dir, year)
+}
+
+// libraryFor is the library folder of this run: the one given, or the one
+// chosen once, or one asked now and kept. "" with the exit code when there is
+// none and no one to ask.
+func libraryFor(ctx context.Context, given string, asJSON bool) (string, int) {
+	if given != "" {
+		return given, exitOK
+	}
+	kept, err := engine.DefaultLibrary()
+	if err != nil {
+		return "", newPrinter(asJSON).fail(err)
+	}
+	if kept != "" {
+		return kept, exitOK
+	}
+	if !interactive(asJSON) {
+		return "", failed(text["no library"], nil, fmt.Sprintf(text["no library hint"], typed()))
+	}
+	home, _ := os.UserHomeDir()
+	proposed := filepath.Join(home, "Pictures", "Homewend")
+	cleanScreen(nil)
+	fmt.Println(lookFor(os.Stdout).header(typed()))
+	fmt.Println()
+	answer, err := field(ctx, text["ask library"], text["ask library meta"], tilde(proposed, home))
+	if err != nil {
+		return "", newPrinter(asJSON).fail(err)
+	}
+	if strings.HasPrefix(answer, "~/") {
+		answer = filepath.Join(home, answer[2:])
+	}
+	if answer == "" {
+		answer = proposed
+	}
+	if err := engine.SetDefaultLibrary(answer); err != nil {
+		return "", newPrinter(asJSON).fail(err)
+	}
+	return answer, exitOK
+}
+
+// tilde writes path under home with ~, as a person types it.
+func tilde(path, home string) string {
+	if rel, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(rel, "..") {
+		return "~/" + rel
+	}
+	return path
+}
+
+// takeoutList lists the exports on Google Takeout.
+func takeoutList(args []string, profile string, asJSON bool) int {
+	out := begin(args)
+	defer out.close()
+	sess, err := openSession(profile)
+	if err != nil {
+		return out.fail(err)
+	}
+	ctx, stop := interrupted()
 	defer stop()
 	if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
 		return out.fail(err)
 	}
 	list, err := engine.Takeouts(sess)
+	out.now(going{})
 	if err != nil {
 		return out.fail(err)
 	}
-	if *asJSON {
+	if asJSON {
 		for _, t := range list {
 			json.NewEncoder(os.Stdout).Encode(map[string]any{"takeout": t})
 		}
 		return exitOK
 	}
+	l, account := out.out, engine.Account(sess)
 	if len(list) == 0 {
-		out.say("%s", text["no takeouts"])
+		out.say(l.summary(fmt.Sprintf(text["list none"], account)))
+		out.say("")
+		out.say(l.hint(fmt.Sprintf(text["list none hint"], time.Now().Year()-1)))
 		return exitOK
 	}
-	out.say("%s", text["takeouts header"])
+	out.say(l.marked(fmt.Sprintf(text["list title"], account), nil))
+	out.say("")
+	out.say(l.paint(text["list head"], faintColour, false))
+	ready := ""
 	for _, t := range list {
-		holds := text["holds unknown"]
+		holds := text["list unknown"]
 		switch {
 		case t.Known && t.Year != 0:
-			holds = fmt.Sprintf(text["holds year"], t.Year)
+			holds = strconv.Itoa(t.Year)
 		case t.Known:
-			holds = text["holds all"]
+			holds = text["list all"]
 		}
 		until := ""
 		if !t.Expires.IsZero() {
-			until = t.Expires.Local().Format("2006-01-02 15:04")
+			until = t.Expires.Local().Format("2 Jan")
 		}
-		row := fmt.Sprintf(text["takeout row"], t.ID, t.Created.Local().Format("2006-01-02 15:04"),
-			size(t.Bytes), len(t.Parts), t.Status, until, holds)
+		row := fmt.Sprintf(text["list row"], t.ID, t.Created.Local().Format("2 Jan 15:04"), size(t.Bytes), len(t.Parts), t.Status, until, holds)
 		switch t.Status {
 		case engine.Ready:
-			row = paint(os.Stdout, okColour, row)
+			// Only the state is coloured, and only because it tells this
+			// export apart from the others.
+			s := string(t.Status)
+			i := strings.Index(row, s)
+			row = row[:i] + l.paint(s, okColour, false) + row[i+len(s):]
+			if ready == "" && t.Known {
+				ready = map[bool]string{true: " " + holds, false: ""}[t.Year != 0]
+			}
 		case engine.Expired:
-			row = paint(os.Stdout, faintColour, row)
+			row = l.paint(row, faintColour, false)
 		}
-		out.say("%s", row)
+		out.say(row)
+	}
+	if ready != "" {
+		out.say("")
+		out.say(l.hint(fmt.Sprintf(text["list ready"], ready)))
 	}
 	return exitOK
 }
 
 func verify(args []string) int {
 	flags := newFlags("verify")
-	libraryDir := flags.String("library", "", "library directory")
-	takeoutID := flags.String("takeout", "", "the export to check against, by its id")
-	asJSON := flags.Bool("json", false, "one JSON object per line")
+	exportID := flags.String("export", "", "the export to count against, by its id")
+	flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	if *libraryDir == "" {
-		return askedWrongly(text["verify needs library"], args)
+	dir := flags.Arg(0)
+	if dir == "" {
+		kept, err := engine.DefaultLibrary()
+		if err != nil || kept == "" {
+			return failed(text["no library"], nil, fmt.Sprintf(text["no library hint"], typed()))
+		}
+		dir = kept
 	}
-	cleanScreen(args)
-	out := printer{json: *asJSON}
-
-	v, err := engine.Verify(*libraryDir, *takeoutID)
+	out := begin(args)
+	defer out.close()
+	v, err := engine.Verify(dir, *exportID)
 	if err != nil {
 		return out.fail(err)
 	}
-	return out.verification(v, *libraryDir, "")
-}
-
-// askedWrongly says what a command was missing and shows what to type
-// instead: what the user typed, with what was missing added, in the accent at
-// a terminal like everything there is to type.
-func askedWrongly(said string, typed []string) int {
-	given := ""
-	for _, word := range typed {
-		if strings.ContainsAny(word, " \t") {
-			word = strconv.Quote(word)
-		}
-		given += word + " "
-	}
-	fmt.Fprintln(os.Stderr, toType(os.Stderr, fmt.Sprintf(said, given)))
-	return exitError
-}
-
-// toType puts the lines of said that are commands, the indented ones, in the
-// accent, when out is a terminal.
-func toType(out *os.File, said string) string {
-	if !term.IsTerminal(int(out.Fd())) {
-		return said
-	}
-	lines := strings.Split(said, "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, "  ") {
-			lines[i] = lipgloss.NewStyle().Foreground(accentColour).Render(line)
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
-// printer shows engine output either as text or as JSON lines. In a
-// terminal, text goes above a live status line.
-type printer struct {
-	json bool
-	live *tea.Program
-}
-
-func newPrinter(json bool) printer {
-	if json {
-		return printer{json: true}
-	}
-	return printer{live: startLive()}
-}
-
-// close takes the status line down. It can be called more than once.
-func (p printer) close() {
-	p.clear()
-	if p.live != nil {
-		p.live.Quit()
-		p.live.Wait()
-	}
-}
-
-// clear empties the status, so that what is said next is not said around it.
-func (p printer) clear() {
-	if p.live != nil {
-		p.live.Send(idle{})
-	}
-}
-
-// centre puts what the user is asked to do in the middle of the window, when
-// there is a window.
-func (p printer) centre() {
-	if p.live != nil {
-		p.live.Send(centre{})
-	}
-}
-
-// notice colours s in a terminal, and leaves it plain anywhere else.
-func (p printer) notice(s string) string {
-	if p.live == nil {
-		return s
-	}
-	return blended(s)
-}
-
-// say prints one line of text for a person.
-func (p printer) say(format string, args ...any) {
-	if p.live != nil {
-		p.live.Printf(format, args...)
-		return
-	}
-	fmt.Printf(format+"\n", args...)
-}
-
-func (p printer) line(kind string, value any, format string, args ...any) {
-	if p.json {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{kind: value})
-		return
-	}
-	p.say(format, args...)
-}
-
-func (p printer) event(e progress.Event) {
-	if p.json {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"event": e})
-		return
-	}
-	if p.live != nil {
-		p.live.Send(e)
-	}
-	switch e.Stage {
-	case progress.SignIn:
-		// In a terminal the status line says both, and takes them away.
-		if p.live == nil {
-			p.say("%s", text["sign in"])
-		}
-	case progress.SessionReady:
-		if p.live == nil {
-			p.say("%s", text["session status"])
-		}
-	case progress.Request:
-		// In a terminal the status line says it, and counts.
-		if p.live == nil {
-			p.say("%s", text["request"])
-		}
-	case progress.Waiting:
-		p.say("%s", text["waiting"])
-		p.say("%s", p.notice(text["restart"]))
-	case progress.InLibrary:
-		p.say("%s", text["in library"])
-	case progress.Ready:
-		p.say(text["ready"], e.Of, size(e.Total))
-	case progress.Prepare:
-		if p.live == nil {
-			p.say("%s", text["prepare status"])
-		}
-	case progress.FirstDownload:
-		if p.live == nil {
-			p.say("%s", text["password status"])
-		}
-	case progress.Download:
-		// In a terminal the bar says it.
-		if p.live == nil {
-			p.say(text["download"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
-		}
-	case progress.Downloaded:
-		p.say(text["downloaded"], e.N, e.Of, size(e.Total))
-	case progress.Short:
-		p.say(text["short"], e.N, e.Of, e.Name, size(e.Done), size(e.Total))
-	case progress.Retry:
-		p.say(text["retry"], e.Note, e.N)
-	case progress.Damaged:
-		p.say(text["damaged"], e.N, e.Of)
-	case progress.Unpack:
-		p.say(text["unpack"], e.N, e.Of)
-	case progress.Place:
-		// One line per photo would bury everything else: every thousandth,
-		// unless the bar is there to count them.
-		if p.live == nil && (e.N == e.Of || e.N%1000 == 0) {
-			p.say(text["place"], e.N, e.Of)
-		}
-	}
-}
-
-// organized reports what was placed; when the export was already all in the
-// library there is nothing to report, and the count that follows says it.
-func (p printer) organized(o library.Organized) {
-	if o.Placed == 0 && o.Skipped == 0 && !p.json {
-		return
-	}
-	p.line("organized", o, text["placed"],
-		o.Placed, humanize.IBytes(uint64(o.Bytes)), o.Skipped, o.Undated, o.Linked+o.Copied)
-}
-
-// verification reports a library against its export: a line per year, then
-// the whole in one line, with ending after it when there is cause.
-func (p printer) verification(v library.Verification, libraryDir, ending string) int {
-	if p.json {
+	if out.json {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"verification": v})
 	} else {
 		for _, y := range v.Years {
-			p.say(text["year"], y.Year, y.Present, y.Declared)
+			out.say("  " + out.out.paint(y.Year, mutedColour, false) + "   " + fmt.Sprintf("%d of %d", y.Present, y.Declared))
 		}
-		p.say("")
+		out.say("")
 		if v.Complete() {
-			p.say("%s", paint(os.Stdout, okColour, fmt.Sprintf(text["all here"], v.Present, libraryDir)+ending))
+			out.say(out.out.result(fmt.Sprintf(text["result verify"], v.Present, dir)))
 		} else {
-			p.say("%s", paint(os.Stdout, errColour, fmt.Sprintf(text["some missing"], v.Present, v.Declared, len(v.Missing))))
-			for _, name := range v.Missing {
-				p.say(text["missing file"], name)
-			}
+			out.missing(v, "homewend takeout")
 		}
 	}
 	if !v.Complete() {
@@ -702,63 +602,175 @@ func (p printer) verification(v library.Verification, libraryDir, ending string)
 	return exitOK
 }
 
-// finished reports a download: the count and, when nothing is missing, a
-// word of celebration.
-func (p printer) finished(v library.Verification, libraryDir string) int {
-	return p.verification(v, libraryDir, text["complete"])
+// updateProgram replaces the running homewend with the latest release.
+func updateProgram(args []string) int {
+	flags := newFlags("update")
+	flags.Bool("json", false, "one JSON object per line")
+	flags.Parse(args)
+	out := begin(args)
+	defer out.close()
+
+	ctx, stop := interrupted()
+	defer stop()
+	latest, err := update.Latest(ctx)
+	if err != nil {
+		return out.fail(err)
+	}
+	if latest == version {
+		out.line("version", version, out.out.result(fmt.Sprintf(text["up to date"], version)))
+		return exitOK
+	}
+	program, err := update.Program()
+	if err != nil {
+		return out.fail(err)
+	}
+	start := time.Now()
+	var got int64
+	arriving := func(e progress.Event) {
+		e.Name, got = latest, e.Total
+		out.event(e)
+	}
+	if err := update.Install(ctx, program, arriving); err != nil {
+		return out.fail(err)
+	}
+	out.now(going{})
+	out.say(out.out.done(fmt.Sprintf(text["update got"], latest), fmt.Sprintf(text["downloaded in"], size(got), time.Since(start).Round(time.Second))))
+	out.say(out.out.done(text["update sums"], ""))
+	out.say("")
+	out.line("version", latest, out.out.result(fmt.Sprintf(text["updated"], version, latest)))
+	return exitOK
 }
 
-func (p printer) fail(err error) int {
+// sorted reports the photos placed; nothing when the export was already all
+// in the library.
+func (p *printer) sorted(o library.Organized) {
+	if o.Placed == 0 && o.Skipped == 0 {
+		return
+	}
+	took := time.Duration(0)
+	if !p.sortStart.IsZero() {
+		took = time.Since(p.sortStart).Round(time.Second)
+	}
+	p.line("organized", o, p.out.done(fmt.Sprintf(text["sorted"], o.Placed),
+		fmt.Sprintf(text["sorted details"], took, o.Skipped, o.Undated, o.Linked+o.Copied)))
+}
+
+// checked reports the library against the export's list, and ends: where the
+// photos are, or which are missing.
+func (p *printer) checked(v library.Verification, dir string, year int) int {
+	if p.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"verification": v})
+	} else {
+		said := fmt.Sprintf(text["checked"], v.Present, v.Declared)
+		if v.Complete() {
+			p.say(p.out.done(said, text["checked details"]))
+			p.say("")
+			result := fmt.Sprintf(text["result all"], dir)
+			if year != 0 {
+				result = fmt.Sprintf(text["result year"], year, dir)
+			}
+			p.say(p.out.result(result))
+		} else {
+			p.say(p.out.failed(said, text["checked details"]))
+			p.missing(v, typed())
+		}
+	}
+	if !v.Complete() {
+		return exitIncomplete
+	}
+	return exitOK
+}
+
+// missing names the files that are not there, and what brings them.
+func (p *printer) missing(v library.Verification, again string) {
+	p.say("")
+	p.say(p.out.failure(fmt.Sprintf(text["missing"], len(v.Missing))))
+	for _, name := range v.Missing {
+		p.say(p.out.cause(name))
+	}
+	p.say("")
+	p.say(p.out.hint(fmt.Sprintf(text["fetch them"], again)))
+}
+
+// failed says what went wrong, under the screen, and what to do about it.
+func failed(said string, causes []string, hints ...string) int {
+	l := lookFor(os.Stderr)
+	fmt.Fprintln(os.Stderr, "\n"+l.failure(said))
+	for _, c := range causes {
+		fmt.Fprintln(os.Stderr, l.cause(c))
+	}
+	if len(hints) > 0 {
+		fmt.Fprintln(os.Stderr)
+	}
+	for _, h := range hints {
+		fmt.Fprintln(os.Stderr, l.hint(h))
+	}
+	return exitError
+}
+
+// fail ends a command on err: what went wrong, in words a person reads, and
+// the command that puts it right.
+func (p *printer) fail(err error) int {
 	p.close()
-	code, message := exitError, fmt.Sprintf(text["error"], err)
+	code, said, causes, hints := explain(err)
+	if p.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"error": said, "exit": code})
+		return code
+	}
+	if errors.Is(err, context.Canceled) {
+		l := lookFor(os.Stdout)
+		fmt.Println(l.stopped(text["stopped"], ""))
+		fmt.Println()
+		fmt.Println(l.hint(fmt.Sprintf(text["resume"], typed())))
+		return code
+	}
+	failed(said, causes, hints...)
+	return code
+}
+
+// explain turns err into what a person is told: what went wrong, the details
+// under it, and what to do.
+func explain(err error) (code int, said string, causes, hints []string) {
+	again := typed()
 	var space engine.NoSpaceError
 	var notOffered *takeout.NotOfferedError
 	switch {
 	case errors.As(err, &notOffered):
-		if p.json {
-			json.NewEncoder(os.Stdout).Encode(map[string]any{"error": err.Error(), "offered": notOffered.Offered, "exit": code})
-			return code
-		}
-		var years, albums []string
+		var years []string
 		for _, e := range notOffered.Offered {
 			if y, ok := takeout.YearOf(e.ID); ok {
-				years = append(years, fmt.Sprint(y))
-			} else {
-				albums = append(albums, e.Name)
+				years = append(years, strconv.Itoa(y))
 			}
 		}
-		message = fmt.Sprintf(text["not offered"], notOffered.Year, strings.Join(years, ", "), strings.Join(albums, "\n  "))
+		return exitError, fmt.Sprintf(text["not offered"], notOffered.Year),
+			[]string{fmt.Sprintf(text["offered years"], strings.Join(years, ", "))}, []string{text["not offered hint"]}
 	case errors.Is(err, download.ErrSessionExpired):
-		code, message = exitSignIn, text["session expired"]
+		return exitSignIn, text["session expired"], nil, []string{fmt.Sprintf(text["login then"], again)}
 	case errors.Is(err, engine.ErrSignInClosed):
-		code, message = exitSignIn, text["sign-in closed"]
+		return exitSignIn, text["sign-in closed"], nil, []string{text["try login"], text["try fallback"]}
 	case errors.Is(err, engine.ErrSignInDeclined):
-		code, message = exitSignIn, text["sign-in declined"]
+		return exitSignIn, text["sign-in declined"], nil, []string{text["try login"]}
 	case errors.Is(err, engine.ErrSessionNotWritten), errors.Is(err, engine.ErrSessionNotAccepted):
-		code, message = exitSignIn, fmt.Sprintf(text["session lost"], err)
+		return exitSignIn, fmt.Sprintf(text["session lost"], err), nil, []string{text["try login"]}
 	case errors.Is(err, engine.ErrNotSignedIn):
-		code, message = exitSignIn, text["not signed in"]
+		return exitSignIn, text["not signed in yet"], nil, []string{text["sign in hint"]}
 	case errors.Is(err, update.ErrDamaged):
-		message = text["update damaged"]
+		return exitError, text["update damaged"], nil, []string{text["update again"]}
 	case errors.Is(err, context.Canceled):
-		message = text["stopped"]
+		return exitError, text["stopped"], nil, nil
 	case errors.Is(err, takeout.ErrFormChanged), errors.Is(err, engine.ErrNotRequested):
-		message = fmt.Sprintf(text["not requested"], err)
+		return exitError, fmt.Sprintf(text["not requested err"], err), nil, []string{fmt.Sprintf(text["try again"], again)}
 	case errors.Is(err, engine.ErrNoSuchTakeout):
-		message = fmt.Sprintf(text["no such takeout"], err)
+		return exitError, fmt.Sprintf(text["no such export"], err), nil, []string{text["list hint"]}
 	case errors.Is(err, engine.ErrExpired):
-		message = fmt.Sprintf(text["expired"], err)
+		return exitError, fmt.Sprintf(text["expired"], err), nil, []string{fmt.Sprintf(text["expired hint"], again)}
 	case errors.Is(err, engine.ErrNoDownload):
-		message = text["no download"]
+		return exitError, text["no download"], nil, []string{fmt.Sprintf(text["try again"], again)}
 	case errors.As(err, &space):
-		message = fmt.Sprintf(text["no space"], humanize.IBytes(uint64(space.Need)), humanize.IBytes(uint64(space.Free)))
+		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
+			[]string{fmt.Sprintf(text["no space hint"], again)}
 	case errors.Is(err, session.ErrNoBrowser):
-		message = text["no browser"]
+		return exitError, text["no browser"], nil, []string{text["no browser hint"]}
 	}
-	if p.json {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"error": message, "exit": code})
-	} else {
-		fmt.Fprintln(os.Stderr, paint(os.Stderr, errColour, message))
-	}
-	return code
+	return exitError, fmt.Sprintf(text["error"], err), nil, nil
 }

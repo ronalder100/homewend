@@ -4,224 +4,263 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	bar "charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/dustin/go-humanize"
-	"golang.org/x/term"
 
+	"github.com/ronalder100/homewend/internal/engine"
 	"github.com/ronalder100/homewend/internal/progress"
 )
 
-// startLive shows a status line under the log while a command runs in a
-// terminal: what the user is asked to do, a pulsing dot while Google works, a
-// spinner and a bar while a part downloads.
-// Hours of silence look like a hang; this says what is being waited for.
-// Nil when stdout is not a terminal, where a redrawn line is only noise.
+// printer shows the engine's events: as lines for a person, or with --json
+// one object per line for a program. For a person the lines done stay and
+// scroll like a log; the line of the step going on is redrawn in place under
+// them, in a terminal.
+type printer struct {
+	json bool
+	out  look
+	live *tea.Program
+
+	// What the events carry from one to the next.
+	partStart time.Time // the part downloading began
+	sortStart time.Time // sorting began
+	what      string    // the photos asked for: "2025 photos"
+	asked     time.Time // when Google was asked
+	rate      float64   // bytes a second, smoothed over the current part
+	lastAt    time.Time
+	lastDone  int64
+}
+
+func newPrinter(json bool) *printer {
+	if json {
+		return &printer{json: true}
+	}
+	return &printer{out: lookFor(os.Stdout), live: startLive()}
+}
+
+// startLive draws the line going on, under the log, in a terminal; nil
+// anywhere else, where a redrawn line is only noise.
 func startLive() *tea.Program {
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	if !coloured(os.Stdout) {
 		return nil
 	}
-	// No input and no signal handler: the terminal stays as it was, so
-	// Ctrl-C still reaches the command and stops it the usual way.
+	// No input and no signal handler: Ctrl-C still reaches the command.
 	p := tea.NewProgram(newStatus(), tea.WithInput(nil), tea.WithoutSignalHandler())
 	go p.Run()
 	return p
 }
 
-// idle clears the status line, so a command's last words are not followed by
-// a stale bar.
-type idle struct{}
+// close takes the line going on down. It can be called more than once.
+func (p *printer) close() {
+	if p.live != nil {
+		p.live.Send(going{})
+		p.live.Quit()
+		p.live.Wait()
+		p.live = nil
+	}
+}
 
-// centre puts a sign-in in the middle of the window, from the browser opening
-// to the account being set up: for a command with no log above it, like
-// login. Everything else stays a line at the top.
-type centre struct{}
+// say prints one line that stays.
+func (p *printer) say(line string) {
+	if p.json {
+		return
+	}
+	if p.live != nil {
+		// An empty line printed above the live one is dropped: a space keeps it.
+		if line == "" {
+			line = " "
+		}
+		p.live.Println(line)
+		return
+	}
+	fmt.Println(line)
+}
 
-type status struct {
-	// A sign-in goes in the middle of a window this wide and tall, when
-	// centring; middle is whether one is going on.
-	centring      bool
-	middle        bool
-	width, height int
+// line prints a line for a person, or value as kind for a program.
+func (p *printer) line(kind string, value any, line string) {
+	if p.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{kind: value})
+		return
+	}
+	p.say(line)
+}
 
-	// Two ways of saying "not stuck": a dot that pulses while there is only
-	// waiting to do, a spinner while files are coming down.
-	dot  spinner.Model
-	spin spinner.Model
-	bar  bar.Model
+// now shows the step going on, in place of the one before; without a
+// terminal it is said once, as a line.
+func (p *printer) now(g going) {
+	if p.json {
+		return
+	}
+	if p.live != nil {
+		p.live.Send(g)
+		return
+	}
+	if g.bar < 0 && g.said != "" {
+		fmt.Println(signGoing + " " + g.said)
+	}
+}
 
-	// What the user is asked to do in the browser. It is here, not in the
-	// log, so that it goes once they have done it.
-	asks string
+// signGoing stands for the spinner where nothing is redrawn.
+const signGoing = "-"
 
-	// Beside the dot while Google works, and since when; no time while
-	// Google prepares the export, where hours on a counter read as a hang,
-	// nor while the account is set up, which is ours to wait for, not theirs
-	// to count.
-	waiting string
+func (p *printer) event(e progress.Event) {
+	if p.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"event": e})
+		return
+	}
+	t, now := time.Now(), func(said, details string) going { return going{said: said, details: details, bar: -1} }
+	switch e.Stage {
+	case progress.Checking:
+		p.now(now(text["checking"], ""))
+	case progress.SignIn:
+		p.now(now(text["sign in"], ""))
+	case progress.SessionReady:
+		p.now(now(text["session ready"], ""))
+	case progress.Prepare:
+		p.now(now(text["prepare"], ""))
+	case progress.FirstDownload:
+		p.now(now(text["password"], ""))
+	case progress.Request:
+		p.asked = t
+		g := now(fmt.Sprintf(text["asking"], p.what), "")
+		g.since = t
+		p.now(g)
+	case progress.Waiting:
+		if !p.asked.IsZero() {
+			p.say(p.out.done(fmt.Sprintf(text["asked"], p.what), fmt.Sprintf(text["asked at"], p.asked.Format("15:04"))))
+			p.asked = time.Time{}
+		}
+		g := going{sign: signWaiting, said: text["preparing"], since: t, bar: -1, below: text["preparing hint"]}
+		p.now(g)
+	case progress.Ready, progress.InLibrary:
+		details := fmt.Sprintf(text["found details"], e.Of, size(e.Total))
+		if e.Stage == progress.InLibrary {
+			details = text["in library"]
+		}
+		p.say(p.out.done(fmt.Sprintf(text["found"], engine.ShortID(e.Name)), details))
+	case progress.Download:
+		p.partStart, p.rate, p.lastAt, p.lastDone = t, 0, t, e.Done
+		p.now(p.downloading(e))
+	case progress.Receiving:
+		if dt := t.Sub(p.lastAt).Seconds(); dt > 0 {
+			seen := float64(e.Done-p.lastDone) / dt
+			if p.rate == 0 {
+				p.rate = seen
+			} else {
+				p.rate = 0.7*p.rate + 0.3*seen
+			}
+		}
+		p.lastAt, p.lastDone = t, e.Done
+		p.now(p.downloading(e))
+	case progress.Downloaded:
+		took := t.Sub(p.partStart).Round(time.Second)
+		p.say(p.out.done(fmt.Sprintf(text["downloaded"], e.N, e.Of), fmt.Sprintf(text["downloaded in"], size(e.Total), took)))
+	case progress.Retry:
+		p.now(going{sign: signWaiting, said: text["network"], details: fmt.Sprintf(text["network try"], e.N), bar: -1})
+	case progress.Damaged:
+		p.say(p.out.failed(fmt.Sprintf(text["damaged"], e.N, e.Of), text["damaged again"]))
+	case progress.Unpack:
+		p.now(now(fmt.Sprintf(text["unpacking"], e.N, e.Of), ""))
+	case progress.Place:
+		if p.sortStart.IsZero() {
+			p.sortStart = t
+		}
+		p.now(going{said: text["sorting"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
+	case progress.Update:
+		p.now(going{said: fmt.Sprintf(text["updating"], e.Name), bar: fraction(e.Done, e.Total),
+			details: fmt.Sprintf(text["download sizes"], size(e.Done), size(e.Total))})
+	}
+}
+
+// downloading is the line of a part coming down: its bar, how much, and how
+// long is left once the pace is known.
+func (p *printer) downloading(e progress.Event) going {
+	details := fmt.Sprintf(text["download sizes"], size(e.Done), size(e.Total))
+	if p.rate > 0 {
+		left := time.Duration(float64(e.Total-e.Done) / p.rate * float64(time.Second))
+		details += fmt.Sprintf(text["download left"], left.Round(time.Second))
+	}
+	return going{said: fmt.Sprintf(text["downloading"], e.N, e.Of), bar: fraction(e.Done, e.Total), details: details}
+}
+
+// going is the step going on: a spinner or a sign, what is said, a bar when
+// there is something to count (bar ≥ 0), details, the time since it began
+// when that is worth counting, and a line under it. The zero value clears it.
+type going struct {
+	sign    string
+	said    string
+	bar     float64
+	details string
 	since   time.Time
-
-	// Sign-in stands apart from the log above it, by an empty line.
-	apart bool
-
-	// The part downloading, or the photos being placed; zero when neither.
-	current progress.Event
-
-	// Bytes per second, smoothed over the reports of the current part.
-	rate     float64
-	lastAt   time.Time
-	lastDone int64
+	below   string
 }
 
-func newStatus() status {
-	// The bar in the palette's colours, like everything else: the accent for
-	// what is done, a hairline for what is left, the muted grey for the count.
-	progress := bar.New(bar.WithColors(accentColour), bar.WithWidth(18))
-	progress.EmptyColor = lineColour
-	progress.PercentageStyle = lipgloss.NewStyle().Foreground(mutedColour)
-	return status{
-		dot:  spinner.New(spinner.WithSpinner(pulse())),
-		spin: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(lipgloss.NewStyle().Foreground(accentColour))),
-		bar:  progress,
-	}
+type statusLine struct {
+	out  look
+	spin spinner.Model
+	now  going
 }
 
-// pulse is one dot breathing from all but off to accent and back, slowly: a
-// breath every two and a half seconds. Each frame carries its colour and its
-// trailing space.
-func pulse() spinner.Spinner {
-	shades := lipgloss.Blend1D(30, lineColour, accentColour, lineColour)
-	frames := make([]string, len(shades))
-	for i, shade := range shades {
-		frames[i] = lipgloss.NewStyle().Foreground(shade).Render("●") + " "
-	}
-	return spinner.Spinner{Frames: frames, FPS: time.Second / 12}
+func newStatus() statusLine {
+	return statusLine{out: lookFor(os.Stdout), spin: spinner.New(spinner.WithSpinner(spinner.MiniDot))}
 }
 
-func (s status) Init() tea.Cmd { return tea.Batch(s.dot.Tick, s.spin.Tick) }
+func (s statusLine) Init() tea.Cmd { return s.spin.Tick }
 
-func (s status) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (s statusLine) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
-		// Each takes its own ticks and lets the other's pass.
-		var dot, spin tea.Cmd
-		s.dot, dot = s.dot.Update(msg)
-		s.spin, spin = s.spin.Update(msg)
-		return s, tea.Batch(dot, spin)
-	case idle:
-		// Clear what it says, not what it knows of the window.
-		fresh := newStatus()
-		fresh.centring, fresh.width, fresh.height = s.centring, s.width, s.height
-		return fresh, nil
-	case centre:
-		s.centring = true
-	case tea.WindowSizeMsg:
-		s.width, s.height = msg.Width, msg.Height
-	case progress.Event:
-		s.show(msg, time.Now())
+		var cmd tea.Cmd
+		s.spin, cmd = s.spin.Update(msg)
+		return s, cmd
+	case going:
+		s.now = msg
 	}
 	return s, nil
 }
 
-// show takes in one event from the engine.
-func (s *status) show(e progress.Event, now time.Time) {
-	if e.Stage != progress.Receiving {
-		s.asks, s.apart = "", false
-		s.middle = e.Stage == progress.SignIn || e.Stage == progress.SessionReady
-	}
-	switch e.Stage {
-	case progress.Checking:
-		s.waiting, s.since, s.current, s.apart = text["checking status"], time.Time{}, progress.Event{}, true
-	case progress.SignIn:
-		s.asks, s.apart = text["sign in"], true
-		s.waiting, s.current = "", progress.Event{}
-	case progress.SessionReady:
-		s.waiting, s.since, s.current, s.apart = text["session status"], time.Time{}, progress.Event{}, true
-	case progress.Prepare:
-		s.waiting, s.since, s.current = text["prepare status"], time.Time{}, progress.Event{}
-	case progress.FirstDownload:
-		s.waiting, s.since, s.current = text["password status"], time.Time{}, progress.Event{}
-	case progress.Request:
-		s.waiting, s.since, s.current = text["asking status"], now, progress.Event{}
-	case progress.Waiting:
-		s.waiting, s.since, s.current = text["waiting status"], time.Time{}, progress.Event{}
-	case progress.Download:
-		s.waiting, s.current = "", e
-		s.rate, s.lastAt, s.lastDone = 0, now, e.Done
-	case progress.Receiving:
-		if dt := now.Sub(s.lastAt).Seconds(); dt > 0 {
-			seen := float64(e.Done-s.lastDone) / dt
-			if s.rate == 0 {
-				s.rate = seen
-			} else {
-				s.rate = 0.7*s.rate + 0.3*seen
-			}
-		}
-		s.current, s.lastAt, s.lastDone = e, now, e.Done
-	case progress.Place, progress.Update:
-		s.waiting, s.current = "", e
-	case progress.Ready, progress.InLibrary, progress.Downloaded, progress.Short, progress.Damaged, progress.Unpack:
-		s.waiting = ""
-		s.current = progress.Event{}
-	}
-}
+func (s statusLine) View() tea.View { return tea.NewView(s.line(time.Now())) }
 
-func (s status) View() tea.View {
-	line := s.line(time.Now())
-	if !s.centring || !s.middle || s.width == 0 {
-		return tea.NewView(line)
+// line draws the step going on.
+func (s statusLine) line(t time.Time) string {
+	g := s.now
+	if g.said == "" {
+		return ""
 	}
-	// A line longer than the window breaks between words, and each piece is
-	// centred. One row short of the window, so that nothing scrolls.
-	block := lipgloss.NewStyle().Width(min(s.width-4, 64)).Align(lipgloss.Center).Render(strings.TrimPrefix(line, "\n"))
-	return tea.NewView(lipgloss.Place(s.width, s.height-1, lipgloss.Center, lipgloss.Center, block))
-}
-
-func (s status) line(now time.Time) string {
-	e := s.current
-	switch e.Stage {
-	case progress.Download, progress.Receiving:
-		// The name is in the log above; the line has to fit a narrow terminal.
-		// The spinner's frames carry their own trailing space.
-		line := s.spin.View() + fmt.Sprintf(text["download status"], e.N, e.Of,
-			s.bar.ViewAs(fraction(e.Done, e.Total)), size(e.Done), size(e.Total))
-		if s.rate > 0 {
-			left := time.Duration(float64(e.Total-e.Done) / s.rate * float64(time.Second))
-			line += fmt.Sprintf(text["download rate"], size(int64(s.rate)), left.Round(time.Second))
-		}
-		return line
-	case progress.Update:
-		// A bar alone says that something is arriving, not what.
-		muted := lipgloss.NewStyle().Foreground(mutedColour)
-		return s.spin.View() + muted.Render(fmt.Sprintf(text["update status"], e.Name)) + "  " +
-			s.bar.ViewAs(fraction(e.Done, e.Total)) + muted.Render(fmt.Sprintf(text["update sizes"], size(e.Done), size(e.Total)))
-	case progress.Place:
-		return fmt.Sprintf(text["place status"], s.bar.ViewAs(fraction(int64(e.N), int64(e.Of))), e.N, e.Of)
+	l := s.out
+	details := g.details
+	if !g.since.IsZero() {
+		details += fmt.Sprintf(text["elapsed"], t.Sub(g.since).Round(time.Second))
 	}
-	// Both in the muted grey: they say what is going on, not what was done.
-	muted := lipgloss.NewStyle().Foreground(mutedColour)
 	var line string
 	switch {
-	case s.asks != "":
-		line = muted.Render(s.asks)
-	case s.waiting != "":
-		waiting := s.waiting
-		if !s.since.IsZero() {
-			waiting += " · " + now.Sub(s.since).Round(time.Second).String()
-		}
-		line = s.dot.View() + muted.Render(waiting)
+	case g.sign != "":
+		line = l.step(g.sign, warnColour, g.said, details)
+	case g.bar >= 0:
+		line = l.paint(s.spin.View(), accentColour, false) + " " + g.said + "  " + l.bar(g.bar) + "  " + l.paint(details, mutedColour, false)
+	default:
+		line = l.paint(s.spin.View(), accentColour, false) + " " + g.said + l.paint(details, mutedColour, false)
 	}
-	if line != "" && s.apart {
-		line = "\n" + line
+	if g.below != "" {
+		line += "\n" + l.cause(g.below)
 	}
 	return line
+}
+
+// barWidth is the cells of a bar: room for the line around it at 80 columns.
+const barWidth = 20
+
+// bar draws how much is done, in the accent, over what is left.
+func (l look) bar(done float64) string {
+	n := int(done*barWidth + 0.5)
+	n = max(0, min(barWidth, n))
+	return l.paint(strings.Repeat("━", n), accentColour, false) + l.paint(strings.Repeat("━", barWidth-n), lineColour, false)
 }
 
 func fraction(done, total int64) float64 {

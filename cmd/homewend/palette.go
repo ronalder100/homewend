@@ -6,42 +6,37 @@ package main
 import (
 	"image/color"
 	"os"
-	"strings"
 
 	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 )
 
-// Every colour the CLI uses, and the only place one is written down. The
-// names and values are homewend.app's dark-theme tokens, so the terminal and
-// the site are one system: a neutral scale from the text a person reads to
-// what is over, and one colour per state.
+// Every colour the CLI uses, and the only place one is written down: Tokyo
+// Night, its night variant (tokyonight.nvim, lua/tokyonight/colors). Weight
+// makes the hierarchy and colour marks state, on a sign or a label, never on
+// running text.
 var (
-	mutedColour = lipgloss.Color("#9AA5CE") // --muted: what to do next, said quietly
-	faintColour = lipgloss.Color("#565F89") // --faint: what is over
-	lineColour  = lipgloss.Color("#292E42") // --line: a hairline, all but off
+	titleColour = lipgloss.Color("#737AA2") // dark5: the command as typed, bold, darker than the text
+	mutedColour = lipgloss.Color("#A9B1D6") // fg_dark: details beside what is said
+	faintColour = lipgloss.Color("#565F89") // comment: chrome, and what is over
+	lineColour  = lipgloss.Color("#292E42") // bg_highlight: what is left of a bar
 
-	okColour     = lipgloss.Color("#9ECE6A") // --ok: done
-	errColour    = lipgloss.Color("#F7768E") // --err: failed, or missing
-	accentColour = lipgloss.Color("#7AA2F7") // --accent: what to type, and work going on
+	okColour     = lipgloss.Color("#9ECE6A") // green: done
+	errColour    = lipgloss.Color("#F7768E") // red: failed
+	warnColour   = lipgloss.Color("#E0AF68") // yellow: waiting, and warnings
+	accentColour = lipgloss.Color("#7AA2F7") // blue: work going on, and your move
 )
 
 // paint colours s when out is a terminal, and leaves it plain anywhere else.
 func paint(out *os.File, c color.Color, s string) string {
-	if !term.IsTerminal(int(out.Fd())) {
+	if !coloured(out) {
 		return s
 	}
 	return lipgloss.NewStyle().Foreground(c).Render(s)
 }
 
-// blended colours s letter by letter from faint to accent: the one line a
-// person must not skim past.
-func blended(s string) string {
-	letters := []rune(s)
-	colours := lipgloss.Blend1D(len(letters), faintColour, accentColour)
-	var b strings.Builder
-	for i, r := range letters {
-		b.WriteString(lipgloss.NewStyle().Foreground(colours[i]).Render(string(r)))
-	}
-	return b.String()
+// coloured is whether out is a terminal that wants colour: not when NO_COLOR
+// is set (no-color.org), nor when the output is a file or a pipe.
+func coloured(out *os.File) bool {
+	return os.Getenv("NO_COLOR") == "" && term.IsTerminal(int(out.Fd()))
 }
