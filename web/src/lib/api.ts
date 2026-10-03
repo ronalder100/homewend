@@ -68,6 +68,9 @@ export interface JobState {
 	retry?: string;
 	finished?: boolean;
 	error?: string;
+	problem?: 'signed-out' | 'no-space' | 'expired';
+	need?: number;
+	free?: number;
 }
 
 const q = (o: Record<string, string | number | undefined>) =>

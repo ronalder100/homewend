@@ -13,6 +13,7 @@ declare global {
 			chooseFolder(start?: string): Promise<string>;
 			showInFolder(path: string): void;
 			onToggleSidebar(fn: () => void): void;
+			notify(title: string, body: string): void;
 		};
 	}
 }

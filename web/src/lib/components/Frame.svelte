@@ -13,7 +13,8 @@
 		onplace,
 		ontoggle,
 		children,
-		status
+		status,
+		banner
 	}: {
 		sidebar: SidebarData;
 		place: Place;
@@ -21,6 +22,7 @@
 		ontoggle?: (account: string) => void;
 		children: Snippet;
 		status?: Snippet;
+		banner?: Snippet;
 	} = $props();
 
 	// Below 1100px the sidebar folds to its rail and opens over the content;
@@ -55,6 +57,7 @@
 
 <div class="window" class:narrow>
 	<Titlebar open={narrow && open} onmenu={menu} />
+	{@render banner?.()}
 	<div class="body">
 		<div class="side" class:over={narrow && open}>
 			<Sidebar data={sidebar} {place} {rail} {onplace} {ontoggle} onexpand={expand} />

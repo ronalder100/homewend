@@ -4,7 +4,7 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the window goes.
-const { app, BrowserWindow, Menu, MenuItem, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, MenuItem, Notification, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
@@ -62,8 +62,10 @@ async function open() {
 	const win = new BrowserWindow({
 		width: Math.max(MIN.width, Math.min(DESIGN.width, area.width)),
 		height: Math.max(MIN.height, Math.min(DESIGN.height, area.height)),
-		minWidth: MIN.width,
-		minHeight: MIN.height,
+		// A tiling window manager gives the window the size of its tile and
+		// cuts off what does not fit a minimum: there the page fits itself.
+		minWidth: windowButtons ? MIN.width : undefined,
+		minHeight: windowButtons ? MIN.height : undefined,
 		backgroundColor: theme('bg'),
 		// The page draws the titlebar; the system keeps its own buttons.
 		titleBarStyle: 'hidden',
@@ -73,6 +75,14 @@ async function open() {
 	// The person's choice in Settings, or the system's when they chose none.
 	ipcMain.on('theme', (_event, theme) => {
 		if (['system', 'light', 'dark'].includes(theme)) nativeTheme.themeSource = theme;
+	});
+	// D2: the system's own notification, for what happens while nobody looks.
+	ipcMain.on('notify', (_event, title, body) => {
+		if (Notification.isSupported() && !win.isFocused()) {
+			const n = new Notification({ title: String(title), body: String(body) });
+			n.on('click', () => win.show());
+			n.show();
+		}
 	});
 	ipcMain.on('show-in-folder', (_event, file) => {
 		if (typeof file === 'string' && path.isAbsolute(file)) shell.showItemInFolder(file);

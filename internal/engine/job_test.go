@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -32,5 +33,20 @@ func TestJobRecordsWhereItStands(t *testing.T) {
 	}
 	if s.Retry != "no network" || s.Stage != progress.Year {
 		t.Fatalf("retry: %+v", s)
+	}
+}
+
+func TestProblemNamesWhatAPersonCanFix(t *testing.T) {
+	for err, want := range map[error]string{
+		ErrSignInClosed:                 "signed-out",
+		NoSpaceError{Need: 10, Free: 1}: "no-space",
+		ErrExpired:                      "expired",
+		errors.New("something else"):    "",
+	} {
+		var s JobState
+		problem(err, &s)
+		if s.Problem != want {
+			t.Errorf("%v: got %q, want %q", err, s.Problem, want)
+		}
 	}
 }

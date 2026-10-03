@@ -41,6 +41,24 @@ type JobState struct {
 	Retry    string         `json:"retry,omitempty"` // why the network is being tried again
 	Finished bool           `json:"finished,omitempty"`
 	Error    string         `json:"error,omitempty"`
+	// Problem names what stopped the job when a person can act on it:
+	// "signed-out", "no-space" (Need and Free say how much), "expired".
+	Problem string `json:"problem,omitempty"`
+	Need    int64  `json:"need,omitempty"`
+	Free    int64  `json:"free,omitempty"`
+}
+
+// problem names an error a person can act on.
+func problem(err error, s *JobState) {
+	var space NoSpaceError
+	switch {
+	case errors.As(err, &space):
+		s.Problem, s.Need, s.Free = "no-space", space.Need, space.Free
+	case errors.Is(err, ErrNotSignedIn):
+		s.Problem = "signed-out"
+	case errors.Is(err, ErrExpired), errors.Is(err, ErrExportGone):
+		s.Problem = "expired"
+	}
 }
 
 // YearProgress is how much of a year has arrived.
@@ -82,6 +100,7 @@ func (j *Jobs) Start(account string, g Get) error {
 		case errors.Is(err, context.Canceled):
 		case err != nil:
 			jb.state.Error = err.Error()
+			problem(err, &jb.state)
 		default:
 			jb.state.Finished = true
 		}

@@ -125,5 +125,24 @@ export const text = {
 			? 'Show in Explorer'
 			: 'Open folder',
 	previous: 'Previous',
-	next: 'Next'
+	next: 'Next',
+
+	bannerPassword: (who: string) => `Google asks for the password of ${who} once more.`,
+	bannerPasswordDesc: "Type it in the window that opened. It's needed once for this account, and the window closes by itself.",
+	bannerSignedOut: (who: string) => `Google signed you out of ${who}.`,
+	bannerSignedOutDesc: 'Sign in again and Homewend carries on from part it left. Nothing downloaded is lost.',
+	signInAgain: 'Sign in again',
+	bannerNoSpace: 'Not enough space on this disk.',
+	bannerNoSpaceDesc: (need: string, free: string) => `The takeout needs ${need} and the disk has ${free} free. Free some space, or choose another folder.`,
+	chooseAnotherFolder: 'Choose another folder',
+	bannerExpired: 'Google no longer offers this takeout.',
+	bannerExpiredDesc: 'Google keeps a takeout for 7 days. Ask for a new one and Homewend brings home what is still missing.',
+	newTakeoutAction: 'New takeout',
+	bannerNetwork: 'Waiting for the network.',
+	bannerNetworkDesc: 'Homewend tries again by itself every minute. The bytes already downloaded are kept.',
+	bannerFinished: (n: string) => `${n} photos and videos are home.`,
+	bannerFinishedDesc: 'Every file in the takeout is in your library, sorted by year and album.',
+	openLibrary: 'Open the library',
+	notifyFinished: 'Your photos are home',
+	notifyPassword: 'Google asks for your password'
 } as const;
