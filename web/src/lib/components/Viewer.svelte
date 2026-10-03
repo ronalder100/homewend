@@ -119,19 +119,20 @@
 		font-size: var(--text-callout);
 		font-weight: 600;
 	}
+	/* The photo fits the space left, whole: never taller than the window. */
 	.stage {
 		flex: 1;
 		min-height: 0;
-		display: grid;
-		place-items: center;
-		padding: 0 72px 24px;
+		position: relative;
+		margin: 0 72px 24px;
 	}
 	img,
 	video {
-		max-width: 100%;
-		max-height: 100%;
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
 		object-fit: contain;
-		border-radius: 8px;
 	}
 	.nav {
 		position: absolute;

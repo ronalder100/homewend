@@ -91,9 +91,21 @@ export function sidebarOf(o: Overview): Sidebar {
 		years: o.years.map((y) => ({
 			label: y.year || text.noDate,
 			count: y.count,
-			state: 'none' as const
+			state: yearState(y.year)
 		})),
 		albums: o.albums,
 		takeouts: o.takeouts
 	};
+}
+
+/** A year is complete when the download that brought it says every photo
+ *  arrived, arriving while it still counts; otherwise nothing is said. */
+function yearState(year: string): 'complete' | 'arriving' | 'none' {
+	for (const j of Object.values(app.jobs)) {
+		const y = j.years.find((x) => x.year === year);
+		if (!y) continue;
+		if (y.of > 0 && y.arrived >= y.of) return 'complete';
+		return j.running ? 'arriving' : 'none';
+	}
+	return 'none';
 }

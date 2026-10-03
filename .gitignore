@@ -35,3 +35,6 @@
 
 # Vite leaves these next to its config when it crashes.
 /web/vite.config.ts.timestamp-*
+/electron/tokens.json
+/electron/engine/
+/electron/dist/

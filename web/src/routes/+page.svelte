@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import SignIn from '#lib/screens/SignIn.svelte';
+	import Opening from '#lib/components/Opening.svelte';
 	import { app, refresh } from '#lib/app.svelte.js';
 
 	let ready = $state(false);
@@ -15,4 +16,4 @@
 	});
 </script>
 
-{#if ready}<SignIn />{/if}
+{#if ready}<SignIn />{:else}<Opening />{/if}

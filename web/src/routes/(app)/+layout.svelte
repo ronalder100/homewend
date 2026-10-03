@@ -8,6 +8,7 @@
 	import { page } from '$app/state';
 	import Frame from '#lib/components/Frame.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
+	import Opening from '#lib/components/Opening.svelte';
 	import { app, refresh, shownJob, sidebarOf, toggleAccount, watchJobs } from '#lib/app.svelte.js';
 	import { placeOf, urlOf } from '#lib/places.js';
 
@@ -36,4 +37,6 @@
 	>
 		{@render children()}
 	</Frame>
+{:else}
+	<Opening />
 {/if}

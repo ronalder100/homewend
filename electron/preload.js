@@ -8,5 +8,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('shell', {
 	setTheme: (theme) => ipcRenderer.send('theme', theme),
 	chooseFolder: (start) => ipcRenderer.invoke('choose-folder', start),
-	showInFolder: (path) => ipcRenderer.send('show-in-folder', path)
+	showInFolder: (path) => ipcRenderer.send('show-in-folder', path),
+	onToggleSidebar: (fn) => ipcRenderer.on('toggle-sidebar', () => fn())
 });

@@ -1,11 +1,57 @@
 {
 	"name": "homewend-desktop",
+	"version": "0.0.0",
+	"description": "Google Photos, on your own disk.",
+	"author": "Ron Alder",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"main": "main.js",
 	"scripts": {
-		"start": "electron ."
+		"tokens": "node -e \"require('fs').copyFileSync('../web/tokens.json', 'tokens.json')\"",
+		"prestart": "npm run tokens",
+		"start": "electron .",
+		"engine": "cd .. && go build -trimpath -o electron/engine/homewend ./cmd/homewend",
+		"page": "cd ../web && npm run build",
+		"dist": "npm run tokens && npm run page && npm run engine && electron-builder"
 	},
 	"devDependencies": {
-		"electron": "^44.5.1"
+		"electron": "^44.5.1",
+		"electron-builder": "^26.15.3"
+	},
+	"build": {
+		"appId": "app.homewend.desktop",
+		"productName": "Homewend",
+		"files": [
+			"main.js",
+			"preload.js",
+			"tokens.json"
+		],
+		"extraResources": [
+			{
+				"from": "engine/",
+				"to": ".",
+				"filter": [
+					"homewend",
+					"homewend.exe"
+				]
+			}
+		],
+		"linux": {
+			"target": [
+				"AppImage"
+			],
+			"category": "Graphics"
+		},
+		"mac": {
+			"target": [
+				"dmg"
+			],
+			"category": "public.app-category.photography"
+		},
+		"win": {
+			"target": [
+				"nsis"
+			]
+		}
 	}
 }

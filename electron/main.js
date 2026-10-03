@@ -4,15 +4,17 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the window goes.
-const { app, BrowserWindow, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, MenuItem, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
-const tokens = require('../web/tokens.json').variables;
+const tokens = require('./tokens.json').variables;
 
-// Where the engine is: set by whoever runs the app from source, or the
-// homewend on the PATH.
-const engine = process.env.HOMEWEND_BIN || 'homewend';
+// Where the engine is: inside the app once packaged (electron-builder's
+// extraResources), else set by whoever runs it from source, else the PATH.
+const engine = app.isPackaged
+	? path.join(process.resourcesPath, process.platform === 'win32' ? 'homewend.exe' : 'homewend')
+	: process.env.HOMEWEND_BIN || 'homewend';
 
 // The design's window, shrunk to fit a smaller screen; never below the
 // smallest window the design draws.
@@ -92,6 +94,21 @@ async function open() {
 		shell.openExternal(target);
 		return { action: 'deny' };
 	});
+	// On the Mac the sidebar's place in the titlebar belongs to the traffic
+	// lights: it opens from the View menu, ⌃⌘S, as in Apple's own apps.
+	if (process.platform === 'darwin') {
+		const menu = Menu.getApplicationMenu();
+		const view = menu?.items.find((m) => m.role === 'viewmenu' || m.label === 'View');
+		view?.submenu?.insert(
+			0,
+			new MenuItem({
+				label: 'Show Sidebar',
+				accelerator: 'Ctrl+Cmd+S',
+				click: () => win.webContents.send('toggle-sidebar')
+			})
+		);
+		Menu.setApplicationMenu(menu);
+	}
 	win.loadURL(url);
 }
 

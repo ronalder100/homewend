@@ -40,6 +40,8 @@
 		if (narrow) open = true;
 		else folded = false;
 	}
+	$effect(() => window.shell?.onToggleSidebar(menu));
+
 	function key(e: KeyboardEvent) {
 		const mac = /Mac/.test(navigator.platform);
 		if ((mac && e.ctrlKey && e.metaKey && e.key === 's') || (!mac && e.ctrlKey && e.key === 'b')) {
