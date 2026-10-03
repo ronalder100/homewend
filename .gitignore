@@ -23,3 +23,15 @@
 # Build output.
 /homewend
 /dist/
+
+# The interface: dependencies, SvelteKit's own files, and what is generated.
+# The built page goes into the binary; only its placeholder is kept.
+/web/node_modules/
+/web/.svelte-kit/
+/web/src/lib/tokens.css
+/electron/node_modules/
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
+
+# Vite leaves these next to its config when it crashes.
+/web/vite.config.ts.timestamp-*

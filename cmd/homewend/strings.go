@@ -18,6 +18,7 @@ Commands:
   status    show the account, the export and the library
   takeout   bring photos home from Google Takeout: all, or a year
   verify    count the library again against its exports
+  ui        serve the window of the desktop app
   update    install the latest homewend
   version   show the version
   help      show help for a command
@@ -128,6 +129,19 @@ Flags:
 Examples:
   homewend verify
   homewend verify /mnt/nas/photos`,
+
+	"help ui": `homewend ui — serve the window of the desktop app
+
+Usage:
+  homewend ui
+
+Serves the homewend window on 127.0.0.1 and prints its address once, on the
+first line. The address carries a token: only who has it can open the page.
+The desktop app starts this command and shows the address; it stops on
+Ctrl-C, or when whoever started it closes its input.
+
+Examples:
+  homewend ui`,
 
 	"help update": `homewend update — install the latest homewend
 

@@ -1,0 +1,23 @@
+// homewend — Copyright (C) 2026 Ron Alder
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+// Every sentence the window shows a person. A second language is a second
+// table with the same keys.
+export const text = {
+	brand: 'Homewend',
+	menu: 'Show or hide the sidebar',
+	importFolder: 'Import a folder',
+
+	signInTitle: 'Google Photos,\non your own disk.',
+	signInLead:
+		'No zips to babysit, no download to restart by hand. Plain folders, sorted by date and album, and nothing passes through our servers.',
+	signInCall: 'Bring your photos home.',
+	signInCallSub: 'One sign-in, and Homewend does the rest.',
+	signInButton: 'Sign in to Google',
+	stepSignIn: 'Sign in',
+	stepSignInDesc: 'Homewend never sees your password.',
+	stepChoose: 'Choose',
+	stepChooseDesc: 'Everything, a year, or a takeout you made.',
+	stepBringHome: 'Bring home',
+	stepBringHomeDesc: 'Homewend does the rest.'
+} as const;

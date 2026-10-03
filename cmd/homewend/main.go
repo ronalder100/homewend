@@ -49,6 +49,7 @@ var commands = map[string]func(args []string) int{
 	"logout":  logout,
 	"status":  status,
 	"takeout": takeoutCommand,
+	"ui":      ui,
 	"update":  updateProgram,
 	"verify":  verify,
 }
