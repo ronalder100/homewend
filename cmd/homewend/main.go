@@ -302,12 +302,20 @@ func get(args []string) int {
 		}
 		if found == nil || g.Takeout == "" && !found.Started {
 			out.close()
-			if found == nil && !confirmNew(g) {
-				return exitOK
+			if found == nil {
+				yes, err := confirmNew(ctx, g)
+				if err != nil {
+					return newPrinter(*asJSON).fail(err)
+				}
+				if !yes {
+					return exitOK
+				}
+			} else if g.New, err = wantsNew(ctx, g, *found); err != nil {
+				return newPrinter(*asJSON).fail(err)
 			}
-			if found != nil && wantsNew(g, *found) {
-				g.New = true
-			}
+			// The question is answered: what follows starts on a clean screen,
+			// as every command does.
+			cleanScreen(args)
 			out = newPrinter(*asJSON)
 		}
 	}
@@ -327,11 +335,23 @@ func what(g engine.Get) string {
 	return text["all photos"]
 }
 
-// answer asks a question and reads the reply, in lower case.
-func answer(question string) string {
+// answer asks a question and reads the reply, in lower case. Ctrl-C there
+// stops the command, as it does anywhere else: the interrupt is caught for
+// the work that follows, so the read must not be all that is waited on.
+func answer(ctx context.Context, question string) (string, error) {
 	fmt.Print(paint(os.Stdout, accentColour, question))
-	reply, _ := replies.ReadString('\n')
-	return strings.ToLower(strings.TrimSpace(reply))
+	reply := make(chan string, 1)
+	go func() {
+		r, _ := replies.ReadString('\n')
+		reply <- r
+	}()
+	select {
+	case r := <-reply:
+		return strings.ToLower(strings.TrimSpace(r)), nil
+	case <-ctx.Done():
+		fmt.Println()
+		return "", ctx.Err()
+	}
 }
 
 // replies is what the user types. One reader for every question: a second
@@ -340,30 +360,38 @@ var replies = bufio.NewReader(os.Stdin)
 
 // confirmNew says that get is about to ask Google for a new export, and asks
 // to go on. Enter is yes.
-func confirmNew(g engine.Get) bool {
-	switch answer(fmt.Sprintf(text["confirm new"], what(g))) {
+func confirmNew(ctx context.Context, g engine.Get) (bool, error) {
+	reply, err := answer(ctx, fmt.Sprintf(text["confirm new"], what(g)))
+	if err != nil {
+		return false, err
+	}
+	switch reply {
 	case "", "y", "yes":
-		return true
+		return true, nil
 	}
 	fmt.Println(text["not asked"])
-	return false
+	return false, nil
 }
 
 // wantsNew says that Google already has an export of these photos, which one,
 // and asks which of two things to do, by number: download it, or ask for a
 // new one. Enter downloads it; anything that is neither number is asked again.
-func wantsNew(g engine.Get, found engine.Found) bool {
+func wantsNew(ctx context.Context, g engine.Get, found engine.Found) (bool, error) {
 	number := func(n string) string { return paint(os.Stdout, accentColour, n) }
 	fmt.Printf(text["have one"], what(g), found.ID, found.Created.Local().Format("2006-01-02 15:04"), size(found.Bytes), found.Status)
 	fmt.Printf(text["option"], number("1"), text["download that"])
 	fmt.Printf(text["option"], number("2"), text["ask for new"])
 	fmt.Println()
 	for {
-		switch answer(text["choose"]) {
+		reply, err := answer(ctx, text["choose"])
+		if err != nil {
+			return false, err
+		}
+		switch reply {
 		case "", "1":
-			return false
+			return false, nil
 		case "2":
-			return true
+			return true, nil
 		}
 	}
 }

@@ -5,6 +5,8 @@ package main
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -127,7 +129,7 @@ func TestGetAsksBeforeGoogleIsAsked(t *testing.T) {
 	g := engine.Get{Year: 2025}
 	for reply, want := range map[string]bool{"\n": true, "y\n": true, "Y\n": true, "n\n": false, "no\n": false} {
 		typing(t, reply)
-		if got := confirmNew(g); got != want {
+		if got, _ := confirmNew(context.Background(), g); got != want {
 			t.Errorf("a new export, reply %q: got %v, want %v", reply, got, want)
 		}
 	}
@@ -135,9 +137,25 @@ func TestGetAsksBeforeGoogleIsAsked(t *testing.T) {
 	// then the answer.
 	for reply, want := range map[string]bool{"\n": false, "1\n": false, "2\n": true, "n\n2\n": true, "n\n\n": false} {
 		typing(t, reply)
-		if got := wantsNew(g, engine.Found{}); got != want {
+		if got, _ := wantsNew(context.Background(), g, engine.Found{}); got != want {
 			t.Errorf("an export already there, reply %q: asks for a new one %v, want %v", reply, got, want)
 		}
+	}
+}
+
+// Ctrl-C at a question stops the command, while nothing has been typed.
+func TestCtrlCAtAQuestionStops(t *testing.T) {
+	keyboard := replies
+	silent, _ := io.Pipe()
+	replies = bufio.NewReader(silent)
+	t.Cleanup(func() { replies = keyboard })
+	ctx, interrupt := context.WithCancel(context.Background())
+	interrupt()
+	if _, err := confirmNew(ctx, engine.Get{}); !errors.Is(err, context.Canceled) {
+		t.Errorf("a new export: %v", err)
+	}
+	if _, err := wantsNew(ctx, engine.Get{}, engine.Found{}); !errors.Is(err, context.Canceled) {
+		t.Errorf("an export already there: %v", err)
 	}
 }
 
