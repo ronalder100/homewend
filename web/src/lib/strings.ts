@@ -19,5 +19,22 @@ export const text = {
 	stepChoose: 'Choose',
 	stepChooseDesc: 'Everything, a year, or a takeout you made.',
 	stepBringHome: 'Bring home',
-	stepBringHomeDesc: 'Homewend does the rest.'
+	stepBringHomeDesc: 'Homewend does the rest.',
+
+	allPhotos: 'All photos',
+	years: 'YEARS',
+	albums: 'ALBUMS',
+	takeouts: 'Takeouts',
+	settings: 'Settings',
+	more: (n: number) => `${n} more`,
+	fewer: 'Show fewer',
+	showAccount: (name: string) => `Show ${name}'s photos`,
+
+	settingsTitle: 'Settings',
+	appearance: 'APPEARANCE',
+	theme: 'Theme',
+	themeDesc: "System follows your computer's light or dark mode.",
+	themeSystem: 'System',
+	themeLight: 'Light',
+	themeDark: 'Dark'
 } as const;

@@ -1,0 +1,33 @@
+// homewend — Copyright (C) 2026 Ron Alder
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { getSettings, putSettings, type Theme } from './api.js';
+
+// What the desktop shell offers the page (electron/preload.js); absent in a
+// browser.
+declare global {
+	interface Window {
+		shell?: { setTheme(theme: Theme): void };
+	}
+}
+
+export const theme = $state<{ value: Theme }>({ value: 'system' });
+
+// apply shows the theme: data-theme for the page's colours, and the shell's
+// own setting so the window's buttons and background follow.
+function apply(t: Theme) {
+	theme.value = t;
+	if (t === 'system') delete document.documentElement.dataset.theme;
+	else document.documentElement.dataset.theme = t;
+	window.shell?.setTheme(t);
+}
+
+export async function loadTheme() {
+	const s = await getSettings();
+	apply(s.theme ?? 'system');
+}
+
+export async function setTheme(t: Theme) {
+	apply(t);
+	await putSettings({ theme: t });
+}

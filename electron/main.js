@@ -4,7 +4,8 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the window goes.
-const { app, BrowserWindow, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, screen, shell } = require('electron');
+const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 const tokens = require('../web/tokens.json').variables;
@@ -55,7 +56,12 @@ async function open() {
 		backgroundColor: theme('bg'),
 		// The page draws the titlebar; the system keeps its own buttons.
 		titleBarStyle: 'hidden',
-		titleBarOverlay: process.platform === 'darwin' ? true : overlay()
+		titleBarOverlay: process.platform === 'darwin' ? true : overlay(),
+		webPreferences: { preload: path.join(__dirname, 'preload.js') }
+	});
+	// The person's choice in Settings, or the system's when they chose none.
+	ipcMain.on('theme', (_event, theme) => {
+		if (['system', 'light', 'dark'].includes(theme)) nativeTheme.themeSource = theme;
 	});
 	nativeTheme.on('updated', () => {
 		win.setBackgroundColor(theme('bg'));

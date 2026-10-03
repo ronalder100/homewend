@@ -1,41 +1,21 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Every component on one page, to set beside the design's Components frame. -->
+<!-- The window with made-up data, to check the components against the design. -->
 <script lang="ts">
-	import { FolderOpen } from '@lucide/svelte';
-	import Brand from '#lib/components/Brand.svelte';
-	import Titlebar from '#lib/components/Titlebar.svelte';
-	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
-	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
-	import GoogleButton from '#lib/components/GoogleButton.svelte';
+	import Frame from '#lib/components/Frame.svelte';
+	import Settings from '#lib/screens/Settings.svelte';
+	import { twoAccounts, tenAccounts } from '#lib/fixtures.js';
+	import type { Place, Sidebar } from '#lib/library.js';
+
+	let data = $state<Sidebar>(structuredClone(location.hash === '#ten' ? tenAccounts : twoAccounts));
+	let place = $state<Place>({ kind: 'settings' });
+
+	function toggle(id: string) {
+		const a = data.accounts.find((x) => x.id === id);
+		if (a) a.shown = !a.shown;
+	}
 </script>
 
-<div class="sheet">
-	<div class="row">
-		<Brand />
-		<PrimaryButton>Continue</PrimaryButton>
-		<SecondaryButton><FolderOpen size={16} />Show in folder</SecondaryButton>
-		<GoogleButton />
-	</div>
-	<div class="bar"><Titlebar /></div>
-</div>
-
-<style>
-	.sheet {
-		height: 100%;
-		overflow: auto;
-		padding: 40px;
-		display: flex;
-		flex-direction: column;
-		gap: 32px;
-		background: var(--soft);
-	}
-	.row {
-		display: flex;
-		align-items: center;
-		gap: 40px;
-	}
-	.bar {
-		border: 1px solid var(--border);
-	}
-</style>
+<Frame sidebar={data} {place} onplace={(p) => (place = p)} ontoggle={toggle}>
+	<Settings />
+</Frame>

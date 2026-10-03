@@ -69,6 +69,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) handler() http.Handler {
 	files, _ := fs.Sub(dist, "dist")
+	api := apiRoutes()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A page on another site can resolve its own name to 127.0.0.1;
 		// the Host header is what tells that request apart from ours.
@@ -93,6 +94,10 @@ func (s *Server) handler() http.Handler {
 		}
 		if c, err := r.Cookie(cookieName); err != nil || !s.valid(c.Value) {
 			http.Error(w, "open Homewend from the app", http.StatusForbidden)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			api.ServeHTTP(w, r)
 			return
 		}
 		servePage(w, r, files)

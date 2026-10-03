@@ -2,9 +2,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
 	import '#lib/app.css';
+	import { onMount } from 'svelte';
 	import { text } from '#lib/strings.js';
+	import { loadTheme } from '#lib/theme.svelte.js';
 
 	let { children } = $props();
+
+	onMount(loadTheme);
 </script>
 
 <svelte:head>

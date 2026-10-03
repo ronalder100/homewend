@@ -109,3 +109,32 @@ func TestNotBuilt(t *testing.T) {
 		t.Fatalf("no page: %d, want 404", w.Code)
 	}
 }
+
+func TestSettingsThroughTheAPI(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AppData", t.TempDir())
+	s := newTestServer(t)
+	cookie := &http.Cookie{Name: cookieName, Value: s.token}
+
+	put := httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(`{"theme":"dark"}`))
+	put.Host = s.host
+	put.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.handler().ServeHTTP(w, put)
+	if w.Code != http.StatusOK {
+		t.Fatalf("put: %d %s", w.Code, w.Body)
+	}
+	if got := get(s, "/api/settings", cookie); !strings.Contains(got.Body.String(), `"theme":"dark"`) {
+		t.Fatalf("get: %s", got.Body)
+	}
+
+	bad := httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(`{"theme":"blue"}`))
+	bad.Host = s.host
+	bad.AddCookie(cookie)
+	w = httptest.NewRecorder()
+	s.handler().ServeHTTP(w, bad)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("bad theme: %d, want 400", w.Code)
+	}
+}
