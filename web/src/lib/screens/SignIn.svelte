@@ -6,6 +6,26 @@
 	import GoogleButton from '#lib/components/GoogleButton.svelte';
 	import Mark from '#lib/components/Mark.svelte';
 	import { text } from '#lib/strings.js';
+	import { goto } from '$app/navigation';
+	import { login } from '#lib/api.js';
+	import { refresh } from '#lib/app.svelte.js';
+
+	let waiting = $state(false);
+	let failed = $state('');
+
+	async function signIn() {
+		waiting = true;
+		failed = '';
+		try {
+			await login();
+			await refresh();
+			goto('/library');
+		} catch (e) {
+			failed = String(e);
+		} finally {
+			waiting = false;
+		}
+	}
 
 	const steps = [
 		{ icon: LogIn, title: text.stepSignIn, desc: text.stepSignInDesc },
@@ -26,9 +46,11 @@
 		<section class="action">
 			<div>
 				<h2>{text.signInCall}</h2>
-				<p class="sub">{text.signInCallSub}</p>
+				<p class="sub" class:err={failed}>
+					{failed || (waiting ? text.signingIn : text.signInCallSub)}
+				</p>
 			</div>
-			<GoogleButton />
+			<GoogleButton onclick={signIn} />
 		</section>
 
 		<ol class="steps">
@@ -116,6 +138,9 @@
 	.sub {
 		margin-top: 4px;
 		color: var(--muted);
+	}
+	.sub.err {
+		color: var(--err);
 	}
 	.steps {
 		list-style: none;

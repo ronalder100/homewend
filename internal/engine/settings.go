@@ -18,6 +18,8 @@ import (
 type Settings struct {
 	// Theme is "system", "light" or "dark"; empty is "system".
 	Theme string `json:"theme,omitempty"`
+	// Hidden are the accounts, by id, whose photos the window leaves out.
+	Hidden []string `json:"hidden,omitempty"`
 }
 
 // Themes are the values Theme takes.

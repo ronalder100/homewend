@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getSettings, putSettings, type Theme } from './api.js';
+import { app } from './app.svelte.js';
 
 // What the desktop shell offers the page (electron/preload.js); absent in a
 // browser.
@@ -29,5 +30,5 @@ export async function loadTheme() {
 
 export async function setTheme(t: Theme) {
 	apply(t);
-	await putSettings({ theme: t });
+	app.settings = await putSettings({ ...app.settings, theme: t });
 }

@@ -141,8 +141,10 @@ func signInDone(sess *session.Session) func() bool {
 // accountFile keeps the address of the account the profile is signed in to.
 // It is inside the profile, so that it goes when the profile does.
 func accountFile(sess *session.Session) string {
-	return filepath.Join(sess.Profile, "homewend-account")
+	return filepath.Join(sess.Profile, accountFileName)
 }
+
+const accountFileName = "homewend-account"
 
 // Account says whose session the profile holds, as Google named the account
 // at sign-in. It is kept beside the session because asking Google again means

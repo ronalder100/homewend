@@ -297,6 +297,28 @@ func (c *Catalog) AlbumNames() (map[string]int, error) {
 	return counts, rows.Err()
 }
 
+// CountsByYear is how many photos each year holds, and under "" those whose
+// date nobody knows.
+func (c *Catalog) CountsByYear() (map[string]int, error) {
+	rows, err := c.db.Query(
+		`SELECT COALESCE(strftime('%Y', taken, 'unixepoch'), ''), COUNT(*) FROM photos GROUP BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := map[string]int{}
+	for rows.Next() {
+		var year string
+		var n int
+		if err := rows.Scan(&year, &n); err != nil {
+			return nil, err
+		}
+		counts[year] = n
+	}
+	return counts, rows.Err()
+}
+
 // relativeTo makes a library path portable, so moving the library to another
 // disk does not invalidate the index.
 func relativeTo(root, path string) string {

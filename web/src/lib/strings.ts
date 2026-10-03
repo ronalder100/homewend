@@ -22,6 +22,11 @@ export const text = {
 	stepBringHomeDesc: 'Homewend does the rest.',
 
 	allPhotos: 'All photos',
+	noDate: 'No date',
+	noPhotos: 'No photos yet',
+	noPhotosDesc: 'They appear here as each part of the takeout arrives.',
+	seeDownload: 'See the download',
+	signingIn: 'Finish signing in in the browser window that opened.',
 	years: 'YEARS',
 	albums: 'ALBUMS',
 	takeouts: 'Takeouts',

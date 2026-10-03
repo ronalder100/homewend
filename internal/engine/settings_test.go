@@ -11,7 +11,7 @@ import (
 
 func TestSettingsDefaultWhenMissing(t *testing.T) {
 	s, err := loadSettings(filepath.Join(t.TempDir(), "settings.json"))
-	if err != nil || s != (Settings{}) {
+	if err != nil || s.Theme != "" || s.Hidden != nil {
 		t.Fatalf("got %+v, %v; want the defaults", s, err)
 	}
 }
