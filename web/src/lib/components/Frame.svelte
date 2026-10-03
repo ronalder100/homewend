@@ -102,6 +102,10 @@
 		min-height: 0;
 		overflow-y: auto;
 	}
+	/* A screen that scrolls by itself, like the grid, fills it exactly. */
+	.content > :global(:only-child) {
+		min-height: 100%;
+	}
 	footer {
 		height: 56px;
 		flex-shrink: 0;

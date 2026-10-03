@@ -39,3 +39,18 @@ export const getOverview = () => call<Overview>('GET', '/api/overview');
 /** Opens the system browser on Google's sign-in and waits for it. */
 export const login = (account?: string) =>
 	call<AccountInfo>('POST', '/api/login' + (account ? `?account=${encodeURIComponent(account)}` : ''));
+
+export interface GridPhoto {
+	hash: string;
+	name: string;
+	taken?: string;
+	video?: boolean;
+}
+
+export function getPhotos(q: { year?: string; album?: string; noDate?: boolean; offset: number; limit: number }) {
+	const p = new URLSearchParams({ offset: String(q.offset), limit: String(q.limit) });
+	if (q.year) p.set('year', q.year);
+	if (q.album) p.set('album', q.album);
+	if (q.noDate) p.set('nodate', '1');
+	return call<GridPhoto[]>('GET', `/api/photos?${p}`);
+}

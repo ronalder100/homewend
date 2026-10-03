@@ -6,7 +6,9 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
@@ -66,6 +68,31 @@ func apiRoutes() http.Handler {
 		}
 		reply(w, engine.AccountInfo{ID: id, Email: engine.Account(sess)}, nil)
 	})
+	mux.HandleFunc("GET /api/photos", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		offset, _ := strconv.Atoi(q.Get("offset"))
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		list, err := engine.Photos(q.Get("year"), q.Get("album"), q.Get("nodate") != "", offset, limit)
+		reply(w, list, err)
+	})
+	// A thumbnail never changes: it is named by the photo's content.
+	mux.HandleFunc("GET /api/thumb/{hash}", func(w http.ResponseWriter, r *http.Request) {
+		path, err := engine.Thumbnail(r.Context(), r.PathValue("hash"))
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+		http.ServeFile(w, r, path)
+	})
+	mux.HandleFunc("GET /api/original/{hash}", func(w http.ResponseWriter, r *http.Request) {
+		path, err := engine.Original(r.PathValue("hash"))
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		http.ServeFile(w, r, path)
+	})
 	mux.HandleFunc("GET /api/takeouts", func(w http.ResponseWriter, r *http.Request) {
 		sess, err := engine.AccountSession(r.URL.Query().Get("account"))
 		if err != nil {
@@ -84,6 +111,8 @@ func reply(w http.ResponseWriter, v any, err error) {
 	switch {
 	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrNoSuchAccount):
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, fs.ErrNotExist), errors.Is(err, engine.ErrNoLibrary):
+		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	default:

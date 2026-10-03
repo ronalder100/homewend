@@ -185,6 +185,7 @@ type Filter struct {
 	Origins []Origin // empty means all
 	Album   string
 	Year    string
+	NoDate  bool // only the photos whose date nobody knows
 	Limit   int
 	Offset  int
 }
@@ -216,6 +217,9 @@ func (c *Catalog) Page(f Filter) ([]Photo, error) {
 		// a year, and strftime on NULL is NULL, which no year equals.
 		where = append(where, "strftime('%Y', taken, 'unixepoch') = ?")
 		args = append(args, f.Year)
+	}
+	if f.NoDate {
+		where = append(where, "taken IS NULL")
 	}
 	for i, clause := range where {
 		if i == 0 {

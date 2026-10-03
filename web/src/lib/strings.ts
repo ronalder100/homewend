@@ -24,6 +24,7 @@ export const text = {
 
 	allPhotos: 'All photos',
 	noDate: 'No date',
+	photosAndVideos: (n: number) => `${n.toLocaleString('en')} photos and videos`,
 	noPhotos: 'No photos yet',
 	noPhotosDesc: 'They appear here as each part of the takeout arrives.',
 	seeDownload: 'See the download',

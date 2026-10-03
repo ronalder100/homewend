@@ -308,3 +308,34 @@ func indexOf(haystack, needle []byte) int {
 	}
 	return -1
 }
+
+const tagOrientation = 0x0112
+
+// Orientation is the EXIF orientation of a JPEG or TIFF, 1 to 8: how the
+// pixels must be turned to be seen upright. 1, as is, when there is none.
+func Orientation(path string) int {
+	file, err := os.Open(path)
+	if err != nil {
+		return 1
+	}
+	defer file.Close()
+	head := make([]byte, 1<<16)
+	n, _ := io.ReadFull(file, head)
+	head = head[:n]
+	tiff, order, ok := exifHeader(head)
+	if !ok || tiff+8 > len(head) {
+		return 1
+	}
+	o := 1
+	eachEntry(head, tiff, int(order.Uint32(head[tiff+4:tiff+8])), order, func(tag, kind uint16, count uint32, at int) bool {
+		if tag != tagOrientation || kind != 3 { // 3 = SHORT, held in the entry itself
+			return false
+		}
+		o = int(order.Uint16(head[at+8 : at+10]))
+		return true
+	})
+	if o < 1 || o > 8 {
+		return 1
+	}
+	return o
+}
