@@ -404,6 +404,10 @@ func takeoutCommand(args []string) int {
 		out.say(out.out.done(fmt.Sprintf(text["signed in as"], account), ""))
 	}
 	out.signedIn = true
+	// Reading Takeout's list of exports takes seconds: say so, until the
+	// engine says what it found.
+	looking := going{said: fmt.Sprintf(text["looking"], out.what), bar: -1}
+	out.now(looking)
 
 	g := engine.Get{Year: year, Library: dir, Takeout: *exportID, New: *fresh}
 	// A person is asked first: before Google is asked for a new export, which
@@ -438,6 +442,7 @@ func takeoutCommand(args []string) int {
 			what := out.what
 			out = newPrinter(*asJSON)
 			out.what, out.signedIn = what, true
+			out.now(looking)
 		}
 	}
 	result, err := g.Run(ctx, sess, out.event)

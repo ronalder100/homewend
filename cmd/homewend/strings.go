@@ -182,6 +182,7 @@ Examples:
 	"all photos":       "photos",
 
 	// The work.
+	"looking":         "Looking for an export of your %s on Google Takeout",
 	"asking":          "Asking Google to export your %s",
 	"asked":           "Asked Google to export your **%s**",
 	"asked at":        " at %s",
