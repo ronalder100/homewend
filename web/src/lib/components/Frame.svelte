@@ -35,6 +35,10 @@
 		if (narrow) open = !open;
 		else folded = !folded;
 	}
+	function expand() {
+		if (narrow) open = true;
+		else folded = false;
+	}
 	function placed(p: Place) {
 		open = false;
 		onplace?.(p);
@@ -55,7 +59,7 @@
 	<Titlebar onmenu={menu} />
 	<div class="body">
 		<div class="side" class:over={narrow && open}>
-			<Sidebar data={sidebar} {place} {rail} onplace={placed} {ontoggle} />
+			<Sidebar data={sidebar} {place} {rail} onplace={placed} {ontoggle} onexpand={expand} />
 		</div>
 		{#if narrow && open}
 			<button class="scrim" aria-label="close" onclick={() => (open = false)}></button>

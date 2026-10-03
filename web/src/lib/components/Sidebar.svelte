@@ -20,7 +20,8 @@
 		place,
 		rail = false,
 		onplace,
-		ontoggle
+		ontoggle,
+		onexpand
 	}: {
 		data: Sidebar;
 		place: Place;
@@ -28,6 +29,8 @@
 		rail?: boolean;
 		onplace?: (p: Place) => void;
 		ontoggle?: (account: string) => void;
+		/** A click anywhere on the rail opens the full sidebar instead. */
+		onexpand?: () => void;
 	} = $props();
 
 	let allAccounts = $state(false);
@@ -46,7 +49,8 @@
 			.filter((g) => g.albums.length > 0)
 	);
 	const is = (p: Place) => samePlace(p, place);
-	const go = (p: Place) => onplace?.(p);
+	const go = (p: Place) => (rail ? onexpand?.() : onplace?.(p));
+	const toggle = (id: string) => (rail ? onexpand?.() : many && ontoggle?.(id));
 </script>
 
 <nav class:rail>
@@ -58,7 +62,7 @@
 					title={rail ? account.name : undefined}
 					aria-pressed={many ? account.shown : undefined}
 					aria-label={many ? text.showAccount(account.name) : account.name}
-					onclick={() => many && ontoggle?.(account.id)}
+					onclick={() => toggle(account.id)}
 				>
 					<span class="lead"><Avatar {account} index={data.accounts.indexOf(account)} /></span>
 					<span class="label">{account.name}</span>
