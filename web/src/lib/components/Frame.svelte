@@ -30,6 +30,8 @@
 	// it: choosing a year or an album leaves it open.
 	let width = $state(1280);
 	const narrow = $derived(width < 1100);
+	// Half a laptop screen: no room even for the rail; ☰ still opens the sidebar.
+	const tiny = $derived(width < 720);
 	let folded = $state(false);
 	let open = $state(false);
 	const rail = $derived(narrow ? !open : folded);
@@ -55,7 +57,7 @@
 
 <svelte:window bind:innerWidth={width} onkeydown={key} />
 
-<div class="window" class:narrow>
+<div class="window" class:narrow class:tiny>
 	<Titlebar open={narrow && open} onmenu={menu} />
 	{@render banner?.()}
 	<div class="body">
@@ -84,6 +86,12 @@
 	.narrow .side {
 		width: 56px;
 		flex-shrink: 0;
+	}
+	.tiny .side {
+		width: 0;
+	}
+	.tiny .side:not(.over) {
+		visibility: hidden;
 	}
 	.side {
 		height: 100%;
