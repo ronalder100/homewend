@@ -24,8 +24,10 @@
 
 <div class="page">
 	{#if !shown || !job}
-		<p class="lead">{text.noPhotosDesc}</p>
-		<PrimaryButton onclick={() => goto('/choose')}>{text.bringHome}</PrimaryButton>
+		<div class="none">
+			<p class="lead">{text.noPhotosDesc}</p>
+			<PrimaryButton onclick={() => goto('/choose')}>{text.bringHome}</PrimaryButton>
+		</div>
 	{:else}
 		<div class="left">
 			<span class="pill" class:err={job.error}><i></i>{headline(job)}</span>
@@ -75,6 +77,14 @@
 		gap: 40px;
 		padding: 64px 40px 40px;
 		align-items: flex-start;
+	}
+	.none {
+		margin: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 24px;
+		text-align: center;
 	}
 	.left {
 		flex: 1;

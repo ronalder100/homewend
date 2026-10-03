@@ -16,6 +16,8 @@ export function urlOf(p: Place): string {
 			return '/takeouts';
 		case 'settings':
 			return '/settings';
+		case 'none':
+			return '/library';
 	}
 }
 
@@ -23,6 +25,7 @@ export function placeOf(url: { pathname: string; searchParams: { has(k: string):
 	const q = url.searchParams;
 	if (url.pathname.startsWith('/settings')) return { kind: 'settings' };
 	if (url.pathname.startsWith('/takeouts')) return { kind: 'takeouts' };
+	if (!url.pathname.startsWith('/library')) return { kind: 'none' };
 	if (q.has('album')) return { kind: 'album', account: q.get('account') ?? '', name: q.get('album') ?? '' };
 	if (q.has('year')) return { kind: 'year', label: q.get('year') ?? '' };
 	return { kind: 'all' };

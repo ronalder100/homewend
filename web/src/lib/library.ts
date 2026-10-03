@@ -41,7 +41,9 @@ export type Place =
 	| { kind: 'year'; label: string }
 	| { kind: 'album'; account: string; name: string }
 	| { kind: 'takeouts' }
-	| { kind: 'settings' };
+	| { kind: 'settings' }
+	/** A screen of its own, no row of the sidebar: choose, the download. */
+	| { kind: 'none' };
 
 export function samePlace(a: Place, b: Place): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
