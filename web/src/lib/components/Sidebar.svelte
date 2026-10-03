@@ -197,6 +197,11 @@
 		flex-direction: column;
 		gap: 8px;
 	}
+	/* The column scrolls rather than squeeze: without this a long list
+	   shrinks the 1px lines to nothing. */
+	.scroll > * {
+		flex-shrink: 0;
+	}
 	.group {
 		display: flex;
 		flex-direction: column;
