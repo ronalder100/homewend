@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,10 +18,12 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
-// Page is a page in a browser the program drives, with no window.
+// Page is a page in a browser the program drives: with no window, or in one
+// the user sees (Watched).
 type Page struct {
 	sess    *Session
 	ctx     context.Context
@@ -61,8 +64,46 @@ func (s *Session) Glimpse(ctx context.Context, url string) (*Page, error) {
 	}))
 }
 
-// headless starts the browser and opens the page with open.
+// Watched is Headless in a window the user sees, for the one step only the
+// user can take: typing the password Google asks for, again, of a session
+// already signed in. It opens blank, and every page from host is kept off
+// screen from its first instant, before any of its own scripts run: hidden,
+// not stopped, so what the page starts still happens.
+//
+// Google takes the password in a browser with a debug port, here: on a
+// session signed in the day before, the password page came up, was answered,
+// and the download began, with the session still accepted afterwards
+// (Chromium 144, 2026-10-03). The sign-in itself it refuses (see Open).
+func (s *Session) Watched(ctx context.Context, host string) (*Page, error) {
+	return s.drive(ctx, nil, hidden(host))
+}
+
+// hidden keeps every page from host off screen, from the next one the tab
+// opens. A script added this way runs as each document is created, before
+// the page's own and before anything is drawn (Page.addScriptToEvaluateOnNewDocument).
+func hidden(host string) chromedp.Action {
+	hide := `if (location.hostname === ` + strconv.Quote(host) + `) {
+  const s = new CSSStyleSheet();
+  s.replaceSync('html{visibility:hidden!important;background:#fff!important}');
+  document.adoptedStyleSheets = [s];
+}`
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		_, err := page.AddScriptToEvaluateOnNewDocument(hide).Do(ctx)
+		return err
+	})
+}
+
+// headless starts the browser with no window and opens the page with open.
 func (s *Session) headless(ctx context.Context, open chromedp.Action) (*Page, error) {
+	return s.drive(ctx, []string{"--headless=new", "--window-size=1400,1000"}, open)
+}
+
+// drive starts the browser with flags and a debug port, attaches to the tab
+// it opens with, and runs open there.
+//
+// That tab, not a new one: in a window the user would see a second tab, and
+// whatever the program did would happen in the one they are not looking at.
+func (s *Session) drive(ctx context.Context, flags []string, open chromedp.Action) (*Page, error) {
 	browser, err := findBrowser()
 	if err != nil {
 		return nil, err
@@ -74,14 +115,15 @@ func (s *Session) headless(ctx context.Context, open chromedp.Action) (*Page, er
 		return nil, err
 	}
 
-	cmd := exec.Command(browser,
-		"--headless=new", "--window-size=1400,1000",
+	cmd := exec.Command(browser, append(flags,
 		"--user-data-dir="+s.Profile,
 		// The same fixed cookie key as the window (see Open): same profile.
 		"--password-store=basic", "--use-mock-keychain",
 		"--remote-debugging-port=0",
 		"--no-first-run", "--no-default-browser-check", "--disable-sync",
-	)
+		"--disable-session-crashed-bubble", "--hide-crash-restore-bubble",
+		blank,
+	)...)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting %s: %w", browser, err)
 	}
@@ -97,13 +139,44 @@ func (s *Session) headless(ctx context.Context, open chromedp.Action) (*Page, er
 		return nil, err
 	}
 	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(ctx, ws, chromedp.NoModifyURL)
-	tabCtx, cancelTab := chromedp.NewContext(allocCtx)
-	p.ctx, p.cancel = tabCtx, func() { cancelTab(); cancelAlloc() }
+	rootCtx, cancelRoot := chromedp.NewContext(allocCtx)
+	p.cancel = func() { cancelRoot(); cancelAlloc() }
+	tab, err := firstTab(rootCtx)
+	if err != nil {
+		p.Close()
+		return nil, err
+	}
+	tabCtx, cancelTab := chromedp.NewContext(rootCtx, chromedp.WithTargetID(tab))
+	p.ctx, p.cancel = tabCtx, func() { cancelTab(); cancelRoot(); cancelAlloc() }
 	if err := chromedp.Run(p.ctx, open); err != nil {
 		p.Close()
 		return nil, err
 	}
 	return p, nil
+}
+
+// blank is what the browser opens with: a page, so that there is a tab to
+// attach to, and nothing in it.
+const blank = "about:blank"
+
+// firstTab waits for the tab the browser opens with. chromedp leaves the wait
+// to the caller: a browser just started may list no tab yet
+// (chromedp.Targets).
+func firstTab(ctx context.Context) (target.ID, error) {
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		targets, err := chromedp.Targets(ctx)
+		if err != nil {
+			return "", err
+		}
+		for _, t := range targets {
+			if t.Type == "page" && t.URL == blank {
+				return t.TargetID, nil
+			}
+		}
+		if time.Now().After(deadline) {
+			return "", errors.New("the browser opened no tab")
+		}
+	}
 }
 
 // browserSocket reads the address the browser writes once it listens: the
@@ -117,7 +190,7 @@ func browserSocket(file string) (string, error) {
 			}
 		}
 		if time.Now().After(deadline) {
-			return "", errors.New("the headless browser did not open its debug port")
+			return "", errors.New("the browser did not open its debug port")
 		}
 	}
 }
@@ -137,17 +210,22 @@ func (p *Page) Click(x, y float64) error {
 	return chromedp.Run(p.ctx, chromedp.MouseClickXY(x, y))
 }
 
+// ErrExited means the browser went away before a download began: in a window,
+// the user closed it.
+var ErrExited = errors.New("the browser exited")
+
 // Download follows address, which should end in a download, and returns the
-// address the download finally came from; "" when none began within wait,
-// because the page went somewhere else, to a password prompt for one. What is
-// downloaded lands in dir.
+// address the download finally came from; "" when none began before giveUp
+// fired, because the page went somewhere else, to a password prompt for one.
+// A nil giveUp waits as long as the browser is there. What is downloaded lands
+// in dir.
 //
 // Followed a few minutes after a sign-in, the download address on an export's
 // page went through Google's sign-in addresses without a question and ended at
 // the download host: the event that announces the download carried that last
 // address. Fourteen minutes after a sign-in the same address ended on the
 // password page, and no download began. Both 2026-10-02.
-func (p *Page) Download(address, dir string, wait time.Duration) (string, error) {
+func (p *Page) Download(address, dir string, giveUp <-chan time.Time) (string, error) {
 	began := make(chan string, 1)
 	finished := make(chan struct{}, 1)
 	chromedp.ListenBrowser(p.ctx, func(event any) {
@@ -183,13 +261,16 @@ func (p *Page) Download(address, dir string, wait time.Duration) (string, error)
 		// middle of it leaves a half-written one behind.
 		select {
 		case <-finished:
-		case <-time.After(wait):
+		case <-giveUp:
+		case <-p.exited:
 		}
 		return from, nil
-	case <-time.After(wait):
+	case <-giveUp:
 		return "", nil
 	case <-p.exited:
-		return "", errors.New("the headless browser exited")
+		return "", ErrExited
+	case <-p.ctx.Done():
+		return "", p.ctx.Err()
 	}
 }
 

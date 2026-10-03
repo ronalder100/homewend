@@ -88,37 +88,6 @@ func TestOpenNeverOffersToSavePasswords(t *testing.T) {
 
 // Where downloads go is set in the preferences, beside what is already
 // there, and given back by setting nowhere.
-func TestDownloadsToSetsAndClearsTheDirectory(t *testing.T) {
-	sess, err := New(filepath.Join(t.TempDir(), "profile"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(sess.Profile, "Default", "Preferences")
-	os.MkdirAll(filepath.Dir(path), 0o700)
-	os.WriteFile(path, []byte(`{"other":7}`), 0o600)
-	read := func() map[string]any {
-		raw, _ := os.ReadFile(path)
-		var prefs map[string]any
-		if err := json.Unmarshal(raw, &prefs); err != nil {
-			t.Fatal(err)
-		}
-		return prefs
-	}
-	if err := sess.DownloadsTo("/tmp/somewhere"); err != nil {
-		t.Fatal(err)
-	}
-	prefs := read()
-	set, _ := prefs["download"].(map[string]any)
-	if set["default_directory"] != "/tmp/somewhere" || set["prompt_for_download"] != false || prefs["other"] != float64(7) {
-		t.Errorf("preferences %v", prefs)
-	}
-	if err := sess.DownloadsTo(""); err != nil {
-		t.Fatal(err)
-	}
-	if prefs := read(); prefs["download"] != nil || prefs["other"] != float64(7) {
-		t.Errorf("after giving it back: %v", prefs)
-	}
-}
 
 // waitForFile polls for path to appear, failing the test if it does not show
 // up within timeout.

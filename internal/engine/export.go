@@ -6,6 +6,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -34,8 +35,9 @@ const userFile = "homewend-user-id"
 // smallest file, by the address Google's own page links to. Minutes after a
 // sign-in Google lets it through, and it all happens out of sight. Later
 // Google asks for the password first, and only then does a window open, on
-// Google's password page: typing it is all the user does, and the download
-// follows by itself, into a directory of ours.
+// Google's password page: typing it is all the user does. The download
+// follows by itself, into a directory of ours, and the window closes; the
+// Takeout page Google passes through on the way is never on screen.
 func User(ctx context.Context, sess *session.Session, export takeout.Export, emit progress.Func) (string, error) {
 	path := filepath.Join(sess.Profile, userFile)
 	if data, err := os.ReadFile(path); err == nil {
@@ -71,19 +73,15 @@ func User(ctx context.Context, sess *session.Session, export takeout.Export, emi
 			return "", err
 		}
 		// Out of sight it worked: Google had no question, and nobody saw a thing.
-		if id = takeout.UserFromDownload(from); id == "" {
+		if from == "" {
 			// Google wants the password, and only the user has it.
-			if err := sess.DownloadsTo(landing); err != nil {
+			emit.Emit(progress.Event{Stage: progress.FirstDownload, Name: Account(sess)})
+			if from, err = withPassword(ctx, sess, link, landing); err != nil {
 				return "", err
 			}
-			defer sess.DownloadsTo("")
-			err = inWindow(ctx, sess, link, progress.Event{Stage: progress.FirstDownload, Name: Account(sess)}, found, emit)
-			if errors.Is(err, errWindowClosed) {
-				return "", ErrNoDownload
-			}
-			if err != nil {
-				return "", err
-			}
+		}
+		if id = takeout.UserFromDownload(from); id == "" {
+			return "", fmt.Errorf("the download came from an address with no user id: %s", from)
 		}
 	}
 	return id, os.WriteFile(path, []byte(id+"\n"), 0o600)
@@ -115,8 +113,27 @@ func quietly(ctx context.Context, sess *session.Session, export takeout.Export, 
 	if link = pickLink(links, export.Manifest.Index); link == "" {
 		return "", "", ErrNoLink
 	}
-	from, err = page.Download(link, landing, quietWait)
+	from, err = page.Download(link, landing, time.After(quietWait))
 	return link, from, err
+}
+
+// withPassword follows link in a window the user sees, for the password
+// Google asks for, and returns the address the download came from. The window
+// opens blank and goes to Google's password page; once the password is typed
+// Google goes through the export's Takeout page, which starts the download
+// three seconds later, and is kept off screen. The window is closed as soon as
+// the file is down: the manifest's archive, small (see Page.Download).
+func withPassword(ctx context.Context, sess *session.Session, link, landing string) (string, error) {
+	page, err := sess.Watched(ctx, takeoutHost)
+	if err != nil {
+		return "", err
+	}
+	defer page.Close()
+	from, err := page.Download(link, landing, nil)
+	if errors.Is(err, session.ErrExited) {
+		return "", ErrNoDownload
+	}
+	return from, err
 }
 
 // pickLink finds, among a page's addresses, the download of the file with
@@ -125,7 +142,7 @@ func pickLink(links []string, index int) string {
 	other := ""
 	for _, link := range links {
 		u, err := url.Parse(link)
-		if err != nil || u.Host != "takeout.google.com" || u.Path != "/takeout/download" {
+		if err != nil || u.Host != takeoutHost || u.Path != "/takeout/download" {
 			continue
 		}
 		if u.Query().Get("i") == strconv.Itoa(index) {
