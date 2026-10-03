@@ -24,6 +24,14 @@ const TITLEBAR_HEIGHT = 44;
 // system, as macOS does by default.
 app.commandLine.appendSwitch('enable-features', 'OverlayScrollbar');
 
+// Tiling window managers (sway, i3, Hyprland…) place and close windows from
+// the keyboard and do nothing with minimise or maximise buttons. They set no
+// XDG_CURRENT_DESKTOP, or their own name; desktops with window buttons (GNOME,
+// KDE, Xfce…) set theirs.
+const TILING = /^$|sway|i3|hyprland|river|niri|bspwm|qtile/i;
+const windowButtons =
+	process.platform !== 'linux' || !TILING.test(process.env.XDG_CURRENT_DESKTOP || '');
+
 let child;
 
 function theme(name) {
@@ -57,7 +65,7 @@ async function open() {
 		backgroundColor: theme('bg'),
 		// The page draws the titlebar; the system keeps its own buttons.
 		titleBarStyle: 'hidden',
-		titleBarOverlay: process.platform === 'darwin' ? true : overlay(),
+		titleBarOverlay: process.platform === 'darwin' ? true : windowButtons && overlay(),
 		webPreferences: { preload: path.join(__dirname, 'preload.js') }
 	});
 	// The person's choice in Settings, or the system's when they chose none.
@@ -66,7 +74,7 @@ async function open() {
 	});
 	nativeTheme.on('updated', () => {
 		win.setBackgroundColor(theme('bg'));
-		if (process.platform !== 'darwin') win.setTitleBarOverlay(overlay());
+		if (process.platform !== 'darwin' && windowButtons) win.setTitleBarOverlay(overlay());
 	});
 	// Links leave the window for the system browser: Google's pages are never
 	// shown inside the app.
