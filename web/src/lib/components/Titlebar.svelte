@@ -1,7 +1,7 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-	import { Menu, PanelLeftClose, FolderInput } from '@lucide/svelte';
+	import { FolderInput } from '@lucide/svelte';
 	import Brand from './Brand.svelte';
 	import SecondaryButton from './SecondaryButton.svelte';
 	import { text } from '#lib/strings.js';
@@ -19,8 +19,8 @@
 
 <header>
 	{#if menu && !mac}
-		<button class="menu" aria-label={text.menu} onclick={onmenu}
-			>{#if open}<PanelLeftClose size={20} />{:else}<Menu size={20} />{/if}</button
+		<button class="menu" aria-label={text.menu} class:open onclick={onmenu}
+			><i></i><i></i><i></i></button
 		>
 	{/if}
 	<Brand />
@@ -51,12 +51,46 @@
 	header :global(button) {
 		-webkit-app-region: no-drag;
 	}
+	/* ☰ turns into ✕ while the sidebar is open: three bars, the middle one
+	   fades and the outer two cross. */
 	.menu {
 		width: 24px;
 		height: 24px;
-		display: grid;
-		place-items: center;
-		color: var(--fg);
+		position: relative;
+	}
+	.menu i {
+		position: absolute;
+		left: 4px;
+		width: 16px;
+		height: 2px;
+		border-radius: 1px;
+		background: var(--fg);
+		transition:
+			transform 200ms ease,
+			opacity 200ms ease;
+	}
+	.menu i:nth-child(1) {
+		top: 6px;
+	}
+	.menu i:nth-child(2) {
+		top: 11px;
+	}
+	.menu i:nth-child(3) {
+		top: 16px;
+	}
+	.menu.open i:nth-child(1) {
+		transform: translateY(5px) rotate(45deg);
+	}
+	.menu.open i:nth-child(2) {
+		opacity: 0;
+	}
+	.menu.open i:nth-child(3) {
+		transform: translateY(-5px) rotate(-45deg);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.menu i {
+			transition: none;
+		}
 	}
 	.spacer {
 		flex: 1;
