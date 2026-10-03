@@ -1,12 +1,16 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-	import { Menu, FolderInput } from '@lucide/svelte';
+	import { Menu, PanelLeftClose, FolderInput } from '@lucide/svelte';
 	import Brand from './Brand.svelte';
 	import SecondaryButton from './SecondaryButton.svelte';
 	import { text } from '#lib/strings.js';
 
-	let { menu = true, onmenu }: { menu?: boolean; onmenu?: () => void } = $props();
+	let {
+		menu = true,
+		open = false,
+		onmenu
+	}: { menu?: boolean; /** the sidebar is open */ open?: boolean; onmenu?: () => void } = $props();
 
 	// On the Mac the corner belongs to the traffic lights: the sidebar opens
 	// from the View menu and ⌃⌘S there, as in Apple's own apps.
@@ -15,7 +19,9 @@
 
 <header>
 	{#if menu && !mac}
-		<button class="menu" aria-label={text.menu} onclick={onmenu}><Menu size={20} /></button>
+		<button class="menu" aria-label={text.menu} onclick={onmenu}
+			>{#if open}<PanelLeftClose size={20} />{:else}<Menu size={20} />{/if}</button
+		>
 	{/if}
 	<Brand />
 	<span class="spacer"></span>
