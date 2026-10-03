@@ -20,6 +20,7 @@ func apiRoutes() http.Handler {
 	mux := http.NewServeMux()
 	// One sign-in at a time: a second click must not open a second browser.
 	var signingIn sync.Mutex
+	jobs := &engine.Jobs{}
 	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
 		s, err := engine.LoadSettings()
 		reply(w, s, err)
@@ -93,6 +94,42 @@ func apiRoutes() http.Handler {
 		}
 		http.ServeFile(w, r, path)
 	})
+	mux.HandleFunc("GET /api/library", func(w http.ResponseWriter, r *http.Request) {
+		dir, err := engine.DefaultLibrary()
+		reply(w, map[string]string{"dir": dir}, err)
+	})
+	mux.HandleFunc("PUT /api/library", func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Dir string }
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Dir == "" {
+			http.Error(w, "a folder is needed", http.StatusBadRequest)
+			return
+		}
+		reply(w, map[string]string{"dir": body.Dir}, engine.SetDefaultLibrary(body.Dir))
+	})
+	// Bringing photos home runs in the engine; the page asks where it stands.
+	mux.HandleFunc("POST /api/get", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		dir, err := engine.DefaultLibrary()
+		if err == nil && dir == "" {
+			err = engine.ErrNoLibrary
+		}
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		year, _ := strconv.Atoi(q.Get("year"))
+		g := engine.Get{Year: year, Library: dir, Takeout: q.Get("export"), New: q.Get("new") != ""}
+		err = jobs.Start(q.Get("account"), g)
+		reply(w, jobs.State(q.Get("account")), err)
+	})
+	mux.HandleFunc("GET /api/job", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, jobs.State(r.URL.Query().Get("account")), nil)
+	})
+	mux.HandleFunc("POST /api/job/stop", func(w http.ResponseWriter, r *http.Request) {
+		account := r.URL.Query().Get("account")
+		jobs.Stop(account)
+		reply(w, jobs.State(account), nil)
+	})
 	mux.HandleFunc("GET /api/takeouts", func(w http.ResponseWriter, r *http.Request) {
 		sess, err := engine.AccountSession(r.URL.Query().Get("account"))
 		if err != nil {
@@ -111,6 +148,8 @@ func reply(w http.ResponseWriter, v any, err error) {
 	switch {
 	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrNoSuchAccount):
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, engine.ErrJobRunning):
+		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, fs.ErrNotExist), errors.Is(err, engine.ErrNoLibrary):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:

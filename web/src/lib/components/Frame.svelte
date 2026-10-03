@@ -52,7 +52,7 @@
 <svelte:window bind:innerWidth={width} onkeydown={key} />
 
 <div class="window" class:narrow>
-	<Titlebar open={!rail} onmenu={menu} />
+	<Titlebar open={narrow && open} onmenu={menu} />
 	<div class="body">
 		<div class="side" class:over={narrow && open}>
 			<Sidebar data={sidebar} {place} {rail} {onplace} {ontoggle} onexpand={expand} />

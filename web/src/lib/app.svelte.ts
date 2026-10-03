@@ -3,15 +3,58 @@
 
 // What the window knows: the settings and the library's overview, read from
 // the engine and kept in step with it.
-import { getOverview, getSettings, putSettings, type Overview, type Settings } from './api.js';
+import {
+	getJob,
+	getOverview,
+	getSettings,
+	putSettings,
+	type JobState,
+	type Overview,
+	type Settings
+} from './api.js';
 import type { Sidebar } from './library.js';
 import { text } from './strings.js';
 
-export const app = $state<{ settings: Settings; overview: Overview | null; error: string }>({
+export const app = $state<{
+	settings: Settings;
+	overview: Overview | null;
+	jobs: Record<string, JobState>;
+	error: string;
+}>({
 	settings: {},
 	overview: null,
+	jobs: {},
 	error: ''
 });
+
+/** Asks every second where each account's download stands. */
+export function watchJobs(): () => void {
+	let wasRunning = false;
+	const tick = async () => {
+		for (const a of app.overview?.accounts ?? []) {
+			try {
+				app.jobs[a.id] = await getJob(a.id);
+			} catch {
+				// The engine went away: the window says so elsewhere.
+			}
+		}
+		// Photos arrive while a job runs: the counts follow them.
+		const running = Object.values(app.jobs).some((j) => j.running);
+		if (running || wasRunning) app.overview = await getOverview();
+		wasRunning = running;
+	};
+	tick();
+	const t = setInterval(tick, 1000);
+	return () => clearInterval(t);
+}
+
+/** The account whose download the window shows: the one running, or the first. */
+export function shownJob(): { account: string; job: JobState } | null {
+	const entries = Object.entries(app.jobs);
+	const running = entries.find(([, j]) => j.running);
+	const any = running ?? entries.find(([, j]) => j.stage || j.error || j.finished);
+	return any ? { account: any[0], job: any[1] } : null;
+}
 
 export async function refresh() {
 	try {

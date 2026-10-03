@@ -174,7 +174,7 @@
 		>
 			<span class="lead"><Archive size={20} /></span>
 			<span class="label">{text.takeouts}</span>
-			<span class="count">{data.takeouts}</span>
+			{#if data.takeouts > 0}<span class="count">{data.takeouts}</span>{/if}
 		</button>
 		<button
 			class="row"

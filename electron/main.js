@@ -4,7 +4,7 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the window goes.
-const { app, BrowserWindow, ipcMain, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
@@ -71,6 +71,13 @@ async function open() {
 	// The person's choice in Settings, or the system's when they chose none.
 	ipcMain.on('theme', (_event, theme) => {
 		if (['system', 'light', 'dark'].includes(theme)) nativeTheme.themeSource = theme;
+	});
+	ipcMain.handle('choose-folder', async (_event, start) => {
+		const r = await dialog.showOpenDialog(win, {
+			defaultPath: start || undefined,
+			properties: ['openDirectory', 'createDirectory']
+		});
+		return r.canceled ? '' : r.filePaths[0];
 	});
 	nativeTheme.on('updated', () => {
 		win.setBackgroundColor(theme('bg'));

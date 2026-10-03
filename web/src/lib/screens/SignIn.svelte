@@ -19,7 +19,7 @@
 		try {
 			await login();
 			await refresh();
-			goto('/library');
+			goto('/choose');
 		} catch (e) {
 			failed = String(e);
 		} finally {
