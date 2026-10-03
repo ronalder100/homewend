@@ -34,7 +34,7 @@
 		if (!now || now === said) return;
 		said = now;
 		if (now === 'password') window.shell?.notify(text.notifyPassword, text.bannerPassword(email));
-		else window.shell?.notify(text.notifyFinished, text.bannerFinishedDesc);
+		else window.shell?.notify(text.notifyFinished, email);
 	});
 </script>
 

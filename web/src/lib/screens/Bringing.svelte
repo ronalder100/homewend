@@ -11,6 +11,7 @@
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
 
 	const shown = $derived(shownJob());
 	const job = $derived(shown?.job);
@@ -20,6 +21,20 @@
 		job?.finished ? text.finishedTitle : paused ? text.pausedTitle : waiting ? text.preparingTitle : text.bringingTitle
 	);
 	const lead = $derived(paused ? text.pausedLead : waiting ? text.preparingLead : text.bringingLead);
+	const email = $derived(app.overview?.accounts.find((a) => a.id === shown?.account)?.email ?? '');
+
+	// Time left at the speed of the last minute: bytes seen, a sample a second.
+	let samples: { t: number; done: number }[] = [];
+	const left = $derived.by(() => {
+		if (!job?.running || !job.total) return '';
+		const now = Date.now();
+		samples = [...samples.filter((x) => now - x.t < 60000), { t: now, done: job.done }];
+		const first = samples[0];
+		const rate = (job.done - first.done) / ((now - first.t) / 1000);
+		if (!(rate > 0)) return '';
+		const s = (job.total - job.done) / rate;
+		return text.aboutTime(s >= 3600 ? `${Math.round(s / 3600)} h` : `${Math.max(1, Math.round(s / 60))} min`);
+	});
 </script>
 
 <div class="page">
@@ -33,11 +48,13 @@
 			<span class="pill" class:err={job.error}><i></i>{headline(job)}</span>
 			<h1>{title}</h1>
 			<p class="lead">{job.error || lead}</p>
+			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
 			{#if job.total > 0}
 				<div class="track"><b style:width="{fraction(job) * 100}%"></b></div>
 				<div class="numbers">
-					<div><b>{bytes(job.done)}</b><span>of {bytes(job.total)}</span></div>
-					<div><b>{job.parts}</b><span>of {job.of} parts</span></div>
+					<div><b>{text.gbOf(bytes(job.done), bytes(job.total))}</b><span>{text.downloaded}</span></div>
+					<div><b>{(app.overview?.total ?? 0).toLocaleString('en')}</b><span>{text.inFolder}</span></div>
+					{#if left}<div><b>{left}</b><span>{text.leftAtSpeed}</span></div>{/if}
 				</div>
 			{/if}
 			<div class="actions">
@@ -129,6 +146,16 @@
 		line-height: 1.5;
 		color: var(--muted);
 		max-width: 560px;
+	}
+	.who {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 4px 12px 4px 4px;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		color: var(--fg);
+		font-weight: 600;
 	}
 	.track {
 		width: 100%;

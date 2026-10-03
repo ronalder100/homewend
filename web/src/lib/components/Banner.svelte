@@ -3,14 +3,19 @@
 <!-- D1: when Homewend needs the person, one strip under the titlebar. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { KeyRound, LogIn, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
+	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { login } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { refresh } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 
+	import { onMount } from 'svelte';
+	import { getLibrary } from '#lib/api.js';
+
 	let { account, email, job }: { account: string; email: string; job: JobState } = $props();
+	let dir = $state('');
+	onMount(async () => (dir = (await getLibrary()).dir));
 	let dismissed = $state('');
 
 	const kind = $derived(
@@ -43,7 +48,7 @@
 	<div class="banner {kind}">
 		<span class="icon">
 			{#if kind === 'password'}<KeyRound size={18} />
-			{:else if kind === 'signed-out'}<LogIn size={18} />
+			{:else if kind === 'signed-out'}<KeyRound size={18} />
 			{:else if kind === 'no-space'}<HardDrive size={18} />
 			{:else if kind === 'expired'}<CalendarX size={18} />
 			{:else if kind === 'network'}<WifiOff size={18} />
@@ -53,15 +58,15 @@
 			{#if kind === 'password'}
 				<b>{text.bannerPassword(email)}</b><span>{text.bannerPasswordDesc}</span>
 			{:else if kind === 'signed-out'}
-				<b>{text.bannerSignedOut(email)}</b><span>{text.bannerSignedOutDesc}</span>
+				<b>{text.bannerSignedOut(email)}</b><span>{text.bannerSignedOutDesc(job.parts + 1)}</span>
 			{:else if kind === 'no-space'}
 				<b>{text.bannerNoSpace}</b><span>{text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))}</span>
 			{:else if kind === 'expired'}
-				<b>{text.bannerExpired}</b><span>{text.bannerExpiredDesc}</span>
+				<b>{text.bannerExpired(email)}</b><span>{text.bannerExpiredDesc}</span>
 			{:else if kind === 'network'}
 				<b>{text.bannerNetwork}</b><span>{text.bannerNetworkDesc}</span>
 			{:else}
-				<b>{text.bannerFinished(job.years.reduce((n, y) => n + y.arrived, 0).toLocaleString('en'))}</b><span>{text.bannerFinishedDesc}</span>
+				<b>{text.bannerFinished(email, job.years.reduce((n, y) => n + y.arrived, 0).toLocaleString('en'))}</b><span>{text.bannerFinishedDesc(dir)}</span>
 			{/if}
 		</div>
 		{#if kind === 'signed-out'}
@@ -84,12 +89,13 @@
 		padding: 12px 24px;
 		border-bottom: 1px solid var(--line);
 		background: var(--accent-soft);
+		font-size: var(--text-body);
 	}
-	.signed-out,
+	.no-space,
 	.expired {
 		background: var(--err-soft);
 	}
-	.no-space,
+	.signed-out,
 	.network {
 		background: var(--warn-soft);
 	}
@@ -100,11 +106,11 @@
 		display: grid;
 		color: var(--accent);
 	}
-	.signed-out .icon,
+	.no-space .icon,
 	.expired .icon {
 		color: var(--err);
 	}
-	.no-space .icon,
+	.signed-out .icon,
 	.network .icon {
 		color: var(--warn);
 	}

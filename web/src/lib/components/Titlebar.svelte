@@ -34,14 +34,21 @@
 			<!-- C3: importing a folder is phase 2; the button says what is coming. -->
 			<div class="popover" role="dialog" aria-label={text.importTitle}>
 				<div class="row">
-					<b>{text.importTitle}</b><span class="chip">{text.upcoming}</span>
+					<span class="tile"><FolderInput size={18} /></span><span class="chip">{text.upcoming}</span>
 				</div>
+				<b>{text.importTitle}</b>
 				<p>{text.importDesc}</p>
 			</div>
 		{/if}
 	</span>
 </header>
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (importing = false)} />
+<svelte:window
+	onkeydown={(e) => e.key === 'Escape' && (importing = false)}
+	onclick={(e) => {
+		// A click anywhere but the popover and its button closes it.
+		if (importing && !(e.target as Element).closest('.anchor')) importing = false;
+	}}
+/>
 
 <style>
 	header {
@@ -118,11 +125,11 @@
 		right: 0;
 		top: 40px;
 		z-index: 20;
-		width: 320px;
-		padding: 16px;
+		width: 340px;
+		padding: 24px;
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 12px;
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: 12px;
@@ -135,7 +142,18 @@
 		justify-content: space-between;
 	}
 	.popover b {
+		font-size: var(--text-title-2);
+		font-weight: 700;
 		color: var(--fg);
+	}
+	.tile {
+		width: 36px;
+		height: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 8px;
+		background: var(--accent-soft);
+		color: var(--accent);
 	}
 	.chip {
 		padding: 2px 8px;

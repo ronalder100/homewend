@@ -85,6 +85,10 @@ export const text = {
 	retrying: (why: string) => `No network: trying again (${why})`,
 	failed: 'Stopped',
 	seeLibrary: 'See them in your library',
+	downloaded: 'downloaded',
+	inFolder: 'photos in your folder',
+	leftAtSpeed: 'left at this speed',
+	aboutTime: (s: string) => `about ${s}`,
 
 	takeoutsTitle: 'Takeouts',
 	takeoutCol: 'HOLDS',
@@ -122,7 +126,7 @@ export const text = {
 	upcoming: 'Upcoming',
 	importTitle: 'Import a folder',
 	importDesc:
-		'Photos from a phone backup, a camera card or an old disk, sorted into the same library, with what was already there counted once.',
+		'Photos already on a disk or an old backup go into this same library, by date and album. Homewend tells you which ones were already here.',
 	close: 'Close',
 	openInFolder: /Mac/.test(globalThis.navigator?.platform ?? '')
 		? 'Open in Finder'
@@ -133,20 +137,20 @@ export const text = {
 	next: 'Next',
 
 	bannerPassword: (who: string) => `Google asks for the password of ${who} once more.`,
-	bannerPasswordDesc: "Type it in the window that opened. It's needed once for this account, and the window closes by itself.",
-	bannerSignedOut: (who: string) => `Google signed you out of ${who}.`,
-	bannerSignedOutDesc: 'Sign in again and Homewend carries on from part it left. Nothing downloaded is lost.',
+	bannerPasswordDesc: 'Type it in the window that opened. It is needed once for this account, and the window closes by itself.',
+	bannerSignedOut: (who: string) => `Google signed out ${who}.`,
+	bannerSignedOutDesc: (part: number) => `Sign in again and Homewend carries on from part ${part}. Nothing already downloaded is lost.`,
 	signInAgain: 'Sign in again',
 	bannerNoSpace: 'Not enough space on this disk.',
 	bannerNoSpaceDesc: (need: string, free: string) => `The takeout needs ${need} and the disk has ${free} free. Free some space, or choose another folder.`,
 	chooseAnotherFolder: 'Choose another folder',
-	bannerExpired: 'Google no longer offers this takeout.',
-	bannerExpiredDesc: 'Google keeps a takeout for 7 days. Ask for a new one and Homewend brings home what is still missing.',
+	bannerExpired: (who: string) => `Google no longer offers this takeout of ${who}.`,
+	bannerExpiredDesc: 'Google keeps a takeout for 7 days. The photos already here stay; a new takeout brings home the rest.',
 	newTakeoutAction: 'New takeout',
 	bannerNetwork: 'Waiting for the network.',
 	bannerNetworkDesc: 'Homewend tries again by itself every minute. The bytes already downloaded are kept.',
-	bannerFinished: (n: string) => `${n} photos and videos are home.`,
-	bannerFinishedDesc: 'Every file in the takeout is in your library, sorted by year and album.',
+	bannerFinished: (who: string, n: string) => `${who}'s ${n} photos and videos are home.`,
+	bannerFinishedDesc: (dir: string) => `Every file in the takeout is in ${dir}, by year and by album.`,
 	openLibrary: 'Open the library',
 	notifyFinished: 'Your photos are home',
 	notifyPassword: 'Google asks for your password'

@@ -26,8 +26,9 @@
 	} = $props();
 
 	// Below 1100px the sidebar folds to its rail and opens over the content;
-	// above, ☰ folds and unfolds it in place. Only ☰ (or its shortcut) closes
-	// it: choosing a year or an album leaves it open.
+	// above, ☰ folds and unfolds it in place. Over the page it closes with ☰,
+	// its shortcut, a click beside it, or Takeouts and Settings, which leave
+	// the photos; a year or an album keeps it open, to look at the next.
 	let width = $state(1280);
 	const narrow = $derived(width < 1100);
 	// Half a laptop screen: no room even for the rail; ☰ still opens the sidebar.
@@ -39,6 +40,10 @@
 	function menu() {
 		if (narrow) open = !open;
 		else folded = !folded;
+	}
+	function placed(p: Place) {
+		if (narrow && (p.kind === 'takeouts' || p.kind === 'settings')) open = false;
+		onplace?.(p);
 	}
 	function expand() {
 		if (narrow) open = true;
@@ -62,8 +67,13 @@
 	{@render banner?.()}
 	<div class="body">
 		<div class="side" class:over={narrow && open}>
-			<Sidebar data={sidebar} {place} {rail} {onplace} {ontoggle} onexpand={expand} />
+			<Sidebar data={sidebar} {place} {rail} onplace={placed} {ontoggle} onexpand={expand} />
 		</div>
+		{#if narrow && open}
+			<!-- Open over the page, the sidebar closes with a click beside it;
+			     choosing a row in it leaves it open. -->
+			<button class="scrim" aria-label="close" onclick={() => (open = false)}></button>
+		{/if}
 		<div class="main">
 			<div class="content">{@render children()}</div>
 			{#if status}<footer>{@render status()}</footer>{/if}
@@ -103,6 +113,12 @@
 		top: 0;
 		bottom: 0;
 		box-shadow: 0 12px 40px rgba(10, 10, 30, 0.16);
+	}
+	.scrim {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		cursor: default;
 	}
 	.main {
 		flex: 1;
