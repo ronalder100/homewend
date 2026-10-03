@@ -50,7 +50,7 @@
 					{failed || (waiting ? text.signingIn : text.signInCallSub)}
 				</p>
 			</div>
-			<GoogleButton onclick={signIn} />
+			<GoogleButton {waiting} onclick={signIn} />
 		</section>
 
 		<ol class="steps">

@@ -5,9 +5,9 @@ package engine
 
 import (
 	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,108 +16,99 @@ import (
 )
 
 // An account is one Google account and the browser profile that holds its
-// session. Each has its own profile, because a Google session belongs to a
-// browser profile, and its own folder in the library, so that two people's
-// photos never mix on disk.
+// session: a Google session belongs to a browser profile. The profiles live
+// side by side in the user's config directory, as login --profile makes
+// them: "profile", the default, and "profile-<anything>" beside it.
 type AccountInfo struct {
-	// ID names the profile: "1" for the first, which lives where a
-	// single-account homewend always kept it, then "2", "3"…
+	// ID is the profile's folder name.
 	ID      string `json:"id"`
-	Email   string `json:"email"` // empty until signed in
+	Email   string `json:"email"` // empty while signed out
 	Profile string `json:"-"`
 }
 
-// accountsDir holds every profile after the first.
-const accountsDir = "accounts"
+var profileName = regexp.MustCompile(`^profile(-[^/\\]+)?$`)
 
-// Accounts lists the profiles that exist, first to last. A profile signed out
-// is listed with no address.
+// Accounts lists the profiles in the config directory, the default first.
 func Accounts() ([]AccountInfo, error) {
 	first, err := DefaultProfile()
 	if err != nil {
 		return nil, err
 	}
-	return accountsIn(first)
+	return accountsIn(filepath.Dir(first))
 }
 
-func accountsIn(first string) ([]AccountInfo, error) {
-	var list []AccountInfo
-	if _, err := os.Stat(first); err == nil {
-		list = append(list, AccountInfo{ID: "1", Profile: first})
+func accountsIn(dir string) ([]AccountInfo, error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
 	}
-	entries, err := os.ReadDir(filepath.Join(filepath.Dir(first), accountsDir))
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil {
 		return nil, err
 	}
-	var more []int
+	var list []AccountInfo
 	for _, e := range entries {
-		if n, err := strconv.Atoi(e.Name()); err == nil && n > 1 && e.IsDir() {
-			more = append(more, n)
+		if e.IsDir() && profileName.MatchString(e.Name()) {
+			list = append(list, AccountInfo{ID: e.Name(), Profile: filepath.Join(dir, e.Name())})
 		}
 	}
-	sort.Ints(more)
-	for _, n := range more {
-		id := strconv.Itoa(n)
-		list = append(list, AccountInfo{ID: id, Profile: profileOf(first, id)})
-	}
+	sort.SliceStable(list, func(i, j int) bool { return list[i].ID < list[j].ID })
 	for i := range list {
-		list[i].Email = keptAccount(list[i].Profile)
+		list[i].Email = addressOf(list[i].Profile)
 	}
 	return list, nil
 }
 
-// profileOf is where account id keeps its browser profile.
-func profileOf(first, id string) string {
-	if id == "1" {
-		return first
+// addressOf is the address of the account a profile is signed in to: the one
+// Login kept, or Google's answer, asked only when the profile holds Google's
+// session cookies, so that a signed-out profile costs no request.
+func addressOf(profile string) string {
+	if kept, err := os.ReadFile(filepath.Join(profile, accountFileName)); err == nil {
+		return strings.TrimSpace(string(kept))
 	}
-	return filepath.Join(filepath.Dir(first), accountsDir, id)
+	sess, err := session.New(profile)
+	if err != nil {
+		return ""
+	}
+	if _, names, err := sess.Cookies(); err != nil || !names["SID"] || !names["SSID"] {
+		return ""
+	}
+	return Account(sess)
 }
 
-// AccountSession opens the session of account id.
+// AccountSession opens the session of the account whose profile is id.
 func AccountSession(id string) (*session.Session, error) {
+	if !profileName.MatchString(id) {
+		return nil, ErrNoSuchAccount
+	}
 	first, err := DefaultProfile()
 	if err != nil {
 		return nil, err
 	}
-	if _, err := strconv.Atoi(id); err != nil {
-		return nil, ErrNoSuchAccount
-	}
-	return session.New(profileOf(first, id))
+	return session.New(filepath.Join(filepath.Dir(first), id))
 }
 
-// ErrNoSuchAccount is an account id that names no profile.
+// ErrNoSuchAccount is an id that names no profile.
 var ErrNoSuchAccount = errors.New("no such account")
 
-// NextAccount is the id a new account gets: the profile is made when it signs
-// in.
+// NextAccount is the profile a new account signs in to: the default while it
+// is free, then profile-2, profile-3…
 func NextAccount() (string, error) {
 	list, err := Accounts()
 	if err != nil {
 		return "", err
 	}
-	next := 1
+	taken := map[string]bool{}
 	for _, a := range list {
-		if n, _ := strconv.Atoi(a.ID); n >= next {
-			next = n + 1
+		if a.Email != "" {
+			taken[a.ID] = true
 		}
 	}
-	return strconv.Itoa(next), nil
-}
-
-// keptAccount is the address Login kept beside the session, without asking
-// Google: listing accounts must not cost a request per profile.
-func keptAccount(profile string) string {
-	kept, err := os.ReadFile(filepath.Join(profile, accountFileName))
-	if err != nil {
-		return ""
+	if !taken["profile"] {
+		return "profile", nil
 	}
-	return strings.TrimSpace(string(kept))
-}
-
-// LibraryOf is the folder of an account's photos inside the library root: the
-// address before the @, which is how a person tells the folders apart.
-func LibraryOf(root, email string) string {
-	name, _, _ := strings.Cut(email, "@")
-	return filepath.Join(root, name)
+	for n := 2; ; n++ {
+		if id := "profile-" + strconv.Itoa(n); !taken[id] {
+			return id, nil
+		}
+	}
 }

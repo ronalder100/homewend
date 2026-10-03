@@ -42,11 +42,16 @@
 		allAccounts ? data.accounts : data.accounts.slice(0, FOLD.accounts)
 	);
 	// Albums by account, in the accounts' order; only shown accounts have any.
+	// Albums the library does not tie to an account form one group.
 	const groups = $derived(
-		data.accounts
-			.filter((a) => a.shown)
-			.map((a) => ({ account: a, albums: data.albums.filter((al) => al.account === a.id) }))
-			.filter((g) => g.albums.length > 0)
+		data.albums.some((al) => al.account)
+			? data.accounts
+					.filter((a) => a.shown)
+					.map((a) => ({ account: a, albums: data.albums.filter((al) => al.account === a.id) }))
+					.filter((g) => g.albums.length > 0)
+			: data.albums.length > 0
+				? [{ account: null, albums: data.albums }]
+				: []
 	);
 	const is = (p: Place) => samePlace(p, place);
 	const go = (p: Place) => (rail ? onexpand?.() : onplace?.(p));
@@ -117,14 +122,15 @@
 				<hr />
 				<div class="group">
 					<h2>{text.albums}</h2>
-					{#each groups as g (g.account.id)}
-						{@const open = !folded[g.account.id]}
-						{@const list = allAlbums[g.account.id] ? g.albums : g.albums.slice(0, FOLD.albums)}
-						{#if many}
+					{#each groups as g (g.account?.id ?? '')}
+						{@const key = g.account?.id ?? ''}
+						{@const open = !folded[key]}
+						{@const list = allAlbums[key] ? g.albums : g.albums.slice(0, FOLD.albums)}
+						{#if g.account}
 							<button
 								class="owner"
 								aria-expanded={open}
-								onclick={() => (folded[g.account.id] = open)}
+								onclick={() => (folded[key] = open)}
 							>
 								{#if open}<ChevronDown size={12} />{:else}<ChevronRight size={12} />{/if}
 								{g.account.name}
@@ -134,7 +140,7 @@
 							{#each list as album (album.name)}
 								<button
 									class="row"
-									class:indent={many}
+									class:indent={!!g.account}
 									class:selected={is({ kind: 'album', account: album.account, name: album.name })}
 									title={album.name}
 									onclick={() => go({ kind: 'album', account: album.account, name: album.name })}
@@ -143,11 +149,11 @@
 									<span class="count">{album.count.toLocaleString('en')}</span>
 								</button>
 							{/each}
-							{#if g.albums.length > FOLD.albums && !allAlbums[g.account.id]}
+							{#if g.albums.length > FOLD.albums && !allAlbums[key]}
 								<button
 									class="row more"
-									class:indent={many}
-									onclick={() => (allAlbums[g.account.id] = true)}
+									class:indent={!!g.account}
+									onclick={() => (allAlbums[key] = true)}
 								>
 									<span class="label">{text.more(g.albums.length - FOLD.albums)}</span>
 								</button>

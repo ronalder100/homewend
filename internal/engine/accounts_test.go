@@ -9,42 +9,35 @@ import (
 	"testing"
 )
 
-func TestAccountsInOrderWithTheirAddress(t *testing.T) {
+func TestAccountsAreTheProfilesInTheConfigDir(t *testing.T) {
 	dir := t.TempDir()
-	first := filepath.Join(dir, "profile")
-	for _, p := range []string{first, profileOf(first, "10"), profileOf(first, "2")} {
-		if err := os.MkdirAll(p, 0o700); err != nil {
-			t.Fatal(err)
-		}
+	for _, name := range []string{"profile", "profile-sam", "library-not-a-profile", "profiles"} {
+		os.MkdirAll(filepath.Join(dir, name), 0o700)
 	}
-	os.WriteFile(filepath.Join(first, accountFileName), []byte("ann@example.com\n"), 0o600)
-	os.WriteFile(filepath.Join(profileOf(first, "2"), accountFileName), []byte("bo@example.com\n"), 0o600)
-	os.MkdirAll(filepath.Join(dir, accountsDir, "notes"), 0o700)
+	os.WriteFile(filepath.Join(dir, "profile-sam", accountFileName), []byte("sam@example.com\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "library"), []byte("/photos\n"), 0o600)
 
-	list, err := accountsIn(first)
+	list, err := accountsIn(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []AccountInfo{{ID: "1", Email: "ann@example.com"}, {ID: "2", Email: "bo@example.com"}, {ID: "10"}}
-	if len(list) != len(want) {
+	if len(list) != 2 || list[0].ID != "profile" || list[0].Email != "" ||
+		list[1].ID != "profile-sam" || list[1].Email != "sam@example.com" {
 		t.Fatalf("got %+v", list)
-	}
-	for i := range want {
-		if list[i].ID != want[i].ID || list[i].Email != want[i].Email {
-			t.Errorf("%d: got %+v, want %+v", i, list[i], want[i])
-		}
 	}
 }
 
-func TestNoProfileNoAccounts(t *testing.T) {
-	list, err := accountsIn(filepath.Join(t.TempDir(), "profile"))
+func TestNoConfigDirNoAccounts(t *testing.T) {
+	list, err := accountsIn(filepath.Join(t.TempDir(), "missing"))
 	if err != nil || len(list) != 0 {
 		t.Fatalf("got %+v, %v", list, err)
 	}
 }
 
-func TestLibraryOf(t *testing.T) {
-	if got := LibraryOf("/lib", "ann.lee@example.com"); got != filepath.Join("/lib", "ann.lee") {
-		t.Fatalf("got %s", got)
+func TestAccountSessionRefusesOtherFolders(t *testing.T) {
+	for _, id := range []string{"", "library", "../profile", "profile/../x"} {
+		if _, err := AccountSession(id); err != ErrNoSuchAccount {
+			t.Errorf("%q: got %v", id, err)
+		}
 	}
 }

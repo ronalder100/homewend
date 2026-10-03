@@ -15,7 +15,7 @@ import (
 )
 
 // Overview is what the window's sidebar shows: the accounts, and the years
-// and albums of those shown, summed.
+// and albums of the library folder chosen once (DefaultLibrary).
 type Overview struct {
 	Accounts []ShownAccount `json:"accounts"`
 	Total    int            `json:"total"`
@@ -64,48 +64,43 @@ func LibraryOverview(s Settings) (Overview, error) {
 
 func overview(root string, accounts []AccountInfo, hidden []string) (Overview, error) {
 	o := Overview{Years: []YearCount{}, Albums: []AlbumCount{}, Accounts: []ShownAccount{}}
-	// No library chosen yet: the accounts are there, their photos are not.
-	years := map[string]int{}
 	for _, a := range accounts {
-		// A profile that never finished signing in is nobody yet.
+		// A profile that is signed out is nobody yet.
 		if a.Email == "" {
 			continue
 		}
-		shown := !slices.Contains(hidden, a.ID)
-		o.Accounts = append(o.Accounts, ShownAccount{AccountInfo: a, Shown: shown})
+		o.Accounts = append(o.Accounts, ShownAccount{AccountInfo: a, Shown: !slices.Contains(hidden, a.ID)})
 		if notes, err := loadNotes(a.Profile); err == nil {
 			o.Takeouts += len(notes)
 		}
-		if !shown || root == "" {
-			continue
-		}
-		path := catalogPath(LibraryOf(root, a.Email))
-		if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		c, err := library.OpenCatalog(path)
-		if err != nil {
-			return o, err
-		}
-		byYear, err := c.CountsByYear()
-		if err == nil {
-			var albums map[string]int
-			albums, err = c.AlbumNames()
-			for name, n := range albums {
-				o.Albums = append(o.Albums, AlbumCount{Account: a.ID, Name: name, Count: n})
-			}
-		}
-		c.Close()
-		if err != nil {
-			return o, err
-		}
-		for y, n := range byYear {
-			years[y] += n
-			o.Total += n
-		}
+	}
+	// No library chosen yet, or nothing in it yet: the accounts are there,
+	// their photos are not.
+	if root == "" {
+		return o, nil
+	}
+	if _, err := os.Stat(catalogPath(root)); errors.Is(err, fs.ErrNotExist) {
+		return o, nil
+	}
+	c, err := library.OpenCatalog(catalogPath(root))
+	if err != nil {
+		return o, err
+	}
+	defer c.Close()
+	years, err := c.CountsByYear()
+	if err != nil {
+		return o, err
+	}
+	albums, err := c.AlbumNames()
+	if err != nil {
+		return o, err
 	}
 	for y, n := range years {
 		o.Years = append(o.Years, YearCount{Year: y, Count: n})
+		o.Total += n
+	}
+	for name, n := range albums {
+		o.Albums = append(o.Albums, AlbumCount{Name: name, Count: n})
 	}
 	// Newest first; the photos with no date last.
 	sort.Slice(o.Years, func(i, j int) bool {
@@ -115,6 +110,6 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 		}
 		return a > b
 	})
-	sort.SliceStable(o.Albums, func(i, j int) bool { return o.Albums[i].Name < o.Albums[j].Name })
+	sort.Slice(o.Albums, func(i, j int) bool { return o.Albums[i].Name < o.Albums[j].Name })
 	return o, nil
 }

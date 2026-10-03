@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
 )
@@ -15,6 +16,8 @@ import (
 // to JSON: what they do lives in the engine.
 func apiRoutes() http.Handler {
 	mux := http.NewServeMux()
+	// One sign-in at a time: a second click must not open a second browser.
+	var signingIn sync.Mutex
 	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
 		s, err := engine.LoadSettings()
 		reply(w, s, err)
@@ -39,6 +42,11 @@ func apiRoutes() http.Handler {
 	// Sign-in happens in the system browser; the request waits for it. With
 	// no account named it signs in a new one.
 	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) {
+		if !signingIn.TryLock() {
+			http.Error(w, "a sign-in is already open", http.StatusConflict)
+			return
+		}
+		defer signingIn.Unlock()
 		id := r.URL.Query().Get("account")
 		if id == "" {
 			var err error

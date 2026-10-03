@@ -3,11 +3,15 @@
 <script lang="ts">
 	import { text } from '#lib/strings.js';
 
-	let { onclick }: { onclick?: () => void } = $props();
+	import { LoaderCircle } from '@lucide/svelte';
+
+	let { onclick, waiting = false }: { onclick?: () => void; waiting?: boolean } = $props();
 </script>
 
 <!-- Google's "G" as Google's sign-in branding draws it, on a white tile. -->
-<button {onclick}>
+<!-- While the browser is open the button says so and takes no more clicks:
+     a second one would open a second window. -->
+<button aria-busy={waiting} onclick={() => !waiting && onclick?.()}>
 	<span class="tile">
 		<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
 			<path
@@ -28,7 +32,8 @@
 			/>
 		</svg>
 	</span>
-	{text.signInButton}
+	{waiting ? text.signInWaiting : text.signInButton}
+	{#if waiting}<span class="spin"><LoaderCircle size={18} /></span>{/if}
 </button>
 
 <style>
@@ -51,6 +56,25 @@
 	}
 	button:hover {
 		filter: brightness(1.06);
+	}
+	button[aria-busy='true'] {
+		cursor: default;
+		filter: none;
+	}
+	.spin {
+		display: grid;
+		margin-left: -4px;
+		animation: spin 1s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.spin {
+			animation: none;
+		}
 	}
 	.tile {
 		width: 36px;
