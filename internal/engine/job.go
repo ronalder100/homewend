@@ -124,7 +124,7 @@ func (j *Jobs) State(account string) JobState {
 	defer j.mu.Unlock()
 	if jb := j.jobs[account]; jb != nil {
 		s := jb.state
-		s.Years = append([]YearProgress(nil), s.Years...)
+		s.Years = append([]YearProgress{}, s.Years...)
 		return s
 	}
 	return JobState{Years: []YearProgress{}}

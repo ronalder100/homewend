@@ -25,8 +25,12 @@ import (
 // Page is a page in a browser the program drives: with no window, or in one
 // the user sees (Watched).
 type Page struct {
-	sess    *Session
-	ctx     context.Context
+	sess *Session
+	// ctx carries the DevTools connection. It outlives the caller's context,
+	// so that a page the caller gave up on can still be closed through it.
+	ctx context.Context
+	// gaveUp is the caller's context ending: waits stop there.
+	gaveUp  <-chan struct{}
 	cancel  func()
 	browser *exec.Cmd
 	exited  chan struct{}
@@ -127,7 +131,7 @@ func (s *Session) drive(ctx context.Context, flags []string, open chromedp.Actio
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting %s: %w", browser, err)
 	}
-	p := &Page{sess: s, browser: cmd, exited: make(chan struct{}), cancel: func() {}}
+	p := &Page{sess: s, browser: cmd, exited: make(chan struct{}), cancel: func() {}, gaveUp: ctx.Done()}
 	go func() {
 		cmd.Wait()
 		close(p.exited)
@@ -138,7 +142,9 @@ func (s *Session) drive(ctx context.Context, flags []string, open chromedp.Actio
 		p.Close()
 		return nil, err
 	}
-	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(ctx, ws, chromedp.NoModifyURL)
+	// Closing the browser after the caller gave up needs the connection: it
+	// is not tied to the caller's context (see Close).
+	allocCtx, cancelAlloc := chromedp.NewRemoteAllocator(context.WithoutCancel(ctx), ws, chromedp.NoModifyURL)
 	rootCtx, cancelRoot := chromedp.NewContext(allocCtx)
 	p.cancel = func() { cancelRoot(); cancelAlloc() }
 	tab, err := firstTab(rootCtx)
@@ -269,8 +275,8 @@ func (p *Page) Download(address, dir string, giveUp <-chan time.Time) (string, e
 		return "", nil
 	case <-p.exited:
 		return "", ErrExited
-	case <-p.ctx.Done():
-		return "", p.ctx.Err()
+	case <-p.gaveUp:
+		return "", context.Canceled
 	}
 }
 
