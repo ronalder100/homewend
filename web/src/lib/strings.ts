@@ -87,7 +87,7 @@ export const text = {
 	seeLibrary: 'See them in your library',
 
 	takeoutsTitle: 'Takeouts',
-	takeoutCol: 'TAKEOUT',
+	takeoutCol: 'HOLDS',
 	askedCol: 'ASKED',
 	sizeCol: 'SIZE',
 	statusCol: 'STATUS',
@@ -95,7 +95,7 @@ export const text = {
 	holdsYear: (y: number) => String(y),
 	// Google does not say what a takeout holds: only those Homewend asked for
 	// are known.
-	holdsUnknown: 'Made on Google Takeout',
+	holdsUnknown: 'Not known',
 	parts: (n: number) => `${n} parts`,
 	statusPreparing: 'Google is preparing',
 	statusReady: 'Ready',
@@ -105,6 +105,8 @@ export const text = {
 	newTakeout: 'New takeout',
 	readingTakeouts: 'Reading your takeouts from Google…',
 	noTakeouts: 'No takeouts on Google yet.',
+	unknownNote:
+		"Not known: a takeout made on Google, not by Homewend. Google doesn't say whether it holds everything or one year.",
 
 	library: 'LIBRARY',
 	whereTheyGo: 'Where your photos go',

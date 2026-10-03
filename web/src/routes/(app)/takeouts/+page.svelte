@@ -94,6 +94,7 @@
 				{/each}
 			</tbody>
 		</table>
+		{#if list.some((t) => !t.known)}<p class="note">{text.unknownNote}</p>{/if}
 	{/if}
 </div>
 
@@ -152,6 +153,7 @@
 		border-bottom: 1px solid var(--line);
 	}
 	td {
+		white-space: nowrap;
 		padding: 12px 16px;
 		border-bottom: 1px solid var(--line);
 		vertical-align: middle;
@@ -181,6 +183,13 @@
 		font-family: var(--font-ui);
 		margin-left: 16px;
 	}
+	/* Half a screen: the table scrolls sideways rather than break its lines. */
+	.page:has(table) {
+		overflow-x: auto;
+	}
+	:global(.narrow) .page {
+		padding: 24px;
+	}
 	.status {
 		display: inline-flex;
 		align-items: center;
@@ -204,6 +213,11 @@
 	}
 	.act {
 		text-align: right;
+	}
+	.note {
+		margin-top: -12px;
+		font-size: var(--text-callout);
+		color: var(--faint);
 	}
 	.muted {
 		color: var(--muted);
