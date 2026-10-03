@@ -17,6 +17,8 @@
 	// The last four years, newest first: what most people want to try.
 	const thisYear = new Date().getFullYear();
 	const years = [0, 1, 2, 3].map((n) => thisYear - n);
+	// Any older year from a list: Google says which it has only when asked.
+	const older = Array.from({ length: thisYear - 4 - 1990 + 1 }, (_, n) => thisYear - 4 - n);
 	let year = $state(thisYear - 1);
 	let dir = $state('');
 	let failed = $state('');
@@ -82,6 +84,19 @@
 						onkeydown={(e) => e.key === 'Enter' && ((kind = 'year'), (year = y))}>{y}</span
 					>
 				{/each}
+				<select
+					class="chip"
+					class:on={kind === 'year' && year < years[years.length - 1]}
+					aria-label={text.olderYear}
+					onclick={(e) => e.stopPropagation()}
+					onchange={(e) => {
+						kind = 'year';
+						year = Number((e.currentTarget as HTMLSelectElement).value);
+					}}
+				>
+					<option value="" selected={year >= years[years.length - 1]} disabled>{text.olderYear}</option>
+					{#each older as y (y)}<option value={y} selected={year === y}>{y}</option>{/each}
+				</select>
 			</span>
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'everything'} class="card" class:on={kind === 'everything'} onclick={() => (kind = 'everything')} onkeydown={(e) => e.key === 'Enter' && (kind = 'everything')}>
@@ -211,6 +226,12 @@
 		border-radius: 8px;
 		font-size: var(--text-callout);
 		color: var(--text);
+	}
+	select.chip {
+		font: inherit;
+		font-size: var(--text-callout);
+		background: transparent;
+		cursor: pointer;
 	}
 	.chip.on {
 		border-color: var(--accent);

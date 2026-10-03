@@ -45,7 +45,10 @@
 
 <div class="page">
 	<header>
-		<h1>{text.takeoutsTitle}</h1>
+		<div>
+			<h1>{text.takeoutsTitle}</h1>
+			{#if accounts.length === 1}<p class="who">{accounts[0].email}</p>{/if}
+		</div>
 		<SecondaryButton onclick={() => goto('/choose')}>{text.newTakeout}</SecondaryButton>
 	</header>
 
@@ -110,6 +113,10 @@
 		font-size: var(--text-display);
 		font-weight: 700;
 		color: var(--fg);
+	}
+	.who {
+		margin-top: 8px;
+		color: var(--muted);
 	}
 	.tabs {
 		display: flex;

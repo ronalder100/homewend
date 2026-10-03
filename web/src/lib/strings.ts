@@ -50,6 +50,7 @@ export const text = {
 	everything: 'Everything.',
 	everythingDesc: 'All your photos and videos, every album. The first time, this is the one.',
 	oneYear: 'One year.',
+	olderYear: 'Older…',
 	oneYearDesc: 'Smaller and faster. A good way to try Homewend first.',
 	oneAsked: 'One you asked for.',
 	oneAskedDesc: 'Already made a takeout yourself on Google? Pick it from the list and Homewend downloads it.',
@@ -92,7 +93,9 @@ export const text = {
 	statusCol: 'STATUS',
 	holdsAll: 'All photos',
 	holdsYear: (y: number) => String(y),
-	holdsUnknown: 'Unknown',
+	// Google does not say what a takeout holds: only those Homewend asked for
+	// are known.
+	holdsUnknown: 'Made on Google Takeout',
 	parts: (n: number) => `${n} parts`,
 	statusPreparing: 'Google is preparing',
 	statusReady: 'Ready',
