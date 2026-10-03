@@ -32,6 +32,7 @@
 {/if}
 {#if job.retry}<span class="note">{text.retrying(job.retry)}</span>{/if}
 {#if job.error}<span class="note err" title={job.error}>{job.error}</span>{/if}
+{#if job.running && !job.retry}<span class="note sleep">{text.pickUpAfterSleep}</span>{/if}
 <span class="spacer"></span>
 <button class="details" onclick={ondetails}>{text.details}<ChevronUp size={14} /></button>
 {#if job.running}
@@ -92,6 +93,9 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		min-width: 0;
+	}
+	.note.sleep {
+		order: 10;
 	}
 	.note.err {
 		color: var(--err);

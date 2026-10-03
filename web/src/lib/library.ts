@@ -9,6 +9,8 @@ export interface Account {
 	email: string;
 	/** Whether its photos are in what the window shows. */
 	shown: boolean;
+	/** Photos in the library this account brought. */
+	photos?: number;
 }
 
 /** "complete": every file the takeouts list is here; "arriving": parts still coming. */
@@ -61,4 +63,4 @@ export function initials(name: string): string {
 }
 
 /** How many of a list show before "N more". */
-export const FOLD = { accounts: 4, albums: 3 } as const;
+export const FOLD = { accounts: 4, years: 4, albums: 3 } as const;

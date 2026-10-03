@@ -131,3 +131,24 @@ func Original(hash string) (string, error) {
 	}
 	return filepath.Join(root, rel), nil
 }
+
+// Folder is where a place of the library is on disk: the library, a year, the
+// photos with no date, or an album, as Organize files them.
+func Folder(year, album string, noDate bool) (string, error) {
+	root, err := DefaultLibrary()
+	if err != nil {
+		return "", err
+	}
+	if root == "" {
+		return "", ErrNoLibrary
+	}
+	switch {
+	case album != "":
+		return filepath.Join(root, "albums", album), nil
+	case noDate:
+		return filepath.Join(root, "undated"), nil
+	case year != "":
+		return filepath.Join(root, year), nil
+	}
+	return root, nil
+}

@@ -12,6 +12,7 @@ declare global {
 			setTheme(theme: Theme): void;
 			chooseFolder(start?: string): Promise<string>;
 			showInFolder(path: string): void;
+			openFolder(path: string): void;
 			onToggleSidebar(fn: () => void): void;
 			notify(title: string, body: string): void;
 		};

@@ -16,14 +16,10 @@
 	const ext = $derived(p ? p.name.toLowerCase().split('.').pop() ?? '' : '');
 	const image = $derived(['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext));
 	const video = $derived(['mp4', 'webm', 'm4v'].includes(ext));
-	const taken = new Intl.DateTimeFormat('en', {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-		hour: '2-digit',
-		minute: '2-digit',
-		timeZone: 'UTC'
-	});
+	// "Taken 14 July 2019, 18:32", as the design writes it.
+	const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+	const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+	const taken = (iso: string) => text.taken(`${day.format(new Date(iso))}, ${time.format(new Date(iso))}`);
 
 	const move = (d: number) => {
 		if (index !== null) index = Math.max(0, Math.min(photos.length - 1, index + d));
@@ -46,7 +42,7 @@
 		<header>
 			<button class="round" aria-label={text.close} onclick={() => (index = null)}><X size={18} /></button>
 			<div class="meta">
-				<b>{p.taken ? taken.format(new Date(p.taken)) : text.noDate}</b>
+				<b>{p.taken ? taken(p.taken) : text.noDate}</b>
 				<span>{p.name}</span>
 			</div>
 			{#if window.shell}

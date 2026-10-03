@@ -11,8 +11,15 @@
 	let {
 		photos,
 		header,
-		onopen
-	}: { photos: GridPhoto[]; header?: Snippet; onopen?: (index: number) => void } = $props();
+		onopen,
+		withYear = true
+	}: {
+		photos: GridPhoto[];
+		header?: Snippet;
+		onopen?: (index: number) => void;
+		/** On a year's page the months need no year. */
+		withYear?: boolean;
+	} = $props();
 
 	// The design's tile: at least 104px, as many columns as fit, gap 8.
 	const MIN_TILE = 104;
@@ -32,7 +39,9 @@
 		| { kind: 'month'; label: string; count: number; top: number }
 		| { kind: 'photos'; items: GridPhoto[]; top: number };
 
-	const monthName = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+	const monthName = $derived(
+		new Intl.DateTimeFormat('en', withYear ? { month: 'long', year: 'numeric', timeZone: 'UTC' } : { month: 'long', timeZone: 'UTC' })
+	);
 
 	function monthOf(p: GridPhoto): string {
 		return p.taken ? monthName.format(new Date(p.taken)) : text.noDate;

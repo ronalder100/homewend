@@ -16,7 +16,7 @@ export interface AccountInfo {
 }
 
 export interface Overview {
-	accounts: (AccountInfo & { shown: boolean })[];
+	accounts: (AccountInfo & { shown: boolean; photos: number })[];
 	total: number;
 	years: { year: string; count: number }[];
 	albums: { account: string; name: string; count: number }[];
@@ -105,3 +105,6 @@ export const logout = (account: string) => call<object>('POST', `/api/logout?${q
 export const getAbout = () => call<{ version: string }>('GET', '/api/about');
 
 export const pathOf = (hash: string) => call<{ path: string }>('GET', `/api/path/${hash}`);
+
+export const folderOf = (o: { year?: string; album?: string; noDate?: boolean }) =>
+	call<{ path: string }>('GET', `/api/folder?${q({ year: o.year, album: o.album, nodate: o.noDate ? '1' : undefined })}`);

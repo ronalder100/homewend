@@ -379,6 +379,25 @@ func (c *Catalog) CountsByYear(accounts []string) (map[string]int, error) {
 	return counts, rows.Err()
 }
 
+// CountsByOwner is how many photos each account brought, by address.
+func (c *Catalog) CountsByOwner() (map[string]int, error) {
+	rows, err := c.db.Query(`SELECT account, COUNT(*) FROM owners GROUP BY account`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	counts := map[string]int{}
+	for rows.Next() {
+		var a string
+		var n int
+		if err := rows.Scan(&a, &n); err != nil {
+			return nil, err
+		}
+		counts[a] = n
+	}
+	return counts, rows.Err()
+}
+
 // AlbumCount is an album and the account it came from ("" when not known).
 type AlbumCount struct {
 	Account string

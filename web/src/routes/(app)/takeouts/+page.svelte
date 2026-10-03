@@ -30,8 +30,11 @@
 		);
 	});
 
-	const day = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' });
-	const when = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+	// "1 Oct, 09:14", "Until 8 Oct": the design's dates.
+	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+	const day = { format: (d: Date) => `${d.getDate()} ${months[d.getMonth()]}` };
+	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+	const when = { format: (d: Date) => `${day.format(d)}, ${clock.format(d)}` };
 
 	function holds(t: Takeout) {
 		if (!t.known) return text.holdsUnknown;
@@ -84,6 +87,7 @@
 						<td>
 							<span class="status {t.status}"><i></i>{t.status === 'ready' ? text.statusReady : t.status === 'preparing' ? text.statusPreparing : text.statusExpired}</span>
 							{#if t.Expires && t.status !== 'expired'}<small class="until">{text.until(day.format(new Date(t.Expires)))}</small>{/if}
+							{#if t.Expires && t.status === 'expired'}<small class="until">{text.since(day.format(new Date(t.Expires)))}</small>{/if}
 						</td>
 						<td class="act">
 							{#if t.status === 'ready'}

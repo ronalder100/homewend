@@ -97,7 +97,7 @@ export async function toggleAccount(id: string) {
 export function sidebarOf(o: Overview): Sidebar {
 	return {
 		// An account is its address: Homewend asks Google for nothing more.
-		accounts: o.accounts.map((a) => ({ id: a.id, email: a.email, name: a.email, shown: a.shown })),
+		accounts: o.accounts.map((a) => ({ id: a.id, email: a.email, name: a.email, shown: a.shown, photos: a.photos })),
 		total: o.total,
 		years: o.years.map((y) => ({
 			label: y.year || text.noDate,

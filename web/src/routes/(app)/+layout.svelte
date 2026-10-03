@@ -24,17 +24,31 @@
 	const place = $derived(placeOf(page.url));
 	const job = $derived(shownJob());
 
-	// Said once each, when it happens: Google asking for the password, and
-	// the photos being home.
+	// Said once each, when it happens, in D2's words.
 	let said = '';
 	$effect(() => {
 		const j = job?.job;
 		const email = app.overview?.accounts.find((a) => a.id === job?.account)?.email ?? '';
-		const now = j?.stage === 'first-download' && j.running ? 'password' : j?.finished ? 'finished' : '';
+		const now =
+			j?.stage === 'first-download' && j.running
+				? 'password'
+				: j?.problem === 'signed-out'
+					? 'signed-out'
+					: j?.finished
+						? 'finished'
+						: j?.stage === 'ready'
+							? 'ready'
+							: '';
 		if (!now || now === said) return;
 		said = now;
-		if (now === 'password') window.shell?.notify(text.notifyPassword, text.bannerPassword(email));
-		else window.shell?.notify(text.notifyFinished, email);
+		const n = (j?.years ?? []).reduce((s, y) => s + y.arrived, 0).toLocaleString('en');
+		const say = {
+			password: [text.notifyPassword, text.notifyPasswordBody(email)],
+			'signed-out': [text.notifySignedOut, text.notifySignedOutBody(email)],
+			finished: [text.notifyFinished, text.notifyFinishedBody(n, email)],
+			ready: [text.notifyReady, text.notifyReadyBody(email)]
+		}[now];
+		if (say) window.shell?.notify(say[0], say[1]);
 	});
 </script>
 

@@ -84,6 +84,9 @@ async function open() {
 			n.show();
 		}
 	});
+	ipcMain.on('open-folder', (_event, dir) => {
+		if (typeof dir === 'string' && path.isAbsolute(dir)) shell.openPath(dir);
+	});
 	ipcMain.on('show-in-folder', (_event, file) => {
 		if (typeof file === 'string' && path.isAbsolute(file)) shell.showItemInFolder(file);
 	});

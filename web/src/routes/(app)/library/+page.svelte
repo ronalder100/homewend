@@ -18,6 +18,21 @@
 	);
 
 	let photos = $state<GridPhoto[]>([]);
+	// What the page holds: the count, and on All photos, how many each shown
+	// account brought; the photos with no date say why they have none.
+	const subtitle = $derived.by(() => {
+		const n = photos.length.toLocaleString('en');
+		if (place.kind === 'year' && place.label === text.noDate) return text.noDateSub(n);
+		const shown = (app.overview?.accounts ?? []).filter((a) => a.shown);
+		const parts = [text.photosAndVideos(photos.length)];
+		if (place.kind === 'all' && shown.length > 1)
+			for (const a of shown) parts.push(`${a.email} ${a.photos.toLocaleString('en')}`);
+		if (place.kind === 'album' && place.account) {
+			const a = app.overview?.accounts.find((x) => x.id === place.account);
+			if (a) parts.push(a.email);
+		}
+		return parts.join(' · ');
+	});
 	let loaded = $state(false);
 
 	// The whole list, a chunk at a time: the grid needs every photo's month to
@@ -52,11 +67,11 @@
 {#if app.overview && app.overview.total === 0}
 	<EmptyLibrary />
 {:else}
-	<Grid {photos} onopen={(i) => (open = i)}>
+	<Grid {photos} withYear={place.kind !== 'year'} onopen={(i) => (open = i)}>
 		{#snippet header()}
 			<div class="head">
 				<h1>{title}</h1>
-				<p>{text.photosAndVideos(photos.length)}{loaded ? '' : '…'}</p>
+				<p>{subtitle}{loaded ? '' : '…'}</p>
 			</div>
 		{/snippet}
 	</Grid>

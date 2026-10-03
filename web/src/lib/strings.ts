@@ -107,6 +107,8 @@ export const text = {
 	statusPreparing: 'Google is preparing',
 	statusReady: 'Ready',
 	statusExpired: 'Expired',
+	statusDownloading: 'Downloading',
+	since: (d: string) => `Since ${d}`,
 	until: (d: string) => `Until ${d}`,
 	download: 'Download',
 	newTakeout: 'New takeout',
@@ -131,6 +133,10 @@ export const text = {
 	importDesc:
 		'Photos already on a disk or an old backup go into this same library, by date and album. Homewend tells you which ones were already here.',
 	close: 'Close',
+	copyFolderPath: 'Copy folder path',
+	pickUpAfterSleep: 'Picks up by itself after sleep',
+	taken: (d: string) => `Taken ${d}`,
+	noDateSub: (n: string) => `${n} photos and videos with no date: neither Google nor the photo says when it was taken`,
 	openInFolder: /Mac/.test(globalThis.navigator?.platform ?? '')
 		? 'Open in Finder'
 		: /Win/.test(globalThis.navigator?.platform ?? '')
@@ -156,5 +162,11 @@ export const text = {
 	bannerFinishedDesc: (dir: string) => `Every file in the takeout is in ${dir}, by year and by album.`,
 	openLibrary: 'Open the library',
 	notifyFinished: 'Your photos are home',
+	notifyFinishedBody: (n: string, who: string) => `${n} photos and videos of ${who}, by year and album.`,
+	notifyPasswordBody: (who: string) => `Once, for ${who}: type it in the window that opened.`,
+	notifySignedOut: 'Google signed you out',
+	notifySignedOutBody: (who: string) => `Sign in again to finish the takeout of ${who}.`,
+	notifyReady: 'Your takeout is ready',
+	notifyReadyBody: (who: string) => `${who}'s photos are coming down now.`,
 	notifyPassword: 'Google asks for your password'
 } as const;

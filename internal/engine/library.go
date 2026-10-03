@@ -27,7 +27,8 @@ type Overview struct {
 // ShownAccount is an account and whether the window shows its photos.
 type ShownAccount struct {
 	AccountInfo
-	Shown bool `json:"shown"`
+	Shown  bool `json:"shown"`
+	Photos int  `json:"photos"` // in the library, brought by this account
 }
 
 // YearCount is a year, newest first, or "" for photos with no date.
@@ -112,6 +113,13 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 	albums, err := c.AlbumsByOwner()
 	if err != nil {
 		return o, err
+	}
+	owned, err := c.CountsByOwner()
+	if err != nil {
+		return o, err
+	}
+	for i := range o.Accounts {
+		o.Accounts[i].Photos = owned[o.Accounts[i].Email]
 	}
 	for y, n := range years {
 		o.Years = append(o.Years, YearCount{Year: y, Count: n})

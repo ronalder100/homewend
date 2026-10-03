@@ -12,6 +12,8 @@
 		ChevronRight
 	} from '@lucide/svelte';
 	import Avatar from './Avatar.svelte';
+	import ContextMenu from './ContextMenu.svelte';
+	import { folderOf } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 	import { FOLD, samePlace, type Place, type Sidebar } from '#lib/library.js';
 
@@ -34,6 +36,19 @@
 	} = $props();
 
 	let allAccounts = $state(false);
+	let allYears = $state(false);
+
+	// Right-click on an account, a year or an album: open its folder, or copy
+	// where it is.
+	let menu = $state<{ x: number; y: number; path: string; key: string } | null>(null);
+	async function context(e: MouseEvent, key: string, where: { year?: string; album?: string; noDate?: boolean }) {
+		if (rail) return;
+		e.preventDefault();
+		const row = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const { path } = await folderOf(where);
+		menu = { x: row.right, y: row.top + row.height / 2, path, key };
+	}
+	const years = $derived(allYears ? data.years : data.years.slice(0, FOLD.years));
 	let folded = $state<Record<string, boolean>>({});
 	let allAlbums = $state<Record<string, boolean>>({});
 
@@ -73,6 +88,8 @@
 					aria-pressed={many ? account.shown : undefined}
 					aria-label={many ? text.showAccount(account.name) : account.name}
 					onclick={() => toggle(account.id)}
+					oncontextmenu={(e) => context(e, 'a:' + account.id, {})}
+					class:target={menu?.key === 'a:' + account.id}
 				>
 					<span class="lead"><Avatar {account} index={data.accounts.indexOf(account)} /></span>
 					<span class="label">{account.name}</span>
@@ -106,11 +123,14 @@
 
 			<div class="group">
 				<h2>{text.years}</h2>
-				{#each data.years as year (year.label)}
+				{#each years as year (year.label)}
 					<button
 						class="row"
 						class:selected={is({ kind: 'year', label: year.label })}
+						class:target={menu?.key === 'y:' + year.label}
 						onclick={() => go({ kind: 'year', label: year.label })}
+						oncontextmenu={(e) =>
+							context(e, 'y:' + year.label, year.label === text.noDate ? { noDate: true } : { year: year.label })}
 					>
 						<span class="label">{year.label}</span>
 						<span class="count">{year.count.toLocaleString('en')}</span>
@@ -121,6 +141,12 @@
 						{/if}
 					</button>
 				{/each}
+				{#if data.years.length > FOLD.years}
+					<button class="row folded" onclick={() => (allYears = !allYears)}>
+						<span class="label">{allYears ? text.fewer : text.more(data.years.length - FOLD.years)}</span>
+						<span class="count">—</span>
+					</button>
+				{/if}
 			</div>
 
 			{#if groups.length > 0}
@@ -147,8 +173,10 @@
 									class="row"
 									class:indent={!!g.account}
 									class:selected={is({ kind: 'album', account: album.account, name: album.name })}
+									class:target={menu?.key === 'al:' + album.name}
 									title={album.name}
 									onclick={() => go({ kind: 'album', account: album.account, name: album.name })}
+									oncontextmenu={(e) => context(e, 'al:' + album.name, { album: album.name })}
 								>
 									<span class="label">{album.name}</span>
 									<span class="count">{album.count.toLocaleString('en')}</span>
@@ -192,6 +220,8 @@
 		</button>
 	</div>
 </nav>
+
+{#if menu}<ContextMenu x={menu.x} y={menu.y} path={menu.path} onclose={() => (menu = null)} />{/if}
 
 <style>
 	nav {
@@ -267,6 +297,13 @@
 		background: var(--line);
 		color: var(--fg);
 		font-weight: 600;
+	}
+	.row.target {
+		background: var(--accent-soft);
+	}
+	.row.folded,
+	.row.folded .count {
+		color: var(--faint);
 	}
 	.row.indent {
 		padding-left: 32px;

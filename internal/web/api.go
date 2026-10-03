@@ -104,6 +104,11 @@ func apiRoutes() http.Handler {
 		path, err := engine.Original(r.PathValue("hash"))
 		reply(w, map[string]string{"path": path}, err)
 	})
+	mux.HandleFunc("GET /api/folder", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		path, err := engine.Folder(q.Get("year"), q.Get("album"), q.Get("nodate") != "")
+		reply(w, map[string]string{"path": path}, err)
+	})
 	mux.HandleFunc("GET /api/library", func(w http.ResponseWriter, r *http.Request) {
 		dir, err := engine.DefaultLibrary()
 		var free int64
