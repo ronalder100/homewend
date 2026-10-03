@@ -109,14 +109,17 @@ func TestAnUpdateSaysWhatIsArriving(t *testing.T) {
 	}
 }
 
-// While the download address is obtained out of sight, the user is told what
-// is going on and that Google may ask for the password, with no time counted.
-func TestPreparingSaysGoogleMayAskForThePassword(t *testing.T) {
+// Before the first download the status says so, short, with no time
+// counted; when Google asks for the password, it says that instead.
+func TestTheFirstDownloadIsTwoShortLines(t *testing.T) {
 	s := newStatus()
 	start := time.Now()
 	s.show(progress.Event{Stage: progress.Prepare}, start)
-	line := s.line(start.Add(9 * time.Second))
-	if !strings.Contains(line, text["prepare status"]) || strings.Contains(line, "9s") {
+	if line := s.line(start.Add(9 * time.Second)); !strings.Contains(line, text["prepare status"]) || strings.Contains(line, "9s") {
+		t.Errorf("status line %q", line)
+	}
+	s.show(progress.Event{Stage: progress.FirstDownload}, start)
+	if line := s.line(start); !strings.Contains(line, text["password status"]) || strings.Contains(line, text["prepare status"]) {
 		t.Errorf("status line %q", line)
 	}
 }

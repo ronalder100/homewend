@@ -611,6 +611,10 @@ func (p printer) event(e progress.Event) {
 		if p.live == nil {
 			p.say("%s", text["prepare status"])
 		}
+	case progress.FirstDownload:
+		if p.live == nil {
+			p.say("%s", text["password status"])
+		}
 	case progress.Download:
 		// In a terminal the bar says it.
 		if p.live == nil {
