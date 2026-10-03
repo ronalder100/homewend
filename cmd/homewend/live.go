@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/dustin/go-humanize"
 	"golang.org/x/term"
@@ -124,7 +125,9 @@ func (p *printer) event(e progress.Event) {
 			p.say(p.out.done(text["asked"], fmt.Sprintf(text["asked at"], p.asked.Format("15:04"))))
 			p.asked = time.Time{}
 		}
-		g := going{sign: signWaiting, said: text["preparing"], since: t, bar: -1, below: text["preparing hint"]}
+		// No time: hours on a counter read as a hang. A dot that breathes
+		// says it is alive.
+		g := going{pulse: true, said: text["preparing"], bar: -1, below: text["preparing hint"]}
 		p.now(g)
 	case progress.Ready, progress.InLibrary:
 		if e.Name == p.shown {
@@ -193,6 +196,7 @@ type going struct {
 	details string
 	since   time.Time
 	below   string
+	pulse   bool // a dot breathing in place of the spinner: a wait of hours
 }
 
 // liveLine draws the step going on at the bottom of a terminal and redraws
@@ -219,6 +223,13 @@ func startLive() *liveLine {
 	go l.spin()
 	return l
 }
+
+// signPulse is the dot of a long wait, and breath its colours: from all but
+// off to the accent and back, a breath every two and a half seconds at the
+// spinner's twelve frames a second.
+const signPulse = "●"
+
+var breath = lipgloss.Blend1D(30, lineColour, accentColour, lineColour)
 
 // frames are the spinner's: braille dots, as gh, uv and flyctl turn theirs.
 var frames = spinner.MiniDot.Frames
@@ -312,6 +323,8 @@ func (s *liveLine) line(t time.Time) string {
 	}
 	var line string
 	switch {
+	case g.pulse:
+		line = l.paint(signPulse, breath[s.frame%len(breath)], false) + " " + l.marked(g.said, nil) + l.paint(details, mutedColour, false)
 	case g.sign != "":
 		line = l.step(g.sign, warnColour, g.said, details)
 	case g.bar >= 0:

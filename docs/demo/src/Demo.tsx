@@ -113,11 +113,10 @@ blank();
 show(1.6, (p, f) => going(f, [["Asking Google for an export"]], ` · ${goDuration(1 + 70 * p)}`));
 done(["Asked Google for an export"], [" at 10:12", color.muted]);
 waiting.from = sec(t);
-show(4, (p) => (
+show(4, (_, f) => (
   <>
-    <span style={{ color: color.warn }}>*</span>
+    <Breath frame={f} />
     {" Google is preparing the export"}
-    <span style={{ color: color.muted }}>{` · ${goDuration(60 * (4 + 68 * p))}`}</span>
     {"\n"}
     <span style={{ color: color.muted }}>{"  This takes hours. Ctrl-C is safe: run the same command to resume."}</span>
   </>
@@ -173,6 +172,15 @@ function ibytes(n: number) {
 
 // bubbles' MiniDot, the spinner live.go turns ten times a second.
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+// The dot of a long wait, breathing from all but off to the accent and back,
+// as live.go draws it: no time, which over hours reads as a hang.
+const Breath = ({ frame }: { frame: number }) => {
+  const k = (1 - Math.cos((frame / fps / 2.5) * 2 * Math.PI)) / 2;
+  const [a, b] = [[0x29, 0x2e, 0x42], [0x7a, 0xa2, 0xf7]];
+  const [r, g, bl] = a.map((c, i) => Math.round(c + (b[i] - c) * k));
+  return <span style={{ color: `rgb(${r},${g},${bl})` }}>●</span>;
+};
 
 const segs = (list: Seg[]) => list.map(([text, c, b], i) => (
   <span key={i} style={{ color: c ?? color.text, fontWeight: b ? 700 : 400 }}>{text}</span>
@@ -328,8 +336,8 @@ export const Demo = () => {
 const logo =
   "M69.58 128.26895c-12.845-1.99499-20.72-4.65501-20.72-11.09502 0-6.36999 8.365-9.86999 21.45502-14.55999 34.64998-12.215 50.95999-22.4 50.95999-46.305l0-5.11 24.64 0c2.55499-0.07 4.655-2.13499 4.54999-4.655l-0.14-6.825c-0.07-1.61001-0.83998-3.08-2.13498-4.025l-44.41501-34.755c-1.785-1.33-4.30501-1.225-6.02001 0.175l-44.13499 35.385c-1.40001 1.085-2.03001 2.765-1.96001 4.515l0.07001 6.405c0 2.59 2.06499 4.41 4.585 4.34001l20.50999-0.21001 0 5.355c0 10.39499-7.62999 14.21-25.19999 20.57999-23.31001 8.57501-45.88501 18.795-45.88501 42.38501 0 27.545 28.735 34.79 56.84 40.04 23.80001 4.41001 41.19501 7.525 41.19501 16.87001 0 13.93-34.61501 16.69499-80.53501 20.615-13.65 1.22499-23.24 10.98998-23.24 22.53999 0 12.00501 10.57 20.965 23.275 20.79001 34.26501-1.19 131.355-11.515 131.355-62.16 0-41.51001-51.69499-44.76502-85.05-50.295z";
 
-// The site's dark theme, as the sign-in page takes it.
-const site = { bg: "#1A1B26", fg: "#C0CAF5", muted: "#9AA5CE", accent: "#7AA2F7", ok: "#9ECE6A" };
+// The site's light theme, as the sign-in page takes it (internal/signin).
+const site = { bg: "#FFFFFF", fg: "#0A0A0A", muted: "#6B6B6B", accent: "#2F5BFF", ok: "#1E9E5A" };
 
 const Browser = ({ frame }: { frame: number }) => {
   if (frame < browser.from || frame >= browser.to) return null;
@@ -360,7 +368,7 @@ const Browser = ({ frame }: { frame: number }) => {
         fontFamily: sansFamily,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", background: ours ? "#16161e" : "#e8eaed" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", background: "#e8eaed" }}>
         {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
           <div key={c} style={{ width: 11, height: 11, borderRadius: "50%", background: c }} />
         ))}
@@ -370,8 +378,8 @@ const Browser = ({ frame }: { frame: number }) => {
             marginLeft: 10,
             padding: "4px 12px",
             borderRadius: 12,
-            background: ours ? "#24283b" : "#ffffff",
-            color: ours ? site.muted : "#3c4043",
+            background: "#ffffff",
+            color: "#3c4043",
             fontSize: 13,
           }}
         >

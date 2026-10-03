@@ -271,3 +271,16 @@ func TestTheExportInTheTableIsNotFoundAgain(t *testing.T) {
 		t.Errorf("printed %q", out)
 	}
 }
+
+// The wait for Google is a breathing dot, and counts no time.
+func TestTheWaitCountsNoTime(t *testing.T) {
+	p := &printer{out: look{}}
+	l := &liveLine{out: look{}}
+	p.live = l
+	p.event(progress.Event{Stage: progress.Waiting, Name: "job"})
+	p.live = nil
+	got := l.line(timeZero.Add(3 * 3600e9))
+	if !strings.HasPrefix(got, signPulse+" "+text["preparing"]+"\n") || strings.Contains(got, "·") {
+		t.Errorf("got %q", got)
+	}
+}
