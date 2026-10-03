@@ -24,7 +24,8 @@
 	} = $props();
 
 	// Below 1100px the sidebar folds to its rail and opens over the content;
-	// above, ☰ folds and unfolds it in place.
+	// above, ☰ folds and unfolds it in place. Only ☰ (or its shortcut) closes
+	// it: choosing a year or an album leaves it open.
 	let width = $state(1280);
 	const narrow = $derived(width < 1100);
 	let folded = $state(false);
@@ -39,17 +40,12 @@
 		if (narrow) open = true;
 		else folded = false;
 	}
-	function placed(p: Place) {
-		open = false;
-		onplace?.(p);
-	}
 	function key(e: KeyboardEvent) {
 		const mac = /Mac/.test(navigator.platform);
 		if ((mac && e.ctrlKey && e.metaKey && e.key === 's') || (!mac && e.ctrlKey && e.key === 'b')) {
 			e.preventDefault();
 			menu();
 		}
-		if (e.key === 'Escape') open = false;
 	}
 </script>
 
@@ -59,11 +55,8 @@
 	<Titlebar onmenu={menu} />
 	<div class="body">
 		<div class="side" class:over={narrow && open}>
-			<Sidebar data={sidebar} {place} {rail} onplace={placed} {ontoggle} onexpand={expand} />
+			<Sidebar data={sidebar} {place} {rail} {onplace} {ontoggle} onexpand={expand} />
 		</div>
-		{#if narrow && open}
-			<button class="scrim" aria-label="close" onclick={() => (open = false)}></button>
-		{/if}
 		<div class="main">
 			<div class="content">{@render children()}</div>
 			{#if status}<footer>{@render status()}</footer>{/if}
@@ -97,12 +90,6 @@
 		top: 0;
 		bottom: 0;
 		box-shadow: 0 12px 40px rgba(10, 10, 30, 0.16);
-	}
-	.scrim {
-		position: absolute;
-		inset: 0;
-		z-index: 1;
-		cursor: default;
 	}
 	.main {
 		flex: 1;
