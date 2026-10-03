@@ -214,7 +214,7 @@ func TestTheLastLine(t *testing.T) {
 	complete := captured(t, func() {
 		(&printer{out: look{}}).checked(library.Verification{Declared: 2, Present: 2}, "/photos", 2025)
 	})
-	if !strings.HasSuffix(complete, "✓ Your 2025 photos are in /photos\n") {
+	if !strings.HasSuffix(complete, "✓ All 2 photos are there\n") {
 		t.Errorf("complete:\n%s", complete)
 	}
 	missing := captured(t, func() {
@@ -248,6 +248,24 @@ func TestTheSignInIsSaidOnce(t *testing.T) {
 	out := captured(t, func() {
 		p := &printer{out: look{}, signedIn: true}
 		p.event(progress.Event{Stage: progress.Checking})
+	})
+	if out != "" {
+		t.Errorf("printed %q", out)
+	}
+}
+
+// The parameters of the run are a table: the name bold, the value plain.
+func TestParamLine(t *testing.T) {
+	if got := (look{}).param("Takeout", "2025 photos", " · 4184685c"); got != "  Takeout   2025 photos · 4184685c" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// An export already in the table is not found again on the screen.
+func TestTheExportInTheTableIsNotFoundAgain(t *testing.T) {
+	out := captured(t, func() {
+		p := &printer{out: look{}, shown: "job"}
+		p.event(progress.Event{Stage: progress.Ready, Name: "job", Of: 2, Total: 10})
 	})
 	if out != "" {
 		t.Errorf("printed %q", out)

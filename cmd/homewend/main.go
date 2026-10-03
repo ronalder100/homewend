@@ -399,52 +399,61 @@ func takeoutCommand(args []string) int {
 	if account == "" {
 		account = engine.Account(sess)
 	}
-	out.now(going{})
-	if account != "" {
-		out.say(out.out.done(fmt.Sprintf(text["signed in as"], account), ""))
-	}
 	out.signedIn = true
-	// Reading Takeout's list of exports takes seconds: say so, until the
-	// engine says what it found.
+	// Reading Takeout's list of exports takes seconds: say so, until there
+	// is something to show.
 	looking := going{said: fmt.Sprintf(text["looking"], out.what), bar: -1}
 	out.now(looking)
 
 	g := engine.Get{Year: year, Library: dir, Takeout: *exportID, New: *fresh}
+	var found *engine.Found
+	if !g.New {
+		if found, err = g.Existing(sess); err != nil {
+			return out.fail(err)
+		}
+	}
 	// A person is asked first: before Google is asked for a new export, which
 	// takes it hours, and when one is already there, which may not be the one
 	// they want. A script meant it; so did whoever named the export, and a
 	// library that has begun one carries on.
-	if interactive(*asJSON) && !*yes && !*fresh {
-		found, err := g.Existing(sess)
-		if err != nil {
-			return out.fail(err)
-		}
-		if found == nil || g.Takeout == "" && !found.Started {
-			out.close()
-			fmt.Println()
-			if found == nil {
-				at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), text["ask new meta"], []string{text["yes"], text["no"]})
-				if err != nil {
-					return newPrinter(*asJSON).fail(err)
-				}
-				if at != 0 {
-					fmt.Println(lookFor(os.Stdout).stopped(text["not asked"], ""))
-					return exitOK
-				}
-			} else {
-				detail := fmt.Sprintf(text["have one meta"], found.ID, found.Created.Local().Format("2 Jan 15:04"), size(found.Bytes)) + string(found.Status)
-				at, err := choose(ctx, fmt.Sprintf(text["have one"], out.what), detail, []string{text["download it"], text["ask for new"]})
-				if err != nil {
-					return newPrinter(*asJSON).fail(err)
-				}
-				g.New = at == 1
+	if interactive(*asJSON) && !*yes && !*fresh && (found == nil || g.Takeout == "" && !found.Started) {
+		out.close()
+		if found == nil {
+			at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), text["ask new meta"], []string{text["yes"], text["no"]})
+			if err != nil {
+				return newPrinter(*asJSON).fail(err)
 			}
-			what := out.what
-			out = newPrinter(*asJSON)
-			out.what, out.signedIn = what, true
-			out.now(looking)
+			if at != 0 {
+				fmt.Println(lookFor(os.Stdout).stopped(text["not asked"], ""))
+				return exitOK
+			}
+		} else {
+			detail := fmt.Sprintf(text["have one meta"], found.ID, found.Created.Local().Format("2 Jan 15:04"), size(found.Bytes)) + string(found.Status)
+			at, err := choose(ctx, fmt.Sprintf(text["have one"], out.what), detail, []string{text["download it"], text["ask for new"]})
+			if err != nil {
+				return newPrinter(*asJSON).fail(err)
+			}
+			if g.New = at == 1; g.New {
+				found = nil
+			}
 		}
+		what := out.what
+		out = newPrinter(*asJSON)
+		out.what, out.signedIn = what, true
 	}
+	// The run, as a table: whose photos, which, and where they go. What
+	// follows says what happens, not again what it happens to.
+	out.now(going{})
+	details := ""
+	if found != nil {
+		details = fmt.Sprintf(text["export details"], found.ID, len(found.Parts), size(found.Bytes))
+		out.shown = found.Job
+	}
+	home, _ := os.UserHomeDir()
+	out.say(out.out.param(text["field google"], account, ""))
+	out.say(out.out.param(text["field takeout"], unmarked(out.what), details))
+	out.say(out.out.param(text["field library"], tilde(dir, home), ""))
+	out.say("")
 	result, err := g.Run(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
@@ -671,11 +680,7 @@ func (p *printer) checked(v library.Verification, dir string, year int) int {
 		if v.Complete() {
 			p.say(p.out.done(said, text["checked details"]))
 			p.say("")
-			result := fmt.Sprintf(text["result all"], dir)
-			if year != 0 {
-				result = fmt.Sprintf(text["result year"], year, dir)
-			}
-			p.say(p.out.result(result))
+			p.say(p.out.result(fmt.Sprintf(text["result"], v.Present)))
 		} else {
 			p.say(p.out.failed(said, text["checked details"]))
 			p.missing(v, typed())

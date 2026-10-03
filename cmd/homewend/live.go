@@ -34,6 +34,7 @@ type printer struct {
 	sortStart time.Time // sorting began
 	what      string    // the photos asked for: "2025 photos"
 	signedIn  bool      // the sign-in is said: checking it again is not news
+	shown     string    // the export in the table: finding it is not news
 	asked     time.Time // when Google was asked
 	rate      float64   // bytes a second, smoothed over the current part
 	lastAt    time.Time
@@ -115,17 +116,23 @@ func (p *printer) event(e progress.Event) {
 		p.now(now(text["password"], ""))
 	case progress.Request:
 		p.asked = t
-		g := now(fmt.Sprintf(text["asking"], p.what), "")
+		g := now(text["asking"], "")
 		g.since = t
 		p.now(g)
 	case progress.Waiting:
 		if !p.asked.IsZero() {
-			p.say(p.out.done(fmt.Sprintf(text["asked"], p.what), fmt.Sprintf(text["asked at"], p.asked.Format("15:04"))))
+			p.say(p.out.done(text["asked"], fmt.Sprintf(text["asked at"], p.asked.Format("15:04"))))
 			p.asked = time.Time{}
 		}
 		g := going{sign: signWaiting, said: text["preparing"], since: t, bar: -1, below: text["preparing hint"]}
 		p.now(g)
 	case progress.Ready, progress.InLibrary:
+		if e.Name == p.shown {
+			if e.Stage == progress.InLibrary {
+				p.say(p.out.done(text["in library now"], ""))
+			}
+			break
+		}
 		details := fmt.Sprintf(text["found details"], e.Of, size(e.Total))
 		if e.Stage == progress.InLibrary {
 			details = text["in library"]

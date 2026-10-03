@@ -101,6 +101,12 @@ func (l look) field(name, sign string, c color.Color, value, details string) str
 	return "  " + l.paint(pad(name, 11), mutedColour, false) + l.paint(sign, c, false) + " " + l.marked(value, nil) + l.paint(details, mutedColour, false)
 }
 
+// param is a parameter of the run, in the table under the title: its name in
+// bold, its value, details beside it.
+func (l look) param(name, value, details string) string {
+	return "  " + l.paint(pad(name, 10), nil, true) + l.marked(value, nil) + l.paint(details, mutedColour, false)
+}
+
 // heading is the title of a section of a help page.
 func (l look) heading(said string) string { return l.paint(said, accentColour, true) }
 
