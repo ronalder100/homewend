@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
-	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/dustin/go-humanize"
+	"golang.org/x/term"
 
 	"github.com/ronalder100/homewend/internal/engine"
 	"github.com/ronalder100/homewend/internal/progress"
@@ -25,7 +27,7 @@ import (
 type printer struct {
 	json bool
 	out  look
-	live *tea.Program
+	live *liveLine
 
 	// What the events carry from one to the next.
 	partStart time.Time // the part downloading began
@@ -45,24 +47,10 @@ func newPrinter(json bool) *printer {
 	return &printer{out: lookFor(os.Stdout), live: startLive()}
 }
 
-// startLive draws the line going on, under the log, in a terminal; nil
-// anywhere else, where a redrawn line is only noise.
-func startLive() *tea.Program {
-	if !coloured(os.Stdout) {
-		return nil
-	}
-	// No input and no signal handler: Ctrl-C still reaches the command.
-	p := tea.NewProgram(newStatus(), tea.WithInput(nil), tea.WithoutSignalHandler())
-	go p.Run()
-	return p
-}
-
 // close takes the line going on down. It can be called more than once.
 func (p *printer) close() {
 	if p.live != nil {
-		p.live.Send(going{})
-		p.live.Quit()
-		p.live.Wait()
+		p.live.stop()
 		p.live = nil
 	}
 }
@@ -73,11 +61,7 @@ func (p *printer) say(line string) {
 		return
 	}
 	if p.live != nil {
-		// An empty line printed above the live one is dropped: a space keeps it.
-		if line == "" {
-			line = " "
-		}
-		p.live.Println(line)
+		p.live.println(line)
 		return
 	}
 	fmt.Println(line)
@@ -99,11 +83,11 @@ func (p *printer) now(g going) {
 		return
 	}
 	if p.live != nil {
-		p.live.Send(g)
+		p.live.set(g)
 		return
 	}
 	if g.bar < 0 && g.said != "" {
-		fmt.Println(signGoing + " " + g.said)
+		fmt.Println(signGoing + " " + p.out.marked(g.said, nil))
 	}
 }
 
@@ -204,39 +188,117 @@ type going struct {
 	below   string
 }
 
-type statusLine struct {
-	out  look
-	spin spinner.Model
-	now  going
+// liveLine draws the step going on at the bottom of a terminal and redraws
+// it in place: carriage return, erase, draw again, and the spinner turned ten
+// times a second. Lines printed meanwhile go above it and stay.
+type liveLine struct {
+	mu    sync.Mutex
+	out   look
+	now   going
+	frame int
+	drawn int // lines on screen now
+	quit  chan struct{}
+	done  chan struct{}
 }
 
-func newStatus() statusLine {
-	return statusLine{out: lookFor(os.Stdout), spin: spinner.New(spinner.WithSpinner(spinner.MiniDot))}
-}
-
-func (s statusLine) Init() tea.Cmd { return s.spin.Tick }
-
-func (s statusLine) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		s.spin, cmd = s.spin.Update(msg)
-		return s, cmd
-	case going:
-		s.now = msg
+// startLive draws the line going on, in a terminal; nil anywhere else, where
+// a redrawn line is only noise.
+func startLive() *liveLine {
+	if !coloured(os.Stdout) {
+		return nil
 	}
-	return s, nil
+	l := &liveLine{out: lookFor(os.Stdout), quit: make(chan struct{}), done: make(chan struct{})}
+	fmt.Print(ansi.HideCursor)
+	go l.spin()
+	return l
 }
 
-func (s statusLine) View() tea.View { return tea.NewView(s.line(time.Now())) }
+// frames are the spinner's: braille dots, as gh, uv and flyctl turn theirs.
+var frames = spinner.MiniDot.Frames
+
+func (l *liveLine) spin() {
+	defer close(l.done)
+	tick := time.NewTicker(spinner.MiniDot.FPS)
+	defer tick.Stop()
+	for {
+		select {
+		case <-l.quit:
+			return
+		case <-tick.C:
+			l.mu.Lock()
+			l.frame++
+			l.draw()
+			l.mu.Unlock()
+		}
+	}
+}
+
+func (l *liveLine) set(g going) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.now = g
+	l.draw()
+}
+
+func (l *liveLine) println(line string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.erase()
+	fmt.Println(line)
+	l.draw()
+}
+
+func (l *liveLine) stop() {
+	close(l.quit)
+	<-l.done
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.erase()
+	fmt.Print(ansi.ShowCursor)
+}
+
+// erase takes the line going on off the screen, the cursor left where it
+// began.
+func (l *liveLine) erase() {
+	if l.drawn == 0 {
+		return
+	}
+	s := "\r"
+	if l.drawn > 1 {
+		s += ansi.CursorUp(l.drawn - 1)
+	}
+	fmt.Print(s + ansi.EraseScreenBelow)
+	l.drawn = 0
+}
+
+// draw puts the line going on on the screen, each row cut to the window so
+// that none wraps and the count of rows stays true.
+func (l *liveLine) draw() {
+	l.erase()
+	text := l.line(time.Now())
+	if text == "" {
+		return
+	}
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width <= 0 {
+		width = 80
+	}
+	rows := strings.Split(text, "\n")
+	for i, r := range rows {
+		rows[i] = ansi.Truncate(r, width-1, "")
+	}
+	fmt.Print(strings.Join(rows, "\n"))
+	l.drawn = len(rows)
+}
 
 // line draws the step going on.
-func (s statusLine) line(t time.Time) string {
+func (s *liveLine) line(t time.Time) string {
 	g := s.now
 	if g.said == "" {
 		return ""
 	}
 	l := s.out
+	spin := frames[s.frame%len(frames)]
 	details := g.details
 	if !g.since.IsZero() {
 		details += fmt.Sprintf(text["elapsed"], t.Sub(g.since).Round(time.Second))
@@ -246,9 +308,9 @@ func (s statusLine) line(t time.Time) string {
 	case g.sign != "":
 		line = l.step(g.sign, warnColour, g.said, details)
 	case g.bar >= 0:
-		line = l.paint(s.spin.View(), accentColour, false) + " " + g.said + "  " + l.bar(g.bar) + "  " + l.paint(details, mutedColour, false)
+		line = l.paint(spin, accentColour, false) + " " + l.marked(g.said, nil) + "  " + l.bar(g.bar) + "  " + l.paint(details, mutedColour, false)
 	default:
-		line = l.paint(s.spin.View(), accentColour, false) + " " + g.said + l.paint(details, mutedColour, false)
+		line = l.paint(spin, accentColour, false) + " " + l.marked(g.said, nil) + l.paint(details, mutedColour, false)
 	}
 	if g.below != "" {
 		line += "\n" + l.cause(g.below)

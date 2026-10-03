@@ -133,8 +133,7 @@ func TestBarIsTwentyCells(t *testing.T) {
 // The line going on carries its time when it is worth counting, and a line
 // under it when there is one.
 func TestTheLineGoingOn(t *testing.T) {
-	s := newStatus()
-	s.out = look{}
+	s := &liveLine{out: look{}}
 	if s.line(timeZero) != "" {
 		t.Error("nothing going on draws something")
 	}

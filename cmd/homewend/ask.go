@@ -73,7 +73,7 @@ func (l look) keys(pairs ...string) string {
 
 // question draws ? and the question, and the detail under it.
 func (l look) question(said, detail string) string {
-	s := l.paint(signAsk, accentColour, true) + " " + l.paint(said, nil, true)
+	s := l.paint(signAsk, accentColour, true) + " " + l.paint(unmarked(said), nil, true)
 	if detail != "" {
 		s += "\n" + l.cause(detail)
 	}

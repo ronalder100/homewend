@@ -98,11 +98,15 @@ func (l look) field(name, sign string, c color.Color, value, details string) str
 	if sign == "" {
 		sign = " "
 	}
-	return "  " + l.paint(pad(name, 11), mutedColour, false) + l.paint(sign, c, false) + " " + value + l.paint(details, mutedColour, false)
+	return "  " + l.paint(pad(name, 11), mutedColour, false) + l.paint(sign, c, false) + " " + l.marked(value, nil) + l.paint(details, mutedColour, false)
 }
 
 // heading is the title of a section of a help page.
 func (l look) heading(said string) string { return l.paint(said, accentColour, true) }
+
+// unmarked is s without the ** that mark what stands out: for a line that is
+// bold all through, like a question.
+func unmarked(s string) string { return strings.ReplaceAll(s, "**", "") }
 
 // pad fills s with spaces to n columns.
 func pad(s string, n int) string {

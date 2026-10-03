@@ -178,13 +178,13 @@ Examples:
 	"key accept":       "accept",
 	"key quit":         "quit",
 	"not asked":        "Nothing asked: no export was requested",
-	"photos of":        "%d photos",
+	"photos of":        "**%d** photos",
 	"all photos":       "photos",
 
 	// The work.
 	"looking":         "Looking for an export of your %s on Google Takeout",
 	"asking":          "Asking Google to export your %s",
-	"asked":           "Asked Google to export your **%s**",
+	"asked":           "Asked Google to export your %s",
 	"asked at":        " at %s",
 	"preparing":       "Google is preparing the export",
 	"preparing hint":  "This takes hours. Ctrl-C is safe: run the same command to resume.",
