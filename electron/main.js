@@ -32,7 +32,8 @@ function theme(name) {
 }
 
 function overlay() {
-	return { color: theme('bg'), symbolColor: theme('fg'), height: TITLEBAR_HEIGHT };
+	// One pixel short, so the titlebar's bottom line runs under the buttons.
+	return { color: theme('bg'), symbolColor: theme('fg'), height: TITLEBAR_HEIGHT - 1 };
 }
 
 function startEngine() {
