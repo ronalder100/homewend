@@ -56,7 +56,7 @@
 			{#each accounts as a, i (a.id)}
 				<button role="radio" aria-checked={account === a.id} class:on={account === a.id} onclick={() => (account = a.id)}>
 					<Avatar account={a} index={i} />
-					<span><b>{a.name}</b><small>{a.email}</small></span>
+					<b>{a.email}</b>
 				</button>
 			{/each}
 		</div>

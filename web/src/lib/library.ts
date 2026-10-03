@@ -49,7 +49,9 @@ export function samePlace(a: Place, b: Place): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** One letter for an avatar: the address's first, or a name's initials. */
 export function initials(name: string): string {
+	if (name.includes('@')) return name[0].toUpperCase();
 	return name
 		.split(/\s+/)
 		.filter(Boolean)

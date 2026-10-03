@@ -79,14 +79,8 @@ export async function toggleAccount(id: string) {
 /** The engine's overview as the sidebar draws it. */
 export function sidebarOf(o: Overview): Sidebar {
 	return {
-		// Google gives an address; until it gives a name, the part before
-		// the @ is what a person recognises.
-		accounts: o.accounts.map((a) => ({
-			id: a.id,
-			email: a.email,
-			name: a.email.split('@')[0],
-			shown: a.shown
-		})),
+		// An account is its address: Homewend asks Google for nothing more.
+		accounts: o.accounts.map((a) => ({ id: a.id, email: a.email, name: a.email, shown: a.shown })),
 		total: o.total,
 		years: o.years.map((y) => ({
 			label: y.year || text.noDate,

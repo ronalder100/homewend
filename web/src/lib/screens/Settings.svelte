@@ -91,8 +91,7 @@
 				<div class="item account">
 					<Avatar account={a} index={i} />
 					<div class="text">
-						<h3>{a.name}</h3>
-						<p>{a.email}</p>
+						<h3>{a.email}</h3>
 					</div>
 					<button class="danger" onclick={() => purge(a.id)}><Trash2 size={14} />{text.purge}</button>
 				</div>
