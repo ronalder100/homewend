@@ -316,7 +316,7 @@ func get(args []string) int {
 		return out.fail(err)
 	}
 	out.organized(result.Organized)
-	return out.finished(result.Verification)
+	return out.finished(result.Verification, *libraryDir)
 }
 
 // what names the photos a get is for.
@@ -481,7 +481,7 @@ func verify(args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	return out.verification(v)
+	return out.verification(v, *libraryDir, "")
 }
 
 // askedWrongly says what a command was missing and shows what to type
@@ -611,12 +611,6 @@ func (p printer) event(e progress.Event) {
 		if p.live == nil {
 			p.say("%s", text["prepare status"])
 		}
-	case progress.FirstDownload:
-		if e.Name != "" {
-			p.say(text["first download of"], e.Name)
-		} else {
-			p.say("%s", text["first download"])
-		}
 	case progress.Download:
 		// In a terminal the bar says it.
 		if p.live == nil {
@@ -651,14 +645,23 @@ func (p printer) organized(o library.Organized) {
 		o.Placed, humanize.IBytes(uint64(o.Bytes)), o.Skipped, o.Undated, o.Linked+o.Copied)
 }
 
-func (p printer) verification(v library.Verification) int {
-	p.line("verification", v, text["verified"], v.Declared, v.Present, len(v.Missing))
-	if !p.json {
+// verification reports a library against its export: a line per year, then
+// the whole in one line, with ending after it when there is cause.
+func (p printer) verification(v library.Verification, libraryDir, ending string) int {
+	if p.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"verification": v})
+	} else {
 		for _, y := range v.Years {
 			p.say(text["year"], y.Year, y.Present, y.Declared)
 		}
-		for _, name := range v.Missing {
-			p.say("%s", paint(os.Stdout, errColour, fmt.Sprintf(text["missing file"], name)))
+		p.say("")
+		if v.Complete() {
+			p.say("%s", paint(os.Stdout, okColour, fmt.Sprintf(text["all here"], v.Present, libraryDir)+ending))
+		} else {
+			p.say("%s", paint(os.Stdout, errColour, fmt.Sprintf(text["some missing"], v.Present, v.Declared, len(v.Missing))))
+			for _, name := range v.Missing {
+				p.say(text["missing file"], name)
+			}
 		}
 	}
 	if !v.Complete() {
@@ -667,15 +670,10 @@ func (p printer) verification(v library.Verification) int {
 	return exitOK
 }
 
-// finished reports a download: the count, and when nothing is missing, that
-// it is over.
-func (p printer) finished(v library.Verification) int {
-	code := p.verification(v)
-	if code == exitOK && !p.json {
-		p.say("")
-		p.say("%s", paint(os.Stdout, okColour, text["complete"]))
-	}
-	return code
+// finished reports a download: the count and, when nothing is missing, a
+// word of celebration.
+func (p printer) finished(v library.Verification, libraryDir string) int {
+	return p.verification(v, libraryDir, text["complete"])
 }
 
 func (p printer) fail(err error) int {

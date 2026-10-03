@@ -181,7 +181,7 @@ func TestFinishedCongratulatesOnlyAComplete(t *testing.T) {
 		{library.Verification{Declared: 2, Present: 2}, true},
 		{library.Verification{Declared: 2, Present: 1, Missing: []string{"a.jpg"}}, false},
 	} {
-		out := captured(t, func() { printer{}.finished(tc.v) })
+		out := captured(t, func() { printer{}.finished(tc.v, "/photos") })
 		if got := strings.Contains(out, text["complete"]); got != tc.want {
 			t.Errorf("%+v: congratulated %v, want %v:\n%s", tc.v, got, tc.want, out)
 		}

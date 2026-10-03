@@ -27,11 +27,13 @@ var errWindowClosed = errors.New("the browser was closed")
 // seconds (components/history/core/browser/history_backend.cc). Polling every
 // two seconds adds nothing to that.
 func inWindow(ctx context.Context, sess *session.Session, url string, opened progress.Event, done func() bool, emit progress.Func) error {
+	// Said before the window is there: whoever reads it is about to look
+	// elsewhere.
+	emit.Emit(opened)
 	w, err := sess.Open(url)
 	if err != nil {
 		return err
 	}
-	emit.Emit(opened)
 
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
