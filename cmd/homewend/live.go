@@ -144,6 +144,8 @@ func (s *status) show(e progress.Event, now time.Time) {
 		s.waiting, s.current = "", progress.Event{}
 	case progress.SessionReady:
 		s.waiting, s.since, s.current, s.apart = text["session status"], time.Time{}, progress.Event{}, true
+	case progress.Prepare:
+		s.waiting, s.since, s.current = text["prepare status"], time.Time{}, progress.Event{}
 	case progress.Request:
 		s.waiting, s.since, s.current = text["asking status"], now, progress.Event{}
 	case progress.Waiting:

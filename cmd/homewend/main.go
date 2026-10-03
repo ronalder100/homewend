@@ -607,6 +607,10 @@ func (p printer) event(e progress.Event) {
 		p.say("%s", text["in library"])
 	case progress.Ready:
 		p.say(text["ready"], e.Of, size(e.Total))
+	case progress.Prepare:
+		if p.live == nil {
+			p.say("%s", text["prepare status"])
+		}
 	case progress.FirstDownload:
 		if e.Name != "" {
 			p.say(text["first download of"], e.Name)

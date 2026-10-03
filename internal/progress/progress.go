@@ -11,6 +11,7 @@ const (
 	Checking      = "checking"       // Google is being asked whether it accepts the session
 	SignIn        = "sign-in"        // the browser is open, waiting for the user to sign in
 	SessionReady  = "session-ready"  // signed in; Takeout is opened out of sight, once, for its own cookies
+	Prepare       = "prepare"        // the account's download address is being obtained from Google, out of sight; Google may ask for the password
 	FirstDownload = "first-download" // the browser is open on Google's password page, before a download the app starts, once per account; Name is the account
 	Request       = "request"        // an export is being asked for
 	Waiting       = "waiting"        // Google is preparing the export; Name is its job

@@ -58,6 +58,7 @@ func User(ctx context.Context, sess *session.Session, export takeout.Export, emi
 		return false
 	}
 	if !found() {
+		emit.Emit(progress.Event{Stage: progress.Prepare, Name: Account(sess)})
 		// What the browser downloads is ours to throw away, not the user's to
 		// find among their downloads.
 		landing, err := os.MkdirTemp("", "homewend-download-*")

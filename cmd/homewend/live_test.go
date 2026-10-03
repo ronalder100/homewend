@@ -109,6 +109,18 @@ func TestAnUpdateSaysWhatIsArriving(t *testing.T) {
 	}
 }
 
+// While the download address is obtained out of sight, the user is told what
+// is going on and that Google may ask for the password, with no time counted.
+func TestPreparingSaysGoogleMayAskForThePassword(t *testing.T) {
+	s := newStatus()
+	start := time.Now()
+	s.show(progress.Event{Stage: progress.Prepare}, start)
+	line := s.line(start.Add(9 * time.Second))
+	if !strings.Contains(line, text["prepare status"]) || strings.Contains(line, "9s") {
+		t.Errorf("status line %q", line)
+	}
+}
+
 // Once the export is ready the wait is over, and the spinner with it.
 func TestReadyEndsTheWait(t *testing.T) {
 	s := newStatus()

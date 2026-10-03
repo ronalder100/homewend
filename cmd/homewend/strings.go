@@ -212,6 +212,7 @@ now bring your photos home, here one year of them:
 
 	"checking status": "checking your Google session",
 	"session status":  "setting up your Google account",
+	"prepare status":  "asking Google's servers to let this computer download your photos: Google may ask for your password once more",
 	"asking status":   "sending the request to Google",
 	"waiting status":  "waiting for Google, it can take a few hours",
 	"download status": "[%d/%d] %s · %s of %s",
