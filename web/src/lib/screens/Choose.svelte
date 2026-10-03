@@ -154,10 +154,6 @@
 		font-size: var(--text-body);
 		color: var(--fg);
 	}
-	.accounts small {
-		font-size: var(--text-subheadline);
-		color: var(--muted);
-	}
 	.cards {
 		width: 100%;
 		display: grid;
