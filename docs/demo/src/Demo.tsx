@@ -2,70 +2,59 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // The terminal animation at the top of the README. Every line is what
-// homewend prints (cmd/homewend/strings.go), in the order it prints it; the
-// status line under them is the one cmd/homewend/live.go draws. The sizes and
-// counts are those of one ordinary year, and the hours Google takes are
-// fast-forwarded: a real run is recorded once, not on every change.
+// homewend prints (cmd/homewend/strings.go), drawn as cmd/homewend/look.go
+// draws it, in the order it prints it; the line going on at the bottom is the
+// one cmd/homewend/live.go redraws. The sizes and counts are those of one
+// ordinary year, and the hours Google takes are fast-forwarded: a real run is
+// recorded once, not on every change.
 
-import { loadFont } from "@remotion/google-fonts/JetBrainsMono";
+import { loadFont } from "@remotion/google-fonts/SourceCodePro";
 import { loadFont as loadSans } from "@remotion/google-fonts/Roboto";
 import type { ReactNode } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
-const { fontFamily } = loadFont("normal", { weights: ["400"], subsets: ["latin"] });
+const { fontFamily } = loadFont("normal", { weights: ["400", "700"], subsets: ["latin"] });
 const { fontFamily: sansFamily } = loadSans("normal", { weights: ["400", "700"], subsets: ["latin"] });
 
 export const fps = 30;
 export const width = 1100;
-export const height = 560;
+export const height = 620;
 const fontSize = 22;
 const lineHeight = 1.45;
-const rows = 14;
-// Columns of the terminal: a longer line wraps, at a space, as the CLI's
-// sentences are meant to be read.
-const cols = 76;
+const rows = 16;
 
 const sec = (s: number) => Math.round(s * fps);
 
 // Characters a second, as a person types.
 const typingSpeed = 60;
 
+// cmd/homewend/palette.go: Tokyo Night, its night variant.
 const color = {
-  background: "#171717",
-  text: "#dddddd",
-  dim: "#8a8a8a",
-  prompt: "#7571F9",
-  // The CLI's own: done in green, what to type in blue.
+  background: "#1A1B26",
+  text: "#C0CAF5",
+  title: "#737AA2",
+  muted: "#A9B1D6",
+  faint: "#565F89",
+  line: "#292E42",
   ok: "#9ECE6A",
-  ask: "#7AA2F7",
-  // homewend.app's dark-theme --faint and --accent: the notice runs from one to the other.
-  noticeFrom: [0x56, 0x5f, 0x89],
-  noticeTo: [0x7a, 0xa2, 0xf7],
-  empty: "#606060",
-  blendStart: [0x5a, 0x56, 0xe0],
-  blendEnd: [0xee, 0x6f, 0xf8],
+  err: "#F7768E",
+  warn: "#E0AF68",
+  accent: "#7AA2F7",
 };
 
-const GiB = 1024 ** 3;
-const MiB = 1024 ** 2;
+// A part of a line: its text, its colour, bold or not.
+type Seg = [string, string?, boolean?];
 
-// A line of the log: typed at a prompt, or printed.
-type Line = {
-  at: number;
-  text: string;
-  typed?: boolean;
-  notice?: boolean;
-  color?: string;
-  // An answer typed after the line, from a later frame.
-  answer?: { text: string; at: number };
-};
+// A line of the screen, from a frame on: printed, or typed at the prompt.
+type Line = { at: number; segs: Seg[]; typed?: string };
 
-// The status line under the log, from one frame to another.
-type Status = { from: number; to: number; view: (progress: number, frame: number) => ReactNode };
-
+// The line going on at the bottom, from one frame to another.
+type Live = { from: number; to: number; view: (progress: number, frame: number) => ReactNode };
 
 const log: Line[] = [];
-const status: Status[] = [];
+const live: Live[] = [];
+// Frames at which a command clears the screen: what came before is gone.
+const clears: number[] = [];
 
 // The browser window login opens, from one frame to another.
 const browser = { from: 0, to: 0 };
@@ -76,117 +65,86 @@ const waiting = { from: 0, to: 0 };
 let t = 0.4;
 
 const type = (text: string) => {
-  log.push({ at: sec(t), text, typed: true });
+  log.push({ at: sec(t), segs: [], typed: text });
   t += text.length / typingSpeed + 0.8;
 };
-// wrap breaks a line at the last space before the terminal's edge.
-function wrap(text: string): string[] {
-  const rows: string[] = [];
-  let rest = text;
-  while (rest.length > cols) {
-    const cut = rest.lastIndexOf(" ", cols);
-    rows.push(rest.slice(0, cut));
-    rest = rest.slice(cut + 1);
-  }
-  return [...rows, rest];
-}
-const print = (...lines: string[]) => {
-  for (const line of lines) for (const text of wrap(line)) log.push({ at: sec(t), text });
-};
-const colored = (c: string, text: string) => {
-  log.push({ at: sec(t), text, color: c });
-};
-// The one line a person must not skim past, in the colour the CLI gives it.
-const notice = (text: string) => {
-  log.push({ at: sec(t), text, notice: true });
-};
-// A question, and the answer typed after a moment's thought.
-const ask = (question: string, answer: string) => {
-  const at = sec(t + 0.9);
-  log.push({ at: sec(t), text: question, color: color.ask, answer: { text: answer, at } });
-  t += 0.9 + answer.length / typingSpeed + 0.5;
-};
+const clear = () => clears.push(sec(t));
+const print = (...segs: Seg[]) => log.push({ at: sec(t), segs });
+const blank = () => print([" "]);
 const wait = (s: number) => {
   t += s;
 };
-const show = (s: number, view: Status["view"]) => {
-  status.push({ from: sec(t), to: sec(t + s), view });
+const show = (s: number, view: Live["view"]) => {
+  live.push({ from: sec(t), to: sec(t + s), view });
   t += s;
 };
 
-type("homewend login");
-print("a small browser window is open: sign in to Google there");
-wait(0.6);
-browser.from = sec(t);
-wait(6);
-browser.to = sec(t);
-print("signed in to Google");
-show(2, (p, f) => spinning(f, "getting Takeout ready, about half a minute", 2 + 26 * p));
-colored(color.ok, "signed in");
-wait(1);
-print("");
-type("homewend get --year 2025 --library ~/Pictures/Homewend");
-print(
-  "Homewend is about to ask Google Takeout for an export of your photos of 2025.",
-  "",
-  "Google takes its time to prepare it, often hours. You do not have to wait here: close this window whenever you like, and run the same command again later. It picks up where it left off, and never asks Google twice.",
-  "",
-);
-wait(2.5);
-ask("Continue? [y/N] ", "y");
-print("asking Google Takeout for an export");
-show(2, (p, f) => spinning(f, "asking Google for the export, a minute or two", 70 * p));
-print(
-  "Google is preparing the export: this can take hours.",
-  "Leave this open and the download starts when it is ready, or close it and run the same command later.",
-);
-notice("If the computer restarts, run the same command again.");
-wait(1.2);
-waiting.from = sec(t);
-show(4, (_, f) => <Pulse frame={f}>waiting for Google, it can take a few hours</Pulse>);
-waiting.to = sec(t);
-print("", "the export is ready: downloading 2 parts, 2.0 GiB");
-wait(0.8);
+const B = true;
+const header = (cmd: string) => {
+  clear();
+  print([cmd, color.title, B]);
+  blank();
+};
+const done = (...segs: Seg[]) => print(["✓ ", color.ok], ...segs);
+const param = (name: string, value: string, details = "") =>
+  print(["  "], [name.padEnd(10), color.text, B], [value], [details, color.muted]);
 
-// One part and the manifest: the smallest real export, so the run is not a
-// list of the same three lines.
-const parts = [2 * GiB];
-const seconds = [3.8];
-parts.forEach((total, i) => {
-  show(seconds[i], (p) => downloading(i + 1, parts.length + 1, total * skipped(p), total, 41 * MiB));
-  print(`[${i + 1}/${parts.length + 1}] downloaded, ${ibytes(total)}`);
-  print(`[${i + 1}/${parts.length + 1}] unpacking`);
-});
-wait(0.6);
-print("[2/2] downloaded, 61 KiB");
-show(3, (p) => placing(Math.round(742 * p), 742));
-print("placed 742 photos, 2.0 GiB: 2 duplicates, 0 undated, 87 in albums");
-wait(0.8);
-print("declared 742, on disk 742, missing 0", "  2025  742 of 742", "");
-colored(color.ok, "download complete, congratulations 🎉");
+type("homewend login");
+header("homewend login");
+show(0.6, (_, f) => going(f, [["Waiting for you to sign in to Google in the new window"]]));
+browser.from = sec(t);
+show(6, (_, f) => going(f, [["Waiting for you to sign in to Google in the new window"]]));
+browser.to = sec(t);
+show(1.2, (_, f) => going(f, [["Setting up your Google account"]]));
+done(["Signed in as "], ["you@gmail.com", color.text, B]);
+blank();
+print(["hint:", color.accent, B], [" to bring your 2025 photos home, run: "], ["homewend takeout 2025", color.text, B]);
+wait(1.4);
+type("homewend takeout 2025");
+header("homewend takeout 2025");
+show(0.8, (_, f) => going(f, [["Checking your Google sign-in"]]));
+show(1.2, (_, f) => going(f, [["Looking for an export of your "], ["2025", color.text, B], [" photos on Google Takeout"]]));
+// The question, answered with the arrows: Yes is under the cursor.
+show(2.4, () => question("Ask Google to export your 2025 photos?", "Google takes hours to prepare the export. --yes skips this question.", ["Yes", "No"], 0));
+param("Google", "you@gmail.com");
+param("Takeout", "2025 photos");
+param("Library", "~/Pictures/Homewend");
+blank();
+show(1.6, (p, f) => going(f, [["Asking Google for an export"]], ` · ${goDuration(1 + 70 * p)}`));
+done(["Asked Google for an export"], [" at 10:12", color.muted]);
+waiting.from = sec(t);
+show(4, (p) => (
+  <>
+    <span style={{ color: color.warn }}>*</span>
+    {" Google is preparing the export"}
+    <span style={{ color: color.muted }}>{` · ${goDuration(60 * (4 + 68 * p))}`}</span>
+    {"\n"}
+    <span style={{ color: color.muted }}>{"  This takes hours. Ctrl-C is safe: run the same command to resume."}</span>
+  </>
+));
+waiting.to = sec(t);
+done(["Found export 4184685c"], [" · 2 parts · 2.0 GiB", color.muted]);
+show(3.8, (p, f) => going(f, [["Downloading part 1 of 2  "]], "", skipped(p), `  ${ibytes(2 * GiB * skipped(p))} of 2.0 GiB · ${goDuration((2 * GiB * (1 - skipped(p))) / (41 * MiB))} left`));
+done(["Downloaded part "], ["1 of 2", color.text, B], [" · 2.0 GiB in 52s", color.muted]);
+show(0.6, (_, f) => going(f, [["Downloading part 2 of 2  "]], "", 1, "  61 KiB of 61 KiB"));
+done(["Downloaded part "], ["2 of 2", color.text, B], [" · 61 KiB in 0s", color.muted]);
+show(3, (p, f) => going(f, [["Sorting photos  "]], "", p, `  ${Math.round(742 * p)} of 742`));
+done(["Sorted "], ["742 photos", color.text, B], [" in 9s · 2 duplicates · 0 undated · 87 in albums", color.muted]);
+done(["Checked "], ["742 of 742", color.text, B], [" against the export's list", color.muted]);
+blank();
+print(["✓ ", color.ok, B], ["All 742 photos are there", color.text, B]);
 wait(1.5);
 const end = sec(t);
 export const duration = sec(t + 3);
+
+const GiB = 1024 ** 3;
+const MiB = 1024 ** 2;
 
 // A cut in the download, from half to three quarters: the bar moves at its
 // real pace, and the film skips a quarter of it.
 function skipped(p: number) {
   const x = p * 0.75;
   return x < 0.5 ? x : x + 0.25;
-}
-
-// The notice, letter by letter from grey to blue, as the CLI draws it.
-function blended(text: string) {
-  const letters = [...text];
-  return letters.map((letter, i) => {
-    const k = letters.length > 1 ? i / (letters.length - 1) : 0;
-    const [r, g, b] = color.noticeFrom.map((c, j) => Math.round(c + (color.noticeTo[j] - c) * k));
-    return (
-      <span key={i} style={{ color: `rgb(${r},${g},${b})` }}>
-        {letter}
-      </span>
-    );
-  });
 }
 
 // Go's Duration.String, rounded to the second, as live.go prints it.
@@ -213,110 +171,94 @@ function ibytes(n: number) {
   return `${value < 10 ? value.toFixed(1) : value.toFixed(0)} ${units[unit]}`;
 }
 
-const spinnerFrames = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+// bubbles' MiniDot, the spinner live.go turns ten times a second.
+const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-function spinning(frame: number, what: string, elapsed: number) {
+const segs = (list: Seg[]) => list.map(([text, c, b], i) => (
+  <span key={i} style={{ color: c ?? color.text, fontWeight: b ? 700 : 400 }}>{text}</span>
+));
+
+// The line going on: the spinner, what is said, a bar of 20 cells when there
+// is something to count, and details.
+function going(frame: number, said: Seg[], details = "", bar?: number, after = "") {
+  const cells = 20;
+  const full = bar === undefined ? 0 : Math.round(cells * bar);
   return (
     <>
-      <span style={{ color: color.prompt }}>{spinnerFrames[Math.floor(frame / (fps / 10)) % spinnerFrames.length]}</span>
-      {` ${what} · ${goDuration(elapsed)}`}
+      <span style={{ color: color.accent }}>{spinnerFrames[Math.floor(frame / (fps / 10)) % spinnerFrames.length]}</span>{" "}
+      {segs(said)}
+      {bar === undefined ? null : (
+        <>
+          <span style={{ color: color.accent }}>{"━".repeat(full)}</span>
+          <span style={{ color: color.line }}>{"━".repeat(cells - full)}</span>
+        </>
+      )}
+      <span style={{ color: color.muted }}>{details + after}</span>
     </>
   );
 }
 
-// A slow fade in and out, so a screen where nothing moves still reads as alive.
-const Pulse = ({ frame, children }: { frame: number; children: ReactNode }) => (
-  <span style={{ opacity: 0.6 + 0.4 * Math.cos((frame / fps) * Math.PI * 1.2) }}>{children}</span>
-);
-
-// The bubbles progress bar: 13 cells blended purple to pink, then the percent.
-function bar(fraction: number) {
-  const cells = 13;
-  const full = Math.round(cells * fraction);
-  const blend = (i: number) => {
-    const k = cells > 1 ? i / (cells - 1) : 0;
-    const [r, g, b] = color.blendStart.map((c, j) => Math.round(c + (color.blendEnd[j] - c) * k));
-    return `rgb(${r},${g},${b})`;
-  };
+// A question in the flow: ? and the question bold, its detail, the choices
+// with › on the one under the cursor, and the keys.
+function question(said: string, detail: string, choices: string[], at: number) {
   return (
     <>
-      {Array.from({ length: cells }, (_, i) => (
-        // Drawn, not typed: the font has no block characters, and a
-        // fallback font's are wider than a column.
-        <span
-          key={i}
-          style={{
-            display: "inline-block",
-            width: "1ch",
-            height: "0.8em",
-            verticalAlign: "-0.05em",
-            background: i < full ? blend(i) : color.empty,
-            opacity: i < full ? 1 : 0.35,
-          }}
-        />
+      <span style={{ color: color.accent, fontWeight: 700 }}>?</span> <b>{said}</b>
+      {"\n"}
+      <span style={{ color: color.muted }}>{"  " + detail}</span>
+      {"\n\n"}
+      {choices.map((c, i) => (
+        <span key={c}>
+          {i === at ? (
+            <>
+              {"  "}
+              <span style={{ color: color.accent, fontWeight: 700 }}>›</span> <b>{c}</b>
+            </>
+          ) : (
+            <span style={{ color: color.muted }}>{"    " + c}</span>
+          )}
+          {"\n"}
+        </span>
       ))}
-      {` ${String(Math.round(fraction * 100)).padStart(3)}%`}
+      {"\n  "}
+      <span style={{ color: color.muted }}>↑/↓</span>
+      <span style={{ color: color.faint }}> move · </span>
+      <span style={{ color: color.muted }}>enter</span>
+      <span style={{ color: color.faint }}> select · </span>
+      <span style={{ color: color.muted }}>ctrl+c</span>
+      <span style={{ color: color.faint }}> quit</span>
     </>
-  );
-}
-
-function downloading(n: number, of: number, done: number, total: number, rate: number) {
-  return (
-  <>
-    {`[${n}/${of}] `}
-    {bar(done / total)}
-    {` · ${ibytes(done)} of ${ibytes(total)} · ${ibytes(rate)}/s · ${goDuration((total - done) / rate)} left`}
-  </>
-  );
-}
-
-function placing(n: number, of: number) {
-  return (
-  <>
-    {bar(n / of)}
-    {`  placing ${n} of ${of}`}
-  </>
   );
 }
 
 const Prompt = ({ children, cursor }: { children: ReactNode; cursor?: boolean }) => (
   <>
-    <span style={{ color: color.prompt }}>{"> "}</span>
+    <span style={{ color: color.faint }}>{"$ "}</span>
     {children}
     {cursor ? <span style={{ background: color.text }}>{" "}</span> : null}
   </>
 );
 
-// The terminal's lines at a frame, the one being written last.
+// The screen's lines at a frame, the line going on last.
 function linesAt(frame: number) {
+  const since = Math.max(0, ...clears.filter((c) => c <= frame));
   const lines: ReactNode[] = [];
   log.forEach((line) => {
-    if (frame < line.at) return;
-    if (!line.typed) {
-      // A blank line still takes its height.
-      if (line.notice) lines.push(blended(line.text));
-      else if (line.color) {
-        const typed = line.answer && frame >= line.answer.at ? line.answer.text.slice(0, Math.floor(((frame - line.answer.at) / fps) * typingSpeed) + 1) : "";
-        lines.push(
-          <>
-            <span style={{ color: line.color }}>{line.text}</span>
-            {typed}
-          </>,
-        );
-      } else lines.push(line.text || " ");
+    if (frame < line.at || line.at < since) return;
+    if (line.typed !== undefined) {
+      const shown = Math.floor(((frame - line.at) / fps) * typingSpeed);
+      lines.push(<Prompt cursor={shown < line.typed.length}>{line.typed.slice(0, shown)}</Prompt>);
       return;
     }
-    const shown = Math.floor(((frame - line.at) / fps) * typingSpeed);
-    lines.push(<Prompt cursor={shown < line.text.length}>{line.text.slice(0, shown)}</Prompt>);
+    lines.push(<>{segs(line.segs)}</>);
   });
-  const live = status.find((s) => frame >= s.from && frame < s.to);
-  if (live) {
-    lines.push(live.view(interpolate(frame, [live.from, live.to - 1], [0, 1], { extrapolateRight: "clamp" }), frame));
+  const now = live.find((s) => frame >= s.from && frame < s.to);
+  if (now) {
+    lines.push(now.view(interpolate(frame, [now.from, now.to - 1], [0, 1], { extrapolateRight: "clamp" }), frame));
   }
   if (frame >= end) {
     lines.push(<Prompt cursor={Math.floor(frame / (fps / 2)) % 2 === 0}>{""}</Prompt>);
   }
-
   return lines.slice(-rows);
 }
 
@@ -327,8 +269,8 @@ const textTop = margin + 20 + 13 + 14;
 const linePx = fontSize * lineHeight;
 const charPx = fontSize * 0.6;
 
-// The camera moves in on the waiting line, centred and close, and back out,
-// each in a fifth of a second.
+// The camera moves in on the wait for Google, centred and close, and back
+// out, each in a fifth of a second.
 function camera(frame: number, lines: number) {
   const cut = sec(0.2);
   const k = Math.min(
@@ -337,11 +279,11 @@ function camera(frame: number, lines: number) {
   );
   if (k === 0) return {};
   const ease = Easing.inOut(Easing.cubic)(k);
-  const fx = textLeft + 21 * charPx;
+  const fx = textLeft + 34 * charPx;
   const fy = textTop + (lines - 0.5) * linePx;
   return {
     transformOrigin: `${fx - margin}px ${fy - margin}px`,
-    transform: `translate(${(width / 2 - fx) * ease}px, ${(height / 2 - fy) * ease}px) scale(${1 + 0.7 * ease})`,
+    transform: `translate(${(width / 2 - fx) * ease}px, ${(height / 2 - fy) * ease}px) scale(${1 + 0.15 * ease})`,
   };
 }
 
