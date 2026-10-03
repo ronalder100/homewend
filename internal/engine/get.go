@@ -71,7 +71,7 @@ func (g Get) Existing(sess *session.Session) (*Found, error) {
 	}
 	_, err = os.Stat(filepath.Join(g.Library, library.WorkDir, export.Job))
 	return &Found{
-		Takeout: Takeout{Export: *export, ID: shortID(export.Job), Status: StatusOf(*export), Year: g.Year, Known: g.Takeout == ""},
+		Takeout: Takeout{Export: *export, ID: ShortID(export.Job), Status: StatusOf(*export), Year: g.Year, Known: g.Takeout == ""},
 		Started: err == nil,
 	}, nil
 }

@@ -88,7 +88,8 @@ type Takeout struct {
 // commits: a UUID's first 8 hex digits tell a handful of exports apart.
 const idLength = 8
 
-func shortID(job string) string { return job[:min(idLength, len(job))] }
+// ShortID is the part of a job id that is shown and typed.
+func ShortID(job string) string { return job[:min(idLength, len(job))] }
 
 // Takeouts lists the account's exports, newest first.
 func Takeouts(sess *session.Session) ([]Takeout, error) {
@@ -102,7 +103,7 @@ func Takeouts(sess *session.Session) ([]Takeout, error) {
 	}
 	list := make([]Takeout, len(exports))
 	for i, e := range exports {
-		list[i] = Takeout{Export: e, ID: shortID(e.Job), Status: StatusOf(e)}
+		list[i] = Takeout{Export: e, ID: ShortID(e.Job), Status: StatusOf(e)}
 		for _, n := range notes {
 			if n.Job == e.Job {
 				list[i].Year, list[i].Known = n.Year, true
