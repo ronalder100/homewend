@@ -31,6 +31,7 @@ type printer struct {
 	partStart time.Time // the part downloading began
 	sortStart time.Time // sorting began
 	what      string    // the photos asked for: "2025 photos"
+	signedIn  bool      // the sign-in is said: checking it again is not news
 	asked     time.Time // when Google was asked
 	rate      float64   // bytes a second, smoothed over the current part
 	lastAt    time.Time
@@ -117,7 +118,9 @@ func (p *printer) event(e progress.Event) {
 	t, now := time.Now(), func(said, details string) going { return going{said: said, details: details, bar: -1} }
 	switch e.Stage {
 	case progress.Checking:
-		p.now(now(text["checking"], ""))
+		if !p.signedIn {
+			p.now(now(text["checking"], ""))
+		}
 	case progress.SignIn:
 		p.now(now(text["sign in"], ""))
 	case progress.SessionReady:

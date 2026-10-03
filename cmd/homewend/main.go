@@ -403,6 +403,7 @@ func takeoutCommand(args []string) int {
 	if account != "" {
 		out.say(out.out.done(fmt.Sprintf(text["signed in as"], account), ""))
 	}
+	out.signedIn = true
 
 	g := engine.Get{Year: year, Library: dir, Takeout: *exportID, New: *fresh}
 	// A person is asked first: before Google is asked for a new export, which
@@ -436,7 +437,7 @@ func takeoutCommand(args []string) int {
 			}
 			what := out.what
 			out = newPrinter(*asJSON)
-			out.what = what
+			out.what, out.signedIn = what, true
 		}
 	}
 	result, err := g.Run(ctx, sess, out.event)

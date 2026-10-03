@@ -16,6 +16,7 @@ import (
 
 	"github.com/ronalder100/homewend/internal/download"
 	"github.com/ronalder100/homewend/internal/library"
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // The test binary stands in for homewend when asked to, so the tests can run
@@ -241,4 +242,15 @@ func captured(t *testing.T, f func()) string {
 	w.Close()
 	out, _ := io.ReadAll(r)
 	return string(out)
+}
+
+// Once the sign-in is said, the engine checking it again shows nothing.
+func TestTheSignInIsSaidOnce(t *testing.T) {
+	out := captured(t, func() {
+		p := &printer{out: look{}, signedIn: true}
+		p.event(progress.Event{Stage: progress.Checking})
+	})
+	if out != "" {
+		t.Errorf("printed %q", out)
+	}
 }
