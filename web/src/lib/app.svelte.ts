@@ -19,13 +19,29 @@ export const app = $state<{
 	settings: Settings;
 	overview: Overview | null;
 	jobs: Record<string, JobState>;
+	/** Seconds left at the speed of the last minute, per account. */
+	left: Record<string, number>;
 	error: string;
 }>({
 	settings: {},
 	overview: null,
 	jobs: {},
+	left: {},
 	error: ''
 });
+
+const samples: Record<string, { t: number; done: number }[]> = {};
+
+function measure(account: string, j: JobState) {
+	const now = Date.now();
+	const s = (samples[account] = [
+		...(samples[account] ?? []).filter((x) => now - x.t < 60000 && x.done <= j.done),
+		{ t: now, done: j.done }
+	]);
+	const rate = (j.done - s[0].done) / ((now - s[0].t) / 1000);
+	if (j.running && j.total > 0 && rate > 0) app.left[account] = (j.total - j.done) / rate;
+	else delete app.left[account];
+}
 
 /** Asks every second where each account's download stands. */
 export function watchJobs(): () => void {
@@ -34,6 +50,7 @@ export function watchJobs(): () => void {
 		for (const a of app.overview?.accounts ?? []) {
 			try {
 				app.jobs[a.id] = await getJob(a.id);
+				measure(a.id, app.jobs[a.id]);
 			} catch {
 				// The engine went away: the window says so elsewhere.
 			}

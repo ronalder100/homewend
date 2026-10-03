@@ -4,7 +4,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Monitor, Sun, Moon, Trash2, Plus, Code } from '@lucide/svelte';
+	import { Monitor, Sun, Moon, Trash2, Code } from '@lucide/svelte';
+	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import { theme, setTheme } from '#lib/theme.svelte.js';
 	import { app, refresh, sidebarOf } from '#lib/app.svelte.js';
@@ -19,17 +20,21 @@
 	];
 
 	let dir = $state('');
+	let free = $state(0);
 	let version = $state('');
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 
 	onMount(async () => {
-		dir = (await getLibrary()).dir;
+		({ dir, free } = await getLibrary());
 		version = (await getAbout()).version;
 	});
 
 	async function change() {
 		const picked = await window.shell?.chooseFolder(dir);
-		if (picked) dir = (await putLibrary(picked)).dir;
+		if (picked) {
+			await putLibrary(picked);
+			({ dir, free } = await getLibrary());
+		}
 		await refresh();
 	}
 
@@ -51,6 +56,7 @@
 					<h3>{text.whereTheyGo}</h3>
 					<p class="mono">{dir || text.noLibraryYet}</p>
 				</div>
+				{#if dir && free}<span class="free">{text.free(bytes(free))}</span>{/if}
 				<SecondaryButton onclick={change}>{dir ? text.change : text.chooseFolder}</SecondaryButton>
 			</div>
 		</div>
@@ -96,9 +102,6 @@
 					<button class="danger" onclick={() => purge(a.id)}><Trash2 size={14} />{text.purge}</button>
 				</div>
 			{/each}
-			<div class="item">
-				<button class="link" onclick={() => goto('/add')}><Plus size={14} />{text.addAccount}</button>
-			</div>
 		</div>
 	</section>
 
@@ -223,9 +226,21 @@
 		white-space: nowrap;
 	}
 	.danger {
+		height: 40px;
+		padding: 0 16px;
+		border: 1px solid var(--border);
+		border-radius: 12px;
 		color: var(--err);
 	}
+	.free {
+		color: var(--ok);
+		font-size: var(--text-callout);
+	}
 	.link {
+		height: 40px;
+		padding: 0 16px;
+		border: 1px solid var(--border);
+		border-radius: 12px;
 		color: var(--accent);
 	}
 </style>

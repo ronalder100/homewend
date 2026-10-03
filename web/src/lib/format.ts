@@ -11,3 +11,8 @@ export function bytes(n: number): string {
 	}
 	return `${n < 10 && i > 0 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
 }
+
+/** A duration as a person says it roughly: 9 h, 25 min. */
+export function roughly(seconds: number): string {
+	return seconds >= 3600 ? `${Math.round(seconds / 3600)} h` : `${Math.max(1, Math.round(seconds / 60))} min`;
+}

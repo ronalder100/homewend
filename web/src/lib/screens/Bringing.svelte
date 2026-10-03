@@ -6,7 +6,7 @@
 	import { Folder, CircleCheck } from '@lucide/svelte';
 	import { app, shownJob } from '#lib/app.svelte.js';
 	import { startGet, stopJob } from '#lib/api.js';
-	import { bytes } from '#lib/format.js';
+	import { bytes, roughly } from '#lib/format.js';
 	import { fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
@@ -23,18 +23,9 @@
 	const lead = $derived(paused ? text.pausedLead : waiting ? text.preparingLead : text.bringingLead);
 	const email = $derived(app.overview?.accounts.find((a) => a.id === shown?.account)?.email ?? '');
 
-	// Time left at the speed of the last minute: bytes seen, a sample a second.
-	let samples: { t: number; done: number }[] = [];
-	const left = $derived.by(() => {
-		if (!job?.running || !job.total) return '';
-		const now = Date.now();
-		samples = [...samples.filter((x) => now - x.t < 60000), { t: now, done: job.done }];
-		const first = samples[0];
-		const rate = (job.done - first.done) / ((now - first.t) / 1000);
-		if (!(rate > 0)) return '';
-		const s = (job.total - job.done) / rate;
-		return text.aboutTime(s >= 3600 ? `${Math.round(s / 3600)} h` : `${Math.max(1, Math.round(s / 60))} min`);
-	});
+	const left = $derived(
+		shown && app.left[shown.account] ? text.aboutTime(roughly(app.left[shown.account])) : ''
+	);
 </script>
 
 <div class="page">

@@ -50,7 +50,7 @@ export const text = {
 	everything: 'Everything.',
 	everythingDesc: 'All your photos and videos, every album. The first time, this is the one.',
 	oneYear: 'One year.',
-	olderYear: 'Older…',
+	olderYear: 'More',
 	oneYearDesc: 'Smaller and faster. A good way to try Homewend first.',
 	oneAsked: 'One you asked for.',
 	oneAskedDesc: 'Already made a takeout yourself on Google? Pick it from the list and Homewend downloads it.',
@@ -61,6 +61,9 @@ export const text = {
 	startEverything: 'Start a takeout of everything',
 	startYear: (y: number) => `Start a takeout of ${y}`,
 	noLibraryYet: 'Choose where your photos go first.',
+	free: (n: string) => `${n} free`,
+	notifyWhenReady: "You'll get a notification when it's ready.",
+	left: (s: string) => `${s} left`,
 	bringHome: 'Bring your photos home',
 
 	bringingTitle: 'Bringing your photos home.',

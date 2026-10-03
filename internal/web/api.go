@@ -106,7 +106,11 @@ func apiRoutes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/library", func(w http.ResponseWriter, r *http.Request) {
 		dir, err := engine.DefaultLibrary()
-		reply(w, map[string]string{"dir": dir}, err)
+		var free int64
+		if err == nil && dir != "" {
+			free, _ = engine.Free(dir)
+		}
+		reply(w, map[string]any{"dir": dir, "free": free}, err)
 	})
 	mux.HandleFunc("PUT /api/library", func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ Dir string }

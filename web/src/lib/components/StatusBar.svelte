@@ -9,17 +9,26 @@
 	import { headline, fraction } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 
+	import Avatar from './Avatar.svelte';
+	import { app } from '#lib/app.svelte.js';
+	import { roughly } from '#lib/format.js';
+
 	let { account, job, ondetails }: { account: string; job: JobState; ondetails?: () => void } =
 		$props();
+	const email = $derived(app.overview?.accounts.find((a) => a.id === account)?.email ?? '');
+	const left = $derived(app.left[account]);
 </script>
 
 <span class="icon" class:err={job.error}>
 	{#if job.error}<CircleAlert size={16} />{:else}<Download size={16} />{/if}
 </span>
 <span class="what">{headline(job)}</span>
+{#if email}<span class="who"><Avatar account={{ id: account, name: email, email, shown: true }} />{email}</span>{/if}
 {#if job.total > 0}
 	<span class="track"><b style:width="{fraction(job) * 100}%"></b></span>
-	<span class="numbers">{text.gbOf(bytes(job.done), bytes(job.total))}</span>
+	<span class="numbers"
+		>{text.gbOf(bytes(job.done), bytes(job.total))}{left ? ` · ${text.aboutTime(text.left(roughly(left)))}` : ''}</span
+	>
 {/if}
 {#if job.retry}<span class="note">{text.retrying(job.retry)}</span>{/if}
 {#if job.error}<span class="note err" title={job.error}>{job.error}</span>{/if}
@@ -44,6 +53,18 @@
 	.what {
 		font-weight: 600;
 		color: var(--fg);
+		white-space: nowrap;
+	}
+	.who {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 2px 12px 2px 2px;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--soft);
+		color: var(--fg);
+		font-weight: 600;
 		white-space: nowrap;
 	}
 	.track {

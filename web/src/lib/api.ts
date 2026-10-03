@@ -78,7 +78,7 @@ const q = (o: Record<string, string | number | undefined>) =>
 		Object.entries(o).filter(([, v]) => v !== undefined && v !== '') as [string, string][]
 	).toString();
 
-export const getLibrary = () => call<{ dir: string }>('GET', '/api/library');
+export const getLibrary = () => call<{ dir: string; free: number }>('GET', '/api/library');
 export const putLibrary = (dir: string) => call<{ dir: string }>('PUT', '/api/library', { dir });
 export const startGet = (o: { account: string; year?: number; export?: string; fresh?: boolean }) =>
 	call<JobState>(
