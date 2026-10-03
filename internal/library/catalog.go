@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -86,6 +87,19 @@ CREATE TABLE IF NOT EXISTS album_members (
   album TEXT NOT NULL,
   hash  TEXT NOT NULL REFERENCES photos(hash),
   PRIMARY KEY (album, hash)
+);
+-- Whose photo it is: the Google account it came from, by address. A photo
+-- in two accounts' exports is one photo with two owners; a photo recorded
+-- before owners were kept has none, and is shown with every account.
+CREATE TABLE IF NOT EXISTS owners (
+  account TEXT NOT NULL,
+  hash    TEXT NOT NULL,
+  PRIMARY KEY (account, hash)
+);
+CREATE TABLE IF NOT EXISTS album_owners (
+  account TEXT NOT NULL,
+  album   TEXT NOT NULL,
+  PRIMARY KEY (account, album)
 );
 -- The grid is always "newest first, maybe filtered": one index carries it.
 CREATE INDEX IF NOT EXISTS photos_by_time   ON photos(taken DESC);
@@ -169,15 +183,47 @@ func (c *Catalog) PathTaken(path string) (bool, error) {
 	return n > 0, nil
 }
 
-// addAlbum records that a photo belongs to an album. Separate from Put because
-// a photo is placed once and may join several albums afterwards.
-func (c *Catalog) addAlbum(album, hash string) error {
+// addAlbum records that a photo belongs to an album, and the album to the
+// account it came from. Separate from Put because a photo is placed once and
+// may join several albums afterwards.
+func (c *Catalog) addAlbum(album, hash, account string) error {
 	_, err := c.db.Exec(
 		`INSERT OR IGNORE INTO album_members (album, hash) VALUES (?, ?)`, album, hash)
+	if err == nil && account != "" {
+		_, err = c.db.Exec(
+			`INSERT OR IGNORE INTO album_owners (account, album) VALUES (?, ?)`, account, album)
+	}
 	if err != nil {
 		return fmt.Errorf("adding a photo to %s: %w", album, err)
 	}
 	return nil
+}
+
+// addOwner records that a photo came from an account. A photo already in the
+// library gets one more owner when another account's export holds it too.
+func (c *Catalog) addOwner(hash, account string) error {
+	if account == "" {
+		return nil
+	}
+	_, err := c.db.Exec(`INSERT OR IGNORE INTO owners (account, hash) VALUES (?, ?)`, account, hash)
+	return err
+}
+
+// ownedBy is the SQL that keeps the photos of these accounts, and those of
+// nobody's (recorded before owners were kept); nil accounts keeps them all.
+func ownedBy(accounts []string) (string, []any) {
+	if accounts == nil {
+		return "", nil
+	}
+	clause := "(hash NOT IN (SELECT hash FROM owners)"
+	var args []any
+	if len(accounts) > 0 {
+		clause += " OR hash IN (SELECT hash FROM owners WHERE account IN (?" + strings.Repeat(",?", len(accounts)-1) + "))"
+		for _, a := range accounts {
+			args = append(args, a)
+		}
+	}
+	return clause + ")", args
 }
 
 // Filter is what the interface asks for: a page of the grid, narrowed.
@@ -186,8 +232,10 @@ type Filter struct {
 	Album   string
 	Year    string
 	NoDate  bool // only the photos whose date nobody knows
-	Limit   int
-	Offset  int
+	// Accounts keeps the photos of these accounts, by address; nil is all.
+	Accounts []string
+	Limit    int
+	Offset   int
 }
 
 // Page returns photos newest first, narrowed by the filter.
@@ -220,6 +268,10 @@ func (c *Catalog) Page(f Filter) ([]Photo, error) {
 	}
 	if f.NoDate {
 		where = append(where, "taken IS NULL")
+	}
+	if clause, more := ownedBy(f.Accounts); clause != "" {
+		where = append(where, clause)
+		args = append(args, more...)
 	}
 	for i, clause := range where {
 		if i == 0 {
@@ -303,9 +355,13 @@ func (c *Catalog) AlbumNames() (map[string]int, error) {
 
 // CountsByYear is how many photos each year holds, and under "" those whose
 // date nobody knows.
-func (c *Catalog) CountsByYear() (map[string]int, error) {
-	rows, err := c.db.Query(
-		`SELECT COALESCE(strftime('%Y', taken, 'unixepoch'), ''), COUNT(*) FROM photos GROUP BY 1`)
+func (c *Catalog) CountsByYear(accounts []string) (map[string]int, error) {
+	query := `SELECT COALESCE(strftime('%Y', taken, 'unixepoch'), ''), COUNT(*) FROM photos`
+	clause, args := ownedBy(accounts)
+	if clause != "" {
+		query += " WHERE " + clause
+	}
+	rows, err := c.db.Query(query+" GROUP BY 1", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -321,6 +377,34 @@ func (c *Catalog) CountsByYear() (map[string]int, error) {
 		counts[year] = n
 	}
 	return counts, rows.Err()
+}
+
+// AlbumCount is an album and the account it came from ("" when not known).
+type AlbumCount struct {
+	Account string
+	Name    string
+	Count   int
+}
+
+// AlbumsByOwner lists the albums, each under every account that brought it.
+func (c *Catalog) AlbumsByOwner() ([]AlbumCount, error) {
+	rows, err := c.db.Query(`
+		SELECT COALESCE(o.account, ''), m.album, COUNT(*)
+		FROM album_members m LEFT JOIN album_owners o ON o.album = m.album
+		GROUP BY 1, 2 ORDER BY 2, 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AlbumCount
+	for rows.Next() {
+		var a AlbumCount
+		if err := rows.Scan(&a.Account, &a.Name, &a.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
 }
 
 // relativeTo makes a library path portable, so moving the library to another

@@ -173,6 +173,7 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 		Target:  takeout.Target{Job: export.Job, User: user},
 		Export:  export,
 		Library: g.Library,
+		Account: Account(sess),
 	}.Run(ctx, sess, emit)
 }
 

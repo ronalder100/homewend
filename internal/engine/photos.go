@@ -44,13 +44,19 @@ func openLibrary() (*library.Catalog, string, error) {
 
 // Photos is a page of the grid, newest first: all of it, a year ("" for no
 // date) or an album.
-func Photos(year, album string, noDate bool, offset, limit int) ([]GridPhoto, error) {
+// Only the photos of the accounts shown are in it.
+func Photos(s Settings, year, album string, noDate bool, offset, limit int) ([]GridPhoto, error) {
 	c, _, err := openLibrary()
 	if err != nil || c == nil {
 		return []GridPhoto{}, err
 	}
 	defer c.Close()
-	page, err := c.Page(library.Filter{Year: year, Album: album, NoDate: noDate, Offset: offset, Limit: limit})
+	accounts, err := Accounts()
+	if err != nil {
+		return nil, err
+	}
+	page, err := c.Page(library.Filter{Year: year, Album: album, NoDate: noDate, Offset: offset, Limit: limit,
+		Accounts: shownAddresses(accounts, s.Hidden)})
 	if err != nil {
 		return nil, err
 	}

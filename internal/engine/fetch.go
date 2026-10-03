@@ -27,6 +27,8 @@ type Fetch struct {
 	Target  takeout.Target
 	Export  takeout.Export
 	Library string
+	// Account is whose export it is, by address: the catalog keeps it.
+	Account string
 	// The timezone dates are filed in; nil means the machine's own.
 	Location *time.Location
 }
@@ -145,7 +147,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			items = ready
 		}
 		if len(items) > 0 {
-			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location}, emit)
+			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location, Account: f.Account}, emit)
 			organized.Add(placed)
 			if err != nil {
 				return err

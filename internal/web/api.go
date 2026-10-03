@@ -73,7 +73,12 @@ func apiRoutes() http.Handler {
 		q := r.URL.Query()
 		offset, _ := strconv.Atoi(q.Get("offset"))
 		limit, _ := strconv.Atoi(q.Get("limit"))
-		list, err := engine.Photos(q.Get("year"), q.Get("album"), q.Get("nodate") != "", offset, limit)
+		s, err := engine.LoadSettings()
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		list, err := engine.Photos(s, q.Get("year"), q.Get("album"), q.Get("nodate") != "", offset, limit)
 		reply(w, list, err)
 	})
 	// A thumbnail never changes: it is named by the photo's content.

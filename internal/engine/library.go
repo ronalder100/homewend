@@ -62,13 +62,30 @@ func LibraryOverview(s Settings) (Overview, error) {
 	return overview(root, accounts, s.Hidden)
 }
 
+// shownAddresses are the addresses of the accounts shown, or nil when every
+// account is: the catalog then needs no filter.
+func shownAddresses(accounts []AccountInfo, hidden []string) []string {
+	if len(hidden) == 0 {
+		return nil
+	}
+	shown := []string{}
+	for _, a := range accounts {
+		if a.Email != "" && !slices.Contains(hidden, a.ID) {
+			shown = append(shown, a.Email)
+		}
+	}
+	return shown
+}
+
 func overview(root string, accounts []AccountInfo, hidden []string) (Overview, error) {
 	o := Overview{Years: []YearCount{}, Albums: []AlbumCount{}, Accounts: []ShownAccount{}}
+	idOf := map[string]string{}
 	for _, a := range accounts {
 		// A profile that is signed out is nobody yet.
 		if a.Email == "" {
 			continue
 		}
+		idOf[a.Email] = a.ID
 		o.Accounts = append(o.Accounts, ShownAccount{AccountInfo: a, Shown: !slices.Contains(hidden, a.ID)})
 		if notes, err := loadNotes(a.Profile); err == nil {
 			o.Takeouts += len(notes)
@@ -87,11 +104,12 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 		return o, err
 	}
 	defer c.Close()
-	years, err := c.CountsByYear()
+	shown := shownAddresses(accounts, hidden)
+	years, err := c.CountsByYear(shown)
 	if err != nil {
 		return o, err
 	}
-	albums, err := c.AlbumNames()
+	albums, err := c.AlbumsByOwner()
 	if err != nil {
 		return o, err
 	}
@@ -99,8 +117,12 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 		o.Years = append(o.Years, YearCount{Year: y, Count: n})
 		o.Total += n
 	}
-	for name, n := range albums {
-		o.Albums = append(o.Albums, AlbumCount{Name: name, Count: n})
+	for _, al := range albums {
+		id := idOf[al.Account]
+		if al.Account != "" && (id == "" || slices.Contains(hidden, id)) {
+			continue
+		}
+		o.Albums = append(o.Albums, AlbumCount{Account: id, Name: al.Name, Count: al.Count})
 	}
 	// Newest first; the photos with no date last.
 	sort.Slice(o.Years, func(i, j int) bool {
@@ -110,6 +132,5 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 		}
 		return a > b
 	})
-	sort.Slice(o.Albums, func(i, j int) bool { return o.Albums[i].Name < o.Albums[j].Name })
 	return o, nil
 }

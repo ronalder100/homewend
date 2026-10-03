@@ -58,6 +58,10 @@ func (o *Organized) Add(more Organized) {
 
 // Options for an organise pass.
 type Options struct {
+	// Account is the Google account the photos came from, by address: the
+	// window shows each account's photos, or hides them.
+	Account string
+
 	// The timezone the dates are read in. Google's sidecars are UTC, and the
 	// user thinks in local time: a photo taken at half past midnight in Rome is
 	// 22:30 the previous day in UTC, so filing by UTC puts it in the wrong day
@@ -140,6 +144,9 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 		switch {
 		case known && exists(home):
 			result.Skipped++
+			if err := catalog.addOwner(hash, opt.Account); err != nil {
+				return result, err
+			}
 		case known:
 			// Recorded by a run that stopped before the move.
 			if err := place(item, home, root); err != nil {
@@ -174,6 +181,9 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 			if err := catalog.Put(record); err != nil {
 				return result, err
 			}
+			if err := catalog.addOwner(hash, opt.Account); err != nil {
+				return result, err
+			}
 			if err := place(item, home, root); err != nil {
 				return result, err
 			}
@@ -193,7 +203,7 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 			} else {
 				result.Copied++
 			}
-			if err := catalog.addAlbum(item.Album, hash); err != nil {
+			if err := catalog.addAlbum(item.Album, hash, opt.Account); err != nil {
 				return result, err
 			}
 		}
