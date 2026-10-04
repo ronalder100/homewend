@@ -113,22 +113,29 @@ Exit codes: `0` done · `1` error · `2` files missing, named · `3` not signed 
 
 ```
 Homewend/
-├── 2019/
-│   ├── 07/
-│   │   └── IMG_1234.jpg
-│   └── unknown-month/
-├── albums/
-│   └── Greece 2019/
-│       └── IMG_1234.jpg
-├── undated/
+├── ron/
+│   ├── 2019/
+│   │   ├── 07/
+│   │   │   └── 14/
+│   │   │       └── IMG_1234.jpg
+│   │   └── unknown-month/
+│   ├── albums/
+│   │   └── Greece 2019/
+│   │       └── IMG_1234.jpg
+│   ├── messaging/
+│   └── undated/
+├── sam/
 └── .homewend/
 ```
 
-- One folder per year and month. `unknown-month/` when Google knows only the year.
-- Albums link to the same photos: no extra space, where the disk allows links.
+- One folder per profile: whose photos they are. Each Google account belongs to one, named after the address the first time and changeable then; two accounts can share one.
+- Inside, one folder per year, month and day. `unknown-month/` when Google knows only the year.
+- Albums link to the same photos: no extra space, where the disk allows links. A photo two profiles both have is stored once.
+- `messaging/` keeps the pictures that came through WhatsApp, Signal or Telegram apart from your photos.
 - `undated/` for photos with no date at all.
 - `unassigned/`, only while a download is going on: photos that have arrived and still wait for their date. It empties as the dates arrive, and is gone at the end.
 - `.homewend/` keeps Google's `.json` files, the catalogue and the progress.
+- A library made by an older Homewend is moved into its profile the first time a new one opens it.
 
 ## How Homewend works with Google
 
