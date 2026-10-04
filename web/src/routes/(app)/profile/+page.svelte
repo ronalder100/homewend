@@ -39,51 +39,61 @@
 	}
 </script>
 
-<form class="page" onsubmit={save}>
-	<h1>{text.askProfile}</h1>
-	<p><b>{account?.email ?? ''}</b><br />{text.askProfileLead}</p>
-	<label>
-		<span>{text.askProfileField}</span>
-		<!-- svelte-ignore a11y_autofocus -->
-		<input bind:value={name} autofocus spellcheck="false" autocomplete="off" />
-	</label>
-	<p class="where" class:err={failed}>
-		{failed || (dir ? `${dir}${dir.endsWith(sep) ? '' : sep}${name.trim()}` : '')}
-	</p>
-	<PrimaryButton>{text.continue}</PrimaryButton>
-</form>
+<!-- C5: the dialog of "Add a Google account", its next step. -->
+<div class="page">
+	<form class="dialog" onsubmit={save}>
+		<div class="head">
+			<h1>{text.askProfile}</h1>
+			<p>{text.askProfileLead(account?.email ?? '')}</p>
+		</div>
+		<label>
+			<span>{text.askProfileField}</span>
+			<!-- svelte-ignore a11y_autofocus -->
+			<input bind:value={name} autofocus spellcheck="false" autocomplete="off" />
+			<small class:err={failed}>{failed || (dir ? `${dir}${dir.endsWith(sep) ? '' : sep}${name.trim()}` : '')}</small>
+		</label>
+		<PrimaryButton>{text.continue}</PrimaryButton>
+	</form>
+</div>
 
 <style>
 	.page {
 		height: 100%;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 16px;
 		padding: 40px;
-		text-align: center;
+	}
+	.dialog {
+		width: 440px;
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+		padding: 32px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		box-shadow: 0 24px 64px #0a0a1a33;
+	}
+	.head {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
 	}
 	h1 {
-		font-size: var(--text-large-title);
+		font-size: var(--text-title-2);
 		font-weight: 700;
+		letter-spacing: -0.2px;
 		color: var(--fg);
 	}
 	p {
 		color: var(--muted);
-		max-width: 420px;
-	}
-	p b {
-		color: var(--fg);
-		font-weight: 600;
+		line-height: 1.5;
 	}
 	label {
-		width: 320px;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		margin-top: 8px;
-		text-align: left;
 	}
 	label span {
 		font-size: var(--text-callout);
@@ -101,15 +111,20 @@
 		user-select: text;
 	}
 	input:focus {
-		outline: 3px solid var(--accent-soft);
+		outline: none;
 		border-color: var(--accent);
 	}
-	.where {
+	small {
 		font-family: var(--font-mono);
 		font-size: var(--text-callout);
+		color: var(--muted);
+		overflow-wrap: anywhere;
 	}
-	.where.err {
+	small.err {
 		font-family: inherit;
 		color: var(--err);
+	}
+	.dialog :global(button) {
+		width: 100%;
 	}
 </style>

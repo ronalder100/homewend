@@ -57,7 +57,8 @@ export const text = {
 	seeTakeouts: 'See your takeouts',
 	photosGoTo: 'Photos go to',
 	askProfile: 'Whose photos are these?',
-	askProfileLead: 'The folder of the library they go in. Asked once, for each account.',
+	askProfileLead: (email: string) =>
+		`${email} signed in. Its photos go in a folder of the library: say whose they are. Asked once, for each account.`,
 	askProfileField: 'Name',
 	continue: 'Continue',
 	badProfile: 'A name of a folder: no / or \\, and not starting with a dot.',
