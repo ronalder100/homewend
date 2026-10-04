@@ -168,5 +168,28 @@ export const text = {
 	notifySignedOutBody: (who: string) => `Sign in again to finish the takeout of ${who}.`,
 	notifyReady: 'Your takeout is ready',
 	notifyReadyBody: (who: string) => `${who}'s photos are coming down now.`,
-	notifyPassword: 'Google asks for your password'
+	notifyPassword: 'Google asks for your password',
+
+	askedToday: 'asked today',
+	asked: 'asked',
+	lastLooked: 'last looked',
+	keepsOnceReady: 'Google keeps it, once ready',
+	sevenDays: '7 days',
+	minAgo: (n: number) => (n < 1 ? 'just now' : `${n} min ago`),
+	canClose: 'You can close Homewend.',
+	canCloseDesc:
+		'It keeps going in the background and picks up where it was after a restart. It never asks Google twice.',
+	stepPrepares: 'Google prepares the takeout',
+	stepDownloads: 'Homewend downloads it, part by part',
+	stepLands: 'Your photos land in your folder, counted',
+	stepNotify: 'You get a notification',
+	seeOnTakeout: 'See it on Google Takeout',
+	firstArrived: 'The first photos that arrived, exactly as Google sent them.',
+	lastArrived: 'Last arrived, exactly as Google sent them.',
+	stillSorting: 'Still sorting',
+	stillSortingDesc: 'They find their year when the rest arrives',
+	keepsUntil: 'Google keeps the takeout until',
+	allHere: 'all here',
+	missing: (n: string) => `${n} missing from the takeout`,
+	arriving: 'arriving with the next parts'
 } as const;

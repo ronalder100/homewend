@@ -9,6 +9,7 @@
 	import Grid from '#lib/components/Grid.svelte';
 	import EmptyLibrary from '#lib/screens/EmptyLibrary.svelte';
 	import Viewer from '#lib/components/Viewer.svelte';
+	import { CircleCheck, CircleAlert, Loader } from '@lucide/svelte';
 
 	let open = $state<number | null>(null);
 
@@ -18,6 +19,24 @@
 	);
 
 	let photos = $state<GridPhoto[]>([]);
+
+	// What the download says of this page: all here, missing, or arriving.
+	const where = $derived.by(() => {
+		const years = Object.values(app.jobs).flatMap((j) => j.years.map((y) => ({ ...y, running: j.running, finished: j.finished })));
+		const mine =
+			place.kind === 'year'
+				? years.filter((y) => y.year === (place.label === text.noDate ? '' : place.label))
+				: place.kind === 'all'
+					? years
+					: [];
+		if (mine.length === 0) return null;
+		const arrived = mine.reduce((n, y) => n + y.arrived, 0);
+		const of = mine.reduce((n, y) => n + y.of, 0);
+		if (arrived >= of) return { kind: 'ok', label: text.allHere };
+		if (mine.some((y) => y.running)) return { kind: 'arriving', label: text.arriving };
+		if (mine.some((y) => y.finished)) return { kind: 'missing', label: text.missing((of - arrived).toLocaleString('en')) };
+		return null;
+	});
 	// What the page holds: the count, and on All photos, how many each shown
 	// account brought; the photos with no date say why they have none.
 	const subtitle = $derived.by(() => {
@@ -71,7 +90,16 @@
 		{#snippet header()}
 			<div class="head">
 				<h1>{title}</h1>
-				<p>{subtitle}{loaded ? '' : '…'}</p>
+				<p>
+					{subtitle}{loaded ? '' : '…'}
+					{#if where}
+						<span class="state {where.kind}">
+							·
+							{#if where.kind === 'ok'}<CircleCheck size={14} />{:else if where.kind === 'missing'}<CircleAlert size={14} />{:else}<Loader size={14} />{/if}
+							{where.label}
+						</span>
+					{/if}
+				</p>
 			</div>
 		{/snippet}
 	</Grid>
@@ -91,6 +119,21 @@
 		margin-top: 8px;
 		font-size: var(--text-body);
 		color: var(--muted);
+	}
+	.state {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-weight: 500;
+	}
+	.state.ok {
+		color: var(--ok);
+	}
+	.state.missing {
+		color: var(--warn);
+	}
+	.state.arriving {
+		color: var(--accent);
 	}
 	:global(.narrow) h1 {
 		font-size: var(--text-large-title);

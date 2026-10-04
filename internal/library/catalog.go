@@ -398,6 +398,50 @@ func (c *Catalog) CountsByOwner() (map[string]int, error) {
 	return counts, rows.Err()
 }
 
+// Latest are the photos recorded last, newest first: the first to arrive in
+// a download are the last of these once it is over, the latest while it runs.
+func (c *Catalog) Latest(n int) ([]Photo, error) {
+	rows, err := c.db.Query(`SELECT hash, name FROM photos ORDER BY rowid DESC LIMIT ?`, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Photo
+	for rows.Next() {
+		var p Photo
+		if err := rows.Scan(&p.Hash, &p.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// About says which albums a photo is in and which accounts it came from.
+func (c *Catalog) About(hash string) (albums, accounts []string, err error) {
+	read := func(query string) ([]string, error) {
+		rows, err := c.db.Query(query, hash)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		out := []string{}
+		for rows.Next() {
+			var v string
+			if err := rows.Scan(&v); err != nil {
+				return nil, err
+			}
+			out = append(out, v)
+		}
+		return out, rows.Err()
+	}
+	if albums, err = read(`SELECT album FROM album_members WHERE hash = ? ORDER BY album`); err != nil {
+		return nil, nil, err
+	}
+	accounts, err = read(`SELECT account FROM owners WHERE hash = ? ORDER BY account`)
+	return albums, accounts, err
+}
+
 // AlbumCount is an album and the account it came from ("" when not known).
 type AlbumCount struct {
 	Account string

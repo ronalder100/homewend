@@ -152,3 +152,35 @@ func Folder(year, album string, noDate bool) (string, error) {
 	}
 	return root, nil
 }
+
+// Latest are the n photos that arrived last.
+func Latest(n int) ([]GridPhoto, error) {
+	c, _, err := openLibrary()
+	if err != nil || c == nil {
+		return []GridPhoto{}, err
+	}
+	defer c.Close()
+	list, err := c.Latest(n)
+	out := make([]GridPhoto, len(list))
+	for i, p := range list {
+		out[i] = GridPhoto{Hash: p.Hash, Name: p.Name, Video: isVideo(p.Name)}
+	}
+	return out, err
+}
+
+// PhotoAbout is what the viewer says beside a photo's name.
+type PhotoAbout struct {
+	Albums   []string `json:"albums"`
+	Accounts []string `json:"accounts"`
+}
+
+// About is a photo's albums and the accounts it came from.
+func About(hash string) (PhotoAbout, error) {
+	c, _, err := openLibrary()
+	if err != nil || c == nil {
+		return PhotoAbout{Albums: []string{}, Accounts: []string{}}, err
+	}
+	defer c.Close()
+	albums, accounts, err := c.About(hash)
+	return PhotoAbout{Albums: albums, Accounts: accounts}, err
+}

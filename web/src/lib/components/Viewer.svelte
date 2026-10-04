@@ -3,7 +3,7 @@
 <!-- B7: one photo, over the grid. ← and → move, Esc closes. -->
 <script lang="ts">
 	import { X, ChevronLeft, ChevronRight, FolderOpen } from '@lucide/svelte';
-	import { pathOf, type GridPhoto } from '#lib/api.js';
+	import { getAbout, pathOf, type GridPhoto } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 
 	let {
@@ -20,6 +20,17 @@
 	const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 	const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 	const taken = (iso: string) => text.taken(`${day.format(new Date(iso))}, ${time.format(new Date(iso))}`);
+
+	// "IMG_4471.HEIC · Greece 2019 · James Dean": the file, its albums, whose.
+	let about = $state('');
+	$effect(() => {
+		const hash = p?.hash;
+		about = '';
+		if (hash)
+			getAbout(hash).then((a) => {
+				if (p?.hash === hash) about = [...a.albums, ...a.accounts].map((x) => ` · ${x}`).join('');
+			});
+	});
 
 	const move = (d: number) => {
 		if (index !== null) index = Math.max(0, Math.min(photos.length - 1, index + d));
@@ -43,7 +54,7 @@
 			<button class="round" aria-label={text.close} onclick={() => (index = null)}><X size={18} /></button>
 			<div class="meta">
 				<b>{p.taken ? taken(p.taken) : text.noDate}</b>
-				<span>{p.name}</span>
+				<span>{p.name}{about}</span>
 			</div>
 			{#if window.shell}
 				<button class="pill" onclick={reveal}><FolderOpen size={14} />{text.openInFolder}</button>

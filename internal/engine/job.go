@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -29,18 +30,22 @@ type job struct {
 
 // JobState is where a job stands.
 type JobState struct {
-	Running  bool           `json:"running"`
-	Year     int            `json:"year"` // 0: everything
-	Stage    string         `json:"stage,omitempty"`
-	Export   string         `json:"export,omitempty"` // Google's job, once known
-	Parts    int            `json:"parts"`            // complete
-	Of       int            `json:"of"`               // in the export, manifest included
-	Done     int64          `json:"done"`             // bytes arrived
-	Total    int64          `json:"total"`            // bytes in the export
-	Years    []YearProgress `json:"years"`
-	Retry    string         `json:"retry,omitempty"` // why the network is being tried again
-	Finished bool           `json:"finished,omitempty"`
-	Error    string         `json:"error,omitempty"`
+	Running bool           `json:"running"`
+	Year    int            `json:"year"` // 0: everything
+	Stage   string         `json:"stage,omitempty"`
+	Export  string         `json:"export,omitempty"` // Google's job, once known
+	Parts   int            `json:"parts"`            // complete
+	Of      int            `json:"of"`               // in the export, manifest included
+	Done    int64          `json:"done"`             // bytes arrived
+	Total   int64          `json:"total"`            // bytes in the export
+	Years   []YearProgress `json:"years"`
+	Retry   string         `json:"retry,omitempty"` // why the network is being tried again
+	// LastLooked is when /manage was last read while Google prepared it.
+	LastLooked time.Time `json:"lastLooked,omitzero"`
+	// Unassigned photos have arrived and wait for their date.
+	Unassigned int    `json:"unassigned"`
+	Finished   bool   `json:"finished,omitempty"`
+	Error      string `json:"error,omitempty"`
 	// Problem names what stopped the job when a person can act on it:
 	// "signed-out", "no-space" (Need and Free say how much), "expired".
 	Problem string `json:"problem,omitempty"`
@@ -140,6 +145,9 @@ func (jb *job) record(e progress.Event) {
 		s.Of, s.Total = e.Of, e.Total
 	case progress.Waiting:
 		s.Export = e.Name
+		s.LastLooked = time.Now()
+	case progress.Unassigned:
+		s.Unassigned = e.N
 	case progress.Receiving, progress.Download:
 		s.Done = jb.partsBytes + e.Done
 	case progress.Downloaded:

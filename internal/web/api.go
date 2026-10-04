@@ -81,6 +81,14 @@ func apiRoutes() http.Handler {
 		list, err := engine.Photos(s, q.Get("year"), q.Get("album"), q.Get("nodate") != "", offset, limit)
 		reply(w, list, err)
 	})
+	mux.HandleFunc("GET /api/latest", func(w http.ResponseWriter, r *http.Request) {
+		list, err := engine.Latest(6)
+		reply(w, list, err)
+	})
+	mux.HandleFunc("GET /api/about/{hash}", func(w http.ResponseWriter, r *http.Request) {
+		a, err := engine.About(r.PathValue("hash"))
+		reply(w, a, err)
+	})
 	// A thumbnail never changes: it is named by the photo's content.
 	mux.HandleFunc("GET /api/thumb/{hash}", func(w http.ResponseWriter, r *http.Request) {
 		path, err := engine.Thumbnail(r.Context(), r.PathValue("hash"))

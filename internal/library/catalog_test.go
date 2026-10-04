@@ -68,3 +68,24 @@ func TestOwnersFilterThePhotos(t *testing.T) {
 		t.Fatalf("albums %+v, %v", albums, err)
 	}
 }
+
+func TestLatestAndAbout(t *testing.T) {
+	c, err := OpenCatalog(filepath.Join(t.TempDir(), "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	for _, h := range []string{"a", "b", "c"} {
+		c.Put(Photo{Hash: h, Path: h, Name: h})
+	}
+	c.addAlbum("Trip", "b", "ann@x")
+	c.addOwner("b", "ann@x")
+	latest, err := c.Latest(2)
+	if err != nil || len(latest) != 2 || latest[0].Hash != "c" || latest[1].Hash != "b" {
+		t.Fatalf("latest %+v, %v", latest, err)
+	}
+	albums, accounts, err := c.About("b")
+	if err != nil || len(albums) != 1 || albums[0] != "Trip" || len(accounts) != 1 || accounts[0] != "ann@x" {
+		t.Fatalf("about: %v %v %v", albums, accounts, err)
+	}
+}

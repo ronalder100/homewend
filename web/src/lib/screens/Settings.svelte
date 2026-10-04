@@ -9,7 +9,7 @@
 	import { text } from '#lib/strings.js';
 	import { theme, setTheme } from '#lib/theme.svelte.js';
 	import { app, refresh, sidebarOf } from '#lib/app.svelte.js';
-	import { getAbout, getLibrary, logout, putLibrary, type Theme } from '#lib/api.js';
+	import { getLibrary, getVersion, logout, putLibrary, type Theme } from '#lib/api.js';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 
@@ -26,7 +26,7 @@
 
 	onMount(async () => {
 		({ dir, free } = await getLibrary());
-		version = (await getAbout()).version;
+		version = (await getVersion()).version;
 	});
 
 	async function change() {

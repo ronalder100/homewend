@@ -67,6 +67,8 @@ export interface JobState {
 	years: { year: string; arrived: number; of: number }[];
 	retry?: string;
 	finished?: boolean;
+	lastLooked?: string;
+	unassigned: number;
 	error?: string;
 	problem?: 'signed-out' | 'no-space' | 'expired';
 	need?: number;
@@ -102,9 +104,12 @@ export interface Takeout {
 export const getTakeouts = (account: string) => call<Takeout[]>('GET', `/api/takeouts?${q({ account })}`);
 
 export const logout = (account: string) => call<object>('POST', `/api/logout?${q({ account })}`);
-export const getAbout = () => call<{ version: string }>('GET', '/api/about');
+export const getVersion = () => call<{ version: string }>('GET', '/api/about');
 
 export const pathOf = (hash: string) => call<{ path: string }>('GET', `/api/path/${hash}`);
 
 export const folderOf = (o: { year?: string; album?: string; noDate?: boolean }) =>
 	call<{ path: string }>('GET', `/api/folder?${q({ year: o.year, album: o.album, nodate: o.noDate ? '1' : undefined })}`);
+
+export const getLatest = () => call<GridPhoto[]>('GET', '/api/latest');
+export const getAbout = (hash: string) => call<{ albums: string[]; accounts: string[] }>('GET', `/api/about/${hash}`);
