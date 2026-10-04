@@ -320,6 +320,9 @@ func (f Fetch) spaceNeeded(st state) int64 {
 // id is the export's id or its first characters; empty, it is the only export
 // downloaded into the library.
 func Verify(libraryRoot, id string) (library.Verification, error) {
+	if err := settle(libraryRoot); err != nil {
+		return library.Verification{}, err
+	}
 	job, err := downloaded(libraryRoot, id)
 	if err != nil {
 		return library.Verification{}, err

@@ -506,3 +506,9 @@ func relativeTo(root, path string) string {
 	}
 	return path
 }
+
+// setPath records that a photo is now at path, under name.
+func (c *Catalog) setPath(hash, path, name string) error {
+	_, err := c.db.Exec(`UPDATE photos SET path = ?, name = ? WHERE hash = ?`, path, name, hash)
+	return err
+}

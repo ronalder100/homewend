@@ -56,6 +56,9 @@ func LibraryOverview(s Settings) (Overview, error) {
 	if err != nil {
 		return Overview{}, err
 	}
+	if err := settle(root); err != nil {
+		return Overview{}, err
+	}
 	accounts, err := Accounts()
 	if err != nil {
 		return Overview{}, err

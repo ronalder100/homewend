@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/session"
 )
 
@@ -83,4 +84,37 @@ func Now(sess *session.Session) (State, error) {
 		}
 	}
 	return st, nil
+}
+
+// settle moves a library filed before profiles into them, once: the photos
+// of each source to its account's profile, those of no source to the first
+// account's.
+func settle(root string) error {
+	if root == "" || !library.Filed(root) {
+		return nil
+	}
+	accounts, err := Accounts()
+	if err != nil {
+		return err
+	}
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	fallback := ""
+	for _, a := range accounts {
+		if a.Profile != "" {
+			fallback = a.Profile
+			break
+		}
+	}
+	if fallback == "" {
+		return nil // nobody to file them under yet
+	}
+	catalog, err := library.OpenCatalog(catalogPath(root))
+	if err != nil {
+		return err
+	}
+	defer catalog.Close()
+	return library.Relayout(root, catalog, s.ProfileFor, fallback, nil)
 }

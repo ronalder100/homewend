@@ -135,6 +135,9 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 	if _, _, err := Login(ctx, sess, emit); err != nil {
 		return Result{}, err
 	}
+	if err := settle(g.Library); err != nil {
+		return Result{}, err
+	}
 	picked, err := g.pick(sess)
 	if err != nil {
 		return Result{}, err
