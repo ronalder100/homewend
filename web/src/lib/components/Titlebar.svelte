@@ -2,8 +2,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
 	import { FolderInput } from '@lucide/svelte';
+	import { fly } from 'svelte/transition';
 	import Brand from './Brand.svelte';
-	import SecondaryButton from './SecondaryButton.svelte';
 	import { text } from '#lib/strings.js';
 
 	let {
@@ -27,12 +27,12 @@
 	<Brand />
 	<span class="spacer"></span>
 	<span class="anchor">
-		<SecondaryButton small onclick={() => (importing = !importing)}
-			><FolderInput size={14} />{text.importFolder}</SecondaryButton
+		<button class="import" class:on={importing} onclick={() => (importing = !importing)}
+			><FolderInput size={14} />{text.importFolder}</button
 		>
 		{#if importing}
 			<!-- C3: importing a folder is phase 2; the button says what is coming. -->
-			<div class="popover" role="dialog" aria-label={text.importTitle}>
+			<div class="popover" role="dialog" aria-label={text.importTitle} transition:fly={{ y: -6, duration: 150 }}>
 				<div class="row">
 					<span class="tile"><FolderInput size={18} /></span><span class="chip">{text.upcoming}</span>
 				</div>
@@ -119,6 +119,23 @@
 	}
 	.anchor {
 		position: relative;
+	}
+	/* A text button: the bordered buttons are the page's, not the bar's. */
+	.import {
+		height: 32px;
+		padding: 0 10px;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		border-radius: 8px;
+		color: var(--accent);
+		font-size: var(--text-callout);
+		font-weight: 600;
+		transition: background-color 120ms ease;
+	}
+	.import:hover,
+	.import.on {
+		background: var(--accent-soft);
 	}
 	.popover {
 		position: absolute;

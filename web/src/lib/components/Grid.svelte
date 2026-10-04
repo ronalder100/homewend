@@ -105,7 +105,13 @@
 						style:transform="translate({c * (tile + GAP)}px, {row.top}px)"
 						onclick={() => onopen?.(photos.indexOf(p))}
 					>
-						<img src="/api/thumb/{p.hash}" alt={p.name} loading="lazy" decoding="async" />
+						<img
+							src="/api/thumb/{p.hash}"
+							alt={p.name}
+							loading="lazy"
+							decoding="async"
+							onload={(e) => (e.currentTarget as HTMLElement).classList.add('in')}
+						/>
 						{#if p.video}<span class="video"><Play size={14} fill="currentColor" /></span>{/if}
 					</button>
 				{/each}
@@ -153,6 +159,11 @@
 		height: 100%;
 		object-fit: cover;
 		display: block;
+		opacity: 0;
+		transition: opacity 160ms ease;
+	}
+	img:global(.in) {
+		opacity: 1;
 	}
 	.video {
 		position: absolute;

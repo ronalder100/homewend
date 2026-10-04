@@ -3,6 +3,7 @@
 <!-- B7: one photo, over the grid. ← and → move, Esc closes. -->
 <script lang="ts">
 	import { X, ChevronLeft, ChevronRight, FolderOpen } from '@lucide/svelte';
+	import { fade } from 'svelte/transition';
 	import { getAbout, pathOf, type GridPhoto } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 
@@ -49,7 +50,7 @@
 <svelte:window onkeydown={key} />
 
 {#if p}
-	<div class="viewer">
+	<div class="viewer" transition:fade={{ duration: 150 }}>
 		<header>
 			<button class="round" aria-label={text.close} onclick={() => (index = null)}><X size={18} /></button>
 			<div class="meta">
@@ -78,11 +79,12 @@
 <style>
 	.viewer {
 		position: fixed;
-		inset: 44px 0 0 0;
-		z-index: 10;
+		/* The photo takes the whole window, titlebar included. */
+		inset: 0;
+		z-index: 30;
 		display: flex;
 		flex-direction: column;
-		background: #0b0c10f2;
+		background: #0b0c10;
 		color: #fff;
 	}
 	header {
@@ -90,6 +92,8 @@
 		align-items: center;
 		gap: 16px;
 		padding: 12px 16px;
+		/* Clear of the window buttons the system draws over the top right. */
+		padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px);
 	}
 	.meta {
 		flex: 1;

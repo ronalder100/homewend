@@ -3,6 +3,7 @@
 <!-- C1: the exports on Google Takeout, each account's. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { fade } from 'svelte/transition';
 	import { Archive, Download } from '@lucide/svelte';
 	import { app, sidebarOf } from '#lib/app.svelte.js';
 	import { getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
@@ -10,6 +11,7 @@
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
+	import Skeleton from '#lib/components/Skeleton.svelte';
 
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 	let account = $state('');
@@ -88,11 +90,11 @@
 	{#if failed}
 		<p class="err">{failed}</p>
 	{:else if list === null}
-		<p class="muted">{text.readingTakeouts}</p>
+		<Skeleton label={text.readingTakeouts} />
 	{:else if list.length === 0}
 		<p class="muted">{text.noTakeouts}</p>
 	{:else}
-		<table>
+		<table in:fade={{ duration: 150 }}>
 			<thead>
 				<tr><th>{text.takeoutCol}</th><th>{text.askedCol}</th><th>{text.sizeCol}</th><th>{text.statusCol}</th><th></th></tr>
 			</thead>

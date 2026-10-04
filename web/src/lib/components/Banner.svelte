@@ -3,6 +3,7 @@
 <!-- D1: when Homewend needs the person, one strip under the titlebar. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { slide } from 'svelte/transition';
 	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { login } from '#lib/api.js';
@@ -45,7 +46,7 @@
 </script>
 
 {#if kind && dismissed !== kind}
-	<div class="banner {kind}">
+	<div class="banner {kind}" transition:slide={{ duration: 180 }}>
 		<span class="icon">
 			{#if kind === 'password'}<KeyRound size={18} />
 			{:else if kind === 'signed-out'}<KeyRound size={18} />

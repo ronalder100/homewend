@@ -65,7 +65,7 @@
 		</div>
 	{:else}
 		<div class="left">
-			<span class="pill" class:err={job.error}><i></i>{headline(job)}</span>
+			<span class="pill" class:err={job.error} class:live={job.running}><i></i>{headline(job)}</span>
 			<h1>{title}</h1>
 			<p class="lead">{job.error || lead}</p>
 			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
@@ -189,6 +189,15 @@
 		height: 8px;
 		border-radius: 50%;
 		background: currentColor;
+	}
+	/* While the engine works the dot breathes: the screen is alive. */
+	.pill.live i {
+		animation: pulse 1.6s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.25;
+		}
 	}
 	.pill.err {
 		background: var(--err-soft);

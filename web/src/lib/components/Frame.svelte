@@ -4,6 +4,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Titlebar from './Titlebar.svelte';
+	import { page } from '$app/state';
 	import Sidebar from './Sidebar.svelte';
 	import type { Place, Sidebar as SidebarData } from '#lib/library.js';
 
@@ -45,6 +46,9 @@
 		if (narrow && (p.kind === 'takeouts' || p.kind === 'settings')) open = false;
 		onplace?.(p);
 	}
+	// The new page settles in from half-visible: never a blank frame between.
+	const settle = (_: Element) => ({ duration: 140, css: (t: number) => `opacity: ${0.5 + t / 2}` });
+
 	function expand() {
 		if (narrow) open = true;
 		else folded = false;
@@ -70,12 +74,14 @@
 			<Sidebar data={sidebar} {place} {rail} onplace={placed} {ontoggle} onexpand={expand} />
 		</div>
 		{#if narrow && open}
-			<!-- Open over the page, the sidebar closes with a click beside it;
-			     choosing a row in it leaves it open. -->
+			<!-- Open over the page, the sidebar closes with a click anywhere
+			     beside it, the titlebar included; choosing a row in it leaves it open. -->
 			<button class="scrim" aria-label="close" onclick={() => (open = false)}></button>
 		{/if}
 		<div class="main">
-			<div class="content">{@render children()}</div>
+			{#key page.url.pathname}
+				<div class="content" in:settle>{@render children()}</div>
+			{/key}
 			{#if status}<footer>{@render status()}</footer>{/if}
 		</div>
 	</div>
@@ -107,18 +113,30 @@
 		height: 100%;
 		z-index: 2;
 	}
+	.side :global(nav) {
+		transition: width 180ms ease;
+	}
 	.side.over {
+		animation: slide 180ms ease;
 		position: absolute;
 		left: 0;
 		top: 0;
 		bottom: 0;
 		box-shadow: 0 12px 40px rgba(10, 10, 30, 0.16);
 	}
+	@keyframes slide {
+		from {
+			transform: translateX(-12px);
+			opacity: 0.6;
+		}
+	}
 	.scrim {
-		position: absolute;
+		position: fixed;
 		inset: 0;
 		z-index: 1;
 		cursor: default;
+		/* Over the titlebar too: a drag region would swallow the click. */
+		-webkit-app-region: no-drag;
 	}
 	.main {
 		flex: 1;

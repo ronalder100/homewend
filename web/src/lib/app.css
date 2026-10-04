@@ -36,3 +36,23 @@ button {
 	padding: 0;
 	cursor: pointer;
 }
+
+/* Every control answers the pointer, briefly. Nothing moves for whoever asked
+   the system for less motion. */
+button,
+a {
+	transition:
+		background-color 120ms ease,
+		color 120ms ease,
+		border-color 120ms ease,
+		box-shadow 120ms ease,
+		filter 120ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition: none !important;
+		animation: none !important;
+	}
+}

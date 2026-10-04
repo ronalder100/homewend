@@ -19,7 +19,7 @@
 	const left = $derived(app.left[account]);
 </script>
 
-<span class="icon" class:err={job.error}>
+<span class="icon" class:err={job.error} class:live={job.running}>
 	{#if job.error}<CircleAlert size={16} />{:else}<Download size={16} />{/if}
 </span>
 <span class="what">{headline(job)}</span>
@@ -47,6 +47,14 @@
 	.icon {
 		display: grid;
 		color: var(--accent);
+	}
+	.icon.live {
+		animation: pulse 1.6s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.35;
+		}
 	}
 	.icon.err {
 		color: var(--err);
