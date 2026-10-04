@@ -268,7 +268,7 @@ func mustExist(t *testing.T, path string) {
 	}
 }
 
-// A profile's photos go under its folder, by year, month and day, with its
+// A profile's photos go under its folder, by year and month, with its
 // albums beside them; a photo another profile already holds is one file,
 // linked into the second profile where its date says.
 func TestProfilesShareOnePhoto(t *testing.T) {
