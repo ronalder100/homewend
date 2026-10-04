@@ -88,9 +88,10 @@ CREATE TABLE IF NOT EXISTS album_members (
   hash  TEXT NOT NULL REFERENCES photos(hash),
   PRIMARY KEY (album, hash)
 );
--- Whose photo it is: the Google account it came from, by address. A photo
--- in two accounts' exports is one photo with two owners; a photo recorded
--- before owners were kept has none, and is shown with every account.
+-- Where a photo came from: its sources, "<service>/<address>" for an
+-- account ("google/ron@example.com"), "local/<folder>" for an import. A photo
+-- that came from two is one photo with two; a photo recorded before sources
+-- were kept has none, and is shown with every account.
 CREATE TABLE IF NOT EXISTS owners (
   account TEXT NOT NULL,
   hash    TEXT NOT NULL,
@@ -124,6 +125,13 @@ func OpenCatalog(path string) (*Catalog, error) {
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("preparing the catalog: %w", err)
+	}
+	// A catalog from before sources named their service kept bare Google
+	// addresses.
+	if _, err := db.Exec(`UPDATE OR IGNORE owners SET account = 'google/' || account WHERE instr(account, '/') = 0;
+UPDATE OR IGNORE album_owners SET account = 'google/' || account WHERE instr(account, '/') = 0;`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("naming the catalog's sources: %w", err)
 	}
 	return &Catalog{db: db}, nil
 }
@@ -291,8 +299,28 @@ func (c *Catalog) Page(f Filter) ([]Photo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading the catalog: %w", err)
 	}
-	defer rows.Close()
+	return scanPhotos(rows)
+}
 
+// photo is the record of one photo.
+func (c *Catalog) photo(hash string) (Photo, error) {
+	rows, err := c.db.Query(`SELECT hash, path, name, bytes, taken, source, kind, origin FROM photos WHERE hash = ?`, hash)
+	if err != nil {
+		return Photo{}, fmt.Errorf("reading the catalog: %w", err)
+	}
+	photos, err := scanPhotos(rows)
+	if err != nil || len(photos) == 0 {
+		return Photo{}, fmt.Errorf("reading the catalog: no photo %s: %v", hash, err)
+	}
+	return photos[0], nil
+}
+
+// capture is what the record knows of when the photo was taken.
+func (p Photo) capture() Capture { return Capture{When: p.Taken, Source: p.Source, Origin: p.Origin} }
+
+// scanPhotos reads the rows of a SELECT of the photos' columns, in order.
+func scanPhotos(rows *sql.Rows) ([]Photo, error) {
+	defer rows.Close()
 	var photos []Photo
 	for rows.Next() {
 		var photo Photo

@@ -31,6 +31,8 @@ type Get struct {
 	Takeout string
 	// New asks Google for a new export even when one of Year is still offered.
 	New bool
+	// Profile is whose photos they are: the library's folder they go in.
+	Profile string
 }
 
 // waitPoll is how often /manage is read while Google prepares the export: the
@@ -173,7 +175,8 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 		Target:  takeout.Target{Job: export.Job, User: user},
 		Export:  export,
 		Library: g.Library,
-		Account: Account(sess),
+		Account: Google + "/" + Account(sess),
+		Profile: g.Profile,
 	}.Run(ctx, sess, emit)
 }
 

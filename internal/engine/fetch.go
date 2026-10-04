@@ -27,8 +27,11 @@ type Fetch struct {
 	Target  takeout.Target
 	Export  takeout.Export
 	Library string
-	// Account is whose export it is, by address: the catalog keeps it.
+	// Account is the source of the export, "google/<address>": the catalog
+	// keeps it as each photo's badge.
 	Account string
+	// Profile is whose photos they are: the library's folder they go in.
+	Profile string
 	// The timezone dates are filed in; nil means the machine's own.
 	Location *time.Location
 }
@@ -90,7 +93,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		if err := download.Part(ctx, g, f.Target, f.Export.Manifest, 1, of, work, emit); err != nil {
 			return Result{}, err
 		}
-		st.Manifest = f.Export.Manifest.Filename
+		st.Manifest, st.Profile = f.Export.Manifest.Filename, f.Profile
 		if err := st.save(work); err != nil {
 			return Result{}, err
 		}
@@ -109,7 +112,8 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			return Result{}, err
 		}
 	}
-	years, err := newYears(f.Library, manifest)
+	home := filepath.Join(f.Library, f.Profile)
+	years, err := newYears(home, manifest)
 	if err != nil {
 		return Result{}, err
 	}
@@ -147,13 +151,13 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			items = ready
 		}
 		if len(items) > 0 {
-			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location, Account: f.Account}, emit)
+			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location, Account: f.Account, Profile: f.Profile, SeparateMessaging: true}, emit)
 			organized.Add(placed)
 			if err != nil {
 				return err
 			}
 		}
-		shown, err := library.ShowUnassigned(f.Library, waiting)
+		shown, err := library.ShowUnassigned(home, waiting)
 		emit.Emit(progress.Event{Stage: progress.Unassigned, N: shown})
 		return err
 	}
@@ -201,7 +205,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		return Result{}, err
 	}
 
-	verification, err := library.Verify(f.Library, manifest)
+	verification, err := library.Verify(home, manifest)
 	if err != nil {
 		return Result{}, err
 	}
@@ -328,7 +332,7 @@ func Verify(libraryRoot, id string) (library.Verification, error) {
 	if st.Manifest == "" {
 		return library.Verification{}, fmt.Errorf("export %s has not been fetched into %s", job, libraryRoot)
 	}
-	return verify(libraryRoot, filepath.Join(work, st.Manifest))
+	return verify(filepath.Join(libraryRoot, st.Profile), filepath.Join(work, st.Manifest))
 }
 
 // downloaded finds the export in the library whose id starts with id: each
@@ -368,8 +372,9 @@ func verify(libraryRoot, manifestPath string) (library.Verification, error) {
 
 // state is what survives between runs of one export.
 type state struct {
-	Unpacked map[string]bool `json:"unpacked"` // part filename -> unpacked
-	Manifest string          `json:"manifest"` // manifest filename, once fetched
+	Unpacked map[string]bool `json:"unpacked"`          // part filename -> unpacked
+	Manifest string          `json:"manifest"`          // manifest filename, once fetched
+	Profile  string          `json:"profile,omitempty"` // the library's folder it went in
 }
 
 func loadState(work string) (state, error) {

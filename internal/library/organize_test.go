@@ -37,7 +37,7 @@ func TestSamePhotoInYearAndAlbumIsStoredOnce(t *testing.T) {
 	if result.Linked+result.Copied != 1 {
 		t.Errorf("album entries %d, want 1", result.Linked+result.Copied)
 	}
-	mustExist(t, filepath.Join(out, "2019", "07", "IMG_1.jpg"))
+	mustExist(t, filepath.Join(out, "2019", "07", "05", "IMG_1.jpg"))
 	mustExist(t, filepath.Join(out, "albums", "Greece 2019", "IMG_1.jpg"))
 }
 
@@ -52,7 +52,7 @@ func TestTheSidecarIsKeptBesideThePhotosPath(t *testing.T) {
 	if _, err := organize(t, src, out); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(out, WorkDir, "metadata", "2019", "07", "IMG_1.jpg.json"))
+	mustExist(t, filepath.Join(out, WorkDir, "metadata", "2019", "07", "05", "IMG_1.jpg.json"))
 }
 
 // Google handed the 344 GB export the same 8.64 GB video twice, as two separate
@@ -94,8 +94,8 @@ func TestSameNameDifferentPhotoKeepsBoth(t *testing.T) {
 	if result.Placed != 2 {
 		t.Fatalf("placed %d, want 2 — both photos must survive", result.Placed)
 	}
-	mustExist(t, filepath.Join(out, "2019", "07", "IMG_0001.jpg"))
-	mustExist(t, filepath.Join(out, "2019", "07", "IMG_0001-2.jpg"))
+	mustExist(t, filepath.Join(out, "2019", "07", "05", "IMG_0001.jpg"))
+	mustExist(t, filepath.Join(out, "2019", "07", "05", "IMG_0001-2.jpg"))
 }
 
 // No sidecar, no EXIF: the year folder is Google's own filing, and it is better
@@ -153,7 +153,7 @@ func TestSidecarBeatsTheYearFolder(t *testing.T) {
 	if result.BySource[FromSidecar] != 1 {
 		t.Errorf("date sources %v, want one from the sidecar", result.BySource)
 	}
-	mustExist(t, filepath.Join(out, "2007", "06", "old.jpg"))
+	mustExist(t, filepath.Join(out, "2007", "06", "28", "old.jpg"))
 }
 
 // Takeout truncates the sidecar suffix when the whole name would be too long.
@@ -266,4 +266,74 @@ func mustExist(t *testing.T, path string) {
 	if _, err := os.Stat(path); err != nil {
 		t.Errorf("expected %s to exist: %v", path, err)
 	}
+}
+
+// A profile's photos go under its folder, by year, month and day, with its
+// albums beside them; a photo another profile already holds is one file,
+// linked into the second profile where its date says.
+func TestProfilesShareOnePhoto(t *testing.T) {
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(t.TempDir(), "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	photo := []byte("the same bytes")
+	for _, p := range []struct{ profile, account string }{{"ron", "google/ron@example.com"}, {"sam", "google/sam@example.com"}} {
+		src := t.TempDir()
+		write(t, src, "Photos from 2019/IMG_1.jpg", photo)
+		sidecar(t, src, "Photos from 2019/IMG_1.jpg", 1562345678)
+		write(t, src, "Greece 2019/IMG_1.jpg", photo)
+		sidecar(t, src, "Greece 2019/IMG_1.jpg", 1562345678)
+		items, err := ReadTakeout(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Organize(items, root, catalog, Options{Location: time.UTC, Profile: p.profile, Account: p.account}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first := filepath.Join(root, "ron", "2019", "07", "05", "IMG_1.jpg")
+	second := filepath.Join(root, "sam", "2019", "07", "05", "IMG_1.jpg")
+	mustExist(t, filepath.Join(root, "sam", "albums", "Greece 2019", "IMG_1.jpg"))
+	a, err1 := os.Stat(first)
+	b, err2 := os.Stat(second)
+	if err1 != nil || err2 != nil || !os.SameFile(a, b) {
+		t.Fatalf("the second profile's photo is not the first's file: %v %v", err1, err2)
+	}
+	_, sources, err := catalog.About(mustHash(t, first))
+	if err != nil || len(sources) != 2 {
+		t.Errorf("sources %v %v", sources, err)
+	}
+}
+
+// A catalog from before sources named their service gets "google/" in front.
+func TestOldSourcesAreNamedGoogle(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.db")
+	c, err := OpenCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.db.Exec(`INSERT INTO owners (account, hash) VALUES ('ron@example.com', 'h')`); err != nil {
+		t.Fatal(err)
+	}
+	c.Close()
+	c, err = OpenCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	counts, err := c.CountsByOwner()
+	if err != nil || counts["google/ron@example.com"] != 1 {
+		t.Errorf("got %v %v", counts, err)
+	}
+}
+
+func mustHash(t *testing.T, path string) string {
+	t.Helper()
+	h, err := hashOf(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }

@@ -72,7 +72,7 @@ func shownAddresses(accounts []AccountInfo, hidden []string) []string {
 	shown := []string{}
 	for _, a := range accounts {
 		if a.Email != "" && !slices.Contains(hidden, a.ID) {
-			shown = append(shown, a.Email)
+			shown = append(shown, a.ID)
 		}
 	}
 	return shown
@@ -86,9 +86,9 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 		if a.Email == "" {
 			continue
 		}
-		idOf[a.Email] = a.ID
+		idOf[a.ID] = a.ID
 		o.Accounts = append(o.Accounts, ShownAccount{AccountInfo: a, Shown: !slices.Contains(hidden, a.ID)})
-		if notes, err := loadNotes(a.Profile); err == nil {
+		if notes, err := loadNotes(a.Dir); err == nil {
 			o.Takeouts += len(notes)
 		}
 	}
@@ -119,7 +119,7 @@ func overview(root string, accounts []AccountInfo, hidden []string) (Overview, e
 		return o, err
 	}
 	for i := range o.Accounts {
-		o.Accounts[i].Photos = owned[o.Accounts[i].Email]
+		o.Accounts[i].Photos = owned[o.Accounts[i].ID]
 	}
 	for y, n := range years {
 		o.Years = append(o.Years, YearCount{Year: y, Count: n})

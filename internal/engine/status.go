@@ -12,41 +12,42 @@ import (
 	"github.com/ronalder100/homewend/internal/session"
 )
 
-// libraryFile keeps the library folder chosen once, beside the profile's
-// folder in the user's config directory: a setting, like the profile.
+// libraryFile is where an older homewend kept the library folder, before it
+// moved into the settings.
 const libraryFile = "library"
-
-func libraryPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "homewend", libraryFile), nil
-}
 
 // DefaultLibrary is the library folder chosen once, or "" when none was.
 func DefaultLibrary() (string, error) {
-	path, err := libraryPath()
+	s, err := LoadSettings()
+	if err != nil || s.Library != "" {
+		return s.Library, err
+	}
+	dir, err := configDir()
 	if err != nil {
 		return "", err
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Join(dir, libraryFile))
 	if errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}
-	return strings.TrimSpace(string(data)), err
+	if err != nil {
+		return "", err
+	}
+	old := strings.TrimSpace(string(data))
+	if err := SetDefaultLibrary(old); err != nil {
+		return "", err
+	}
+	return old, os.Remove(filepath.Join(dir, libraryFile))
 }
 
 // SetDefaultLibrary keeps dir as the library folder from now on.
 func SetDefaultLibrary(dir string) error {
-	path, err := libraryPath()
+	s, err := LoadSettings()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte(dir+"\n"), 0o600)
+	s.Library = dir
+	return SaveSettings(s)
 }
 
 // State is where things stand, as the status command shows it.

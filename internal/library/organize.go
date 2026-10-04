@@ -58,9 +58,14 @@ func (o *Organized) Add(more Organized) {
 
 // Options for an organise pass.
 type Options struct {
-	// Account is the Google account the photos came from, by address: the
-	// window shows each account's photos, or hides them.
+	// Account is the source the photos came from, "google/<address>": the
+	// catalog keeps it as their badge, and the window shows or hides them.
 	Account string
+
+	// Profile is whose photos these are: the folder of the library they go
+	// in, "<root>/<profile>/…". Empty puts them at the root, as before
+	// profiles.
+	Profile string
 
 	// The timezone the dates are read in. Google's sidecars are UTC, and the
 	// user thinks in local time: a photo taken at half past midnight in Rome is
@@ -76,9 +81,8 @@ type Options struct {
 	Location *time.Location
 
 	// SeparateMessaging puts WhatsApp, Signal and Telegram pictures under
-	// "messaging/" instead of among the photographs. Off by default: it is the
-	// user's library and a quarter of it arrived through chats, so hiding that
-	// by default would be deciding for them.
+	// "messaging/" instead of among the photographs: a quarter of a library
+	// arrives through chats. The engine sets it (decided 04/10).
 	SeparateMessaging bool
 }
 
@@ -102,12 +106,15 @@ type Item struct {
 	Sidecar string
 }
 
-// Organize moves items into a date layout under root, and rebuilds the albums
-// beside it without storing anything twice.
+// Organize moves items into a date layout under the profile's folder, and
+// rebuilds the albums beside it without storing anything twice.
 //
-//	<root>/2019/07/IMG_1234.jpg
-//	<root>/albums/Greece 2019/IMG_1234.jpg   -> a hardlink to the file above
-//	<root>/undated/SCAN_0003.jpg
+//	<root>/<profile>/2019/07/14/IMG_1234.jpg
+//	<root>/<profile>/albums/Greece 2019/IMG_1234.jpg   -> a hardlink to the file above
+//	<root>/<profile>/undated/SCAN_0003.jpg
+//
+// A photo another profile already holds is stored once: this profile gets a
+// hardlink to it, where its date says.
 //
 // **Deduplication is by content, never by name.** The same photo appears under
 // its year and again under every album it belongs to, and Google sometimes
@@ -146,6 +153,21 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 			result.Skipped++
 			if err := catalog.addOwner(hash, opt.Account); err != nil {
 				return result, err
+			}
+			// Another profile's photo: a second name for it in this one.
+			if !within(home, profileRoot(root, opt)) {
+				record, err := catalog.photo(hash)
+				if err != nil {
+					return result, err
+				}
+				there, err := destination(home, root, record.capture(), opt, catalog)
+				if err != nil {
+					return result, err
+				}
+				if _, err := linkInto(home, there); err != nil {
+					return result, err
+				}
+				home = there
 			}
 		case known:
 			// Recorded by a run that stopped before the move.
@@ -194,7 +216,7 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 		// An album copy is a second name for a photo already stored, so it
 		// costs a directory entry and no bytes.
 		if item.Album != "" {
-			linked, err := linkInto(home, filepath.Join(root, "albums", item.Album, filepath.Base(home)))
+			linked, err := linkInto(home, filepath.Join(profileRoot(root, opt), "albums", item.Album, filepath.Base(home)))
 			if err != nil {
 				return result, err
 			}
@@ -214,9 +236,9 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 // destination is where a photo's date says it belongs, with a suffix when
 // another photo already holds that name.
 func destination(src, root string, capture Capture, opt Options, catalog *Catalog) (string, error) {
-	base := root
+	base := profileRoot(root, opt)
 	if opt.SeparateMessaging && capture.Origin.FromMessaging() {
-		base = filepath.Join(root, "messaging")
+		base = filepath.Join(base, "messaging")
 	}
 
 	// Read in the user's own timezone, not UTC — see Options.Location.
@@ -225,7 +247,7 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 	var dir string
 	switch capture.Source {
 	case FromSidecar, FromEXIF:
-		dir = filepath.Join(base, local.Format("2006"), local.Format("01"))
+		dir = filepath.Join(base, local.Format("2006"), local.Format("01"), local.Format("02"))
 	case FromFolder:
 		// The year is Google's and the month is not known. Saying so in the
 		// path is more honest than picking January and looking precise. No
@@ -335,4 +357,13 @@ func hashOf(path string) (string, error) {
 		return "", fmt.Errorf("hashing %s: %w", path, err)
 	}
 	return hex.EncodeToString(sum.Sum(nil)), nil
+}
+
+// profileRoot is the folder of the profile the pass files into.
+func profileRoot(root string, opt Options) string { return filepath.Join(root, opt.Profile) }
+
+// within is whether path is inside dir.
+func within(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

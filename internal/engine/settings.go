@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 )
 
 // Settings are the choices a person makes in the window. A missing file is
@@ -20,6 +21,66 @@ type Settings struct {
 	Theme string `json:"theme,omitempty"`
 	// Hidden are the accounts, by id, whose photos the window leaves out.
 	Hidden []string `json:"hidden,omitempty"`
+	// Library is the library folder, chosen once.
+	Library string `json:"library,omitempty"`
+	// Profiles names the profile of each account, by id: the folder of the
+	// library its photos go in. An account not named here goes in ProfileFor's.
+	Profiles map[string]string `json:"profiles,omitempty"`
+}
+
+// ProfileFor is the profile of the account id: the one chosen, or the
+// address's name before the @.
+func (s Settings) ProfileFor(id string) string {
+	if p := s.Profiles[id]; p != "" {
+		return p
+	}
+	_, email, _ := strings.Cut(id, "/")
+	name, _, _ := strings.Cut(email, "@")
+	return name
+}
+
+// ProfileNames are the profiles there are: those of the accounts, and those
+// named in the settings.
+func ProfileNames(accounts []AccountInfo, s Settings) []string {
+	seen := map[string]bool{}
+	var names []string
+	add := func(n string) {
+		if n != "" && !seen[n] {
+			seen[n] = true
+			names = append(names, n)
+		}
+	}
+	for _, a := range accounts {
+		add(a.Profile)
+	}
+	for _, p := range s.Profiles {
+		add(p)
+	}
+	slices.Sort(names)
+	return names
+}
+
+// SetProfile puts the account id in the profile named profile.
+func SetProfile(id, profile string) error {
+	if !validProfile(profile) {
+		return ErrBadProfile
+	}
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	if s.Profiles == nil {
+		s.Profiles = map[string]string{}
+	}
+	s.Profiles[id] = profile
+	return SaveSettings(s)
+}
+
+// ErrBadProfile is a profile name that cannot be a folder.
+var ErrBadProfile = errors.New("a profile is a name, without / or \\, and not . or ..")
+
+func validProfile(p string) bool {
+	return p != "" && p != "." && p != ".." && !strings.ContainsAny(p, "/\\") && !strings.HasPrefix(p, ".")
 }
 
 // Themes are the values Theme takes.

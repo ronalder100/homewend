@@ -67,7 +67,9 @@ func apiRoutes() http.Handler {
 			reply(w, nil, err)
 			return
 		}
-		reply(w, engine.AccountInfo{ID: id, Email: engine.Account(sess)}, nil)
+		// A new sign-in's folder takes its address's name.
+		a, err := engine.Adopt(id)
+		reply(w, a, err)
 	})
 	mux.HandleFunc("GET /api/photos", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -161,7 +163,7 @@ func apiRoutes() http.Handler {
 	// go, its photos stay.
 	mux.HandleFunc("POST /api/logout", func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("account")
-		dir, err := engine.ProfileOf(id)
+		dir, err := engine.AccountDir(id)
 		if err == nil {
 			jobs.Stop(id)
 			_, err = engine.Logout(dir)
