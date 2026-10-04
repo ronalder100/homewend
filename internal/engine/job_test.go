@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 func TestJobRecordsWhereItStands(t *testing.T) {
@@ -39,6 +40,7 @@ func TestJobRecordsWhereItStands(t *testing.T) {
 func TestProblemNamesWhatAPersonCanFix(t *testing.T) {
 	for err, want := range map[error]string{
 		ErrSignInClosed:                 "signed-out",
+		takeout.ErrSignedOut:            "signed-out",
 		NoSpaceError{Need: 10, Free: 1}: "no-space",
 		ErrExpired:                      "expired",
 		errors.New("something else"):    "",

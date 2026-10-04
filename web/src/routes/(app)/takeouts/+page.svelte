@@ -31,9 +31,16 @@
 	let failed = $state('');
 	let signedOut = $state(false);
 	let tries = $state(0);
+	// One sign-in at a time: the browser window is open until it is done.
+	let signingIn = $state(false);
 	async function signInAgain() {
-		await login(account);
-		tries++;
+		signingIn = true;
+		try {
+			await login(account);
+			tries++;
+		} finally {
+			signingIn = false;
+		}
 	}
 	let reading = $state('');
 	$effect(() => {
@@ -159,8 +166,8 @@
 		     they can do. -->
 		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
 			{#if signedOut}
-				<p>{text.bannerSignedOut(email)}</p>
-				<button class="pill" onclick={signInAgain}>{text.signInAgain}</button>
+				<p>{signingIn ? text.signingIn : text.bannerSignedOut(email)}</p>
+				<button class="pill" disabled={signingIn} onclick={signInAgain}>{text.signInAgain}</button>
 			{:else}
 				<p>{text.takeoutsFailed}</p>
 				<button class="pill" onclick={() => tries++}>{text.retry}</button>

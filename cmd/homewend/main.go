@@ -884,7 +884,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 		}
 		return exitError, fmt.Sprintf(text["not offered"], notOffered.Year),
 			[]string{fmt.Sprintf(text["offered years"], strings.Join(years, ", "))}, []string{text["not offered hint"]}
-	case errors.Is(err, download.ErrSessionExpired):
+	case errors.Is(err, download.ErrSessionExpired), errors.Is(err, takeout.ErrSignedOut):
 		return exitSignIn, text["session expired"], nil, []string{fmt.Sprintf(text["login then"], again)}
 	case errors.Is(err, engine.ErrSignInClosed):
 		return exitSignIn, text["sign-in closed"], nil, []string{text["try login"], text["try fallback"]}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // Jobs runs Get in the background, one per account, and keeps where each
@@ -59,7 +60,7 @@ func problem(err error, s *JobState) {
 	switch {
 	case errors.As(err, &space):
 		s.Problem, s.Need, s.Free = "no-space", space.Need, space.Free
-	case errors.Is(err, ErrNotSignedIn):
+	case errors.Is(err, ErrNotSignedIn), errors.Is(err, takeout.ErrSignedOut):
 		s.Problem = "signed-out"
 	case errors.Is(err, ErrExpired), errors.Is(err, ErrExportGone):
 		s.Problem = "expired"
