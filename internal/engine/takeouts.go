@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
@@ -84,6 +85,39 @@ type Takeout struct {
 	Known  bool   `json:"known"` // asked for by Homewend, so what it holds is known
 	// Years its manifest lists, once read (ReadContents or a download).
 	Years []string `json:"years,omitempty"`
+	// Local is what of it the library holds; nil when it never came here.
+	Local *Local `json:"local,omitempty"`
+}
+
+// Local is how far a takeout came into the library: its parts unpacked, and
+// the last count of its files against its manifest.
+type Local struct {
+	Parts    int `json:"parts"`
+	Of       int `json:"of"`
+	Declared int `json:"declared,omitempty"`
+	Present  int `json:"present,omitempty"`
+}
+
+// localOf reads what the library holds of e, from the state its fetch keeps.
+func localOf(root string, e takeout.Export) *Local {
+	work := filepath.Join(root, library.WorkDir, e.Job)
+	if _, err := os.Stat(filepath.Join(work, "state.json")); err != nil {
+		return nil
+	}
+	st, err := loadState(work)
+	if err != nil {
+		return nil
+	}
+	l := &Local{Of: len(e.Parts)}
+	for _, p := range e.Parts {
+		if st.Unpacked[p.Filename] {
+			l.Parts++
+		}
+	}
+	if st.Checked != nil {
+		l.Declared, l.Present = st.Checked.Declared, st.Checked.Present
+	}
+	return l
 }
 
 // idLength is how much of a job id the takeouts command shows, as git shows
@@ -115,6 +149,7 @@ func Takeouts(sess *session.Session) ([]Takeout, error) {
 	if root, err := DefaultLibrary(); err == nil && root != "" {
 		for i := range list {
 			list[i].Years, _ = manifestYears(root, list[i].Job)
+			list[i].Local = localOf(root, list[i].Export)
 		}
 	}
 	sort.SliceStable(list, func(i, j int) bool { return list[i].Created.After(list[j].Created) })

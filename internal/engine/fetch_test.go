@@ -131,6 +131,21 @@ func TestTheManifestComesFirstAndTheYearsAreFollowed(t *testing.T) {
 	if len(served.asked) != 0 || strings.Join(years, ", ") != "2024 1/1, 2025 2/2" {
 		t.Errorf("a second run asked for %v and said %q", served.asked, strings.Join(years, ", "))
 	}
+
+	// The list of takeouts says it is all here, as counted at the end.
+	if l := localOf(f.Library, f.Export); l == nil || l.Parts != 1 || l.Of != 1 || l.Declared != 3 || l.Present != 3 {
+		t.Errorf("local %+v, want 1 of 1 parts and 3 of 3 files", l)
+	}
+
+	// Again, the part is downloaded once more, though it was all here.
+	served.asked = nil
+	f.Again = true
+	if _, err := f.Run(context.Background(), served, func(progress.Event) {}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(served.asked, " ") != "part-001.zip" {
+		t.Errorf("again asked for %v, want the part", served.asked)
+	}
 }
 
 // The library fills while the download goes on: a photo is placed as soon as

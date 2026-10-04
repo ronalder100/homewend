@@ -90,10 +90,10 @@ const q = (o: Record<string, string | number | undefined>) =>
 
 export const getLibrary = () => call<{ dir: string; free: number }>('GET', '/api/library');
 export const putLibrary = (dir: string) => call<{ dir: string }>('PUT', '/api/library', { dir });
-export const startGet = (o: { account: string; year?: number; export?: string; fresh?: boolean }) =>
+export const startGet = (o: { account: string; year?: number; export?: string; fresh?: boolean; again?: boolean }) =>
 	call<JobState>(
 		'POST',
-		`/api/get?${q({ account: o.account, year: o.year, export: o.export, new: o.fresh ? '1' : undefined })}`
+		`/api/get?${q({ account: o.account, year: o.year, export: o.export, new: o.fresh ? '1' : undefined, again: o.again ? '1' : undefined })}`
 	);
 export const getJob = (account: string) => call<JobState>('GET', `/api/job?${q({ account })}`);
 export const stopJob = (account: string) => call<JobState>('POST', `/api/job/stop?${q({ account })}`);
@@ -108,6 +108,8 @@ export interface Takeout {
 	Parts: unknown[] | null;
 	Expires: string;
 	years?: string[];
+	/** What of it the library holds; absent when it never came here. */
+	local?: { parts: number; of: number; declared?: number; present?: number };
 }
 
 export const getTakeouts = (account: string) => call<Takeout[]>('GET', `/api/takeouts?${q({ account })}`);

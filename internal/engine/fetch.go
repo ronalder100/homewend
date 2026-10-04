@@ -34,6 +34,9 @@ type Fetch struct {
 	Profile string
 	// The timezone dates are filed in; nil means the machine's own.
 	Location *time.Location
+	// Again downloads every part once more, though all were unpacked: what
+	// is already in the library stays, what is missing comes back.
+	Again bool
 }
 
 // Result is what a fetch achieved.
@@ -76,6 +79,12 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	st, err := loadState(work)
 	if err != nil {
 		return Result{}, err
+	}
+	if f.Again {
+		st.Unpacked, st.Checked = map[string]bool{}, nil
+		if err := st.save(work); err != nil {
+			return Result{}, err
+		}
 	}
 	if err := f.checkSpace(st); err != nil {
 		return Result{}, err
@@ -207,6 +216,11 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 
 	verification, err := library.Verify(home, manifest)
 	if err != nil {
+		return Result{}, err
+	}
+	// Kept, so the takeouts list says what of it is here without counting again.
+	st.Checked = &checked{Declared: verification.Declared, Present: verification.Present}
+	if err := st.save(work); err != nil {
 		return Result{}, err
 	}
 	return Result{Organized: organized, Verification: verification}, nil
@@ -378,6 +392,13 @@ type state struct {
 	Unpacked map[string]bool `json:"unpacked"`          // part filename -> unpacked
 	Manifest string          `json:"manifest"`          // manifest filename, once fetched
 	Profile  string          `json:"profile,omitempty"` // the library's folder it went in
+	Checked  *checked        `json:"checked,omitempty"` // the last count against the manifest
+}
+
+// checked is how many of the files the manifest lists were found on disk.
+type checked struct {
+	Declared int `json:"declared"`
+	Present  int `json:"present"`
 }
 
 func loadState(work string) (state, error) {

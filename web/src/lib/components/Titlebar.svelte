@@ -1,7 +1,8 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-	import { FolderInput } from '@lucide/svelte';
+	import { FolderInput, Plus } from '@lucide/svelte';
+	import { goto } from '$app/navigation';
 	import { fly } from 'svelte/transition';
 	import Brand from './Brand.svelte';
 	import { text } from '#lib/strings.js';
@@ -26,6 +27,11 @@
 	{/if}
 	<Brand />
 	<span class="spacer"></span>
+	{#if menu}
+		<!-- The app's two ways in, always in the same place: from Google, and
+		     from a folder. -->
+		<button class="import" onclick={() => goto('/choose')}><Plus size={14} />{text.newTakeout}</button>
+	{/if}
 	<span class="anchor">
 		<button class="import" class:on={importing} onclick={() => (importing = !importing)}
 			><FolderInput size={14} />{text.importFolder}</button

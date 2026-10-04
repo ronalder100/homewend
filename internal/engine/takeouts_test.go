@@ -130,3 +130,9 @@ func TestDownloadedFindsTheExportInTheLibrary(t *testing.T) {
 		t.Errorf("got %v, want ErrNoSuchTakeout", err)
 	}
 }
+
+func TestLocalOfATakeoutNeverDownloaded(t *testing.T) {
+	if l := localOf(t.TempDir(), takeout.Export{Job: "job"}); l != nil {
+		t.Errorf("got %+v, want nil", l)
+	}
+}

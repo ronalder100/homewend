@@ -175,7 +175,7 @@ func apiRoutes() http.Handler {
 			return
 		}
 		year, _ := strconv.Atoi(q.Get("year"))
-		g := engine.Get{Year: year, Library: dir, Takeout: q.Get("export"), New: q.Get("new") != "", Profile: s.ProfileFor(q.Get("account"))}
+		g := engine.Get{Year: year, Library: dir, Takeout: q.Get("export"), New: q.Get("new") != "", Again: q.Get("again") != "", Profile: s.ProfileFor(q.Get("account"))}
 		err = jobs.Start(q.Get("account"), g)
 		reply(w, jobs.State(q.Get("account")), err)
 	})

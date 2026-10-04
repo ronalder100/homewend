@@ -100,28 +100,34 @@ export const text = {
 	aboutTime: (s: string) => `about ${s}`,
 
 	takeoutsTitle: 'Takeouts',
-	takeoutCol: 'HOLDS',
+	takeoutCol: 'TAKEOUT',
 	askedCol: 'ASKED',
 	sizeCol: 'SIZE',
 	statusCol: 'STATUS',
 	holdsAll: 'All photos',
 	holdsYear: (y: number) => String(y),
-	// Google does not say what a takeout holds: only those Homewend asked for
-	// are known.
-	holdsUnknown: 'Not known',
+	// A takeout made on Google: until its list of files is read, it is named
+	// as Takeout names what it holds.
+	holdsUnknown: 'Google Photos',
 	parts: (n: number) => `${n} parts`,
-	statusPreparing: 'Google is preparing',
+	statusPreparing: 'Preparing',
 	statusReady: 'Ready',
 	statusExpired: 'Expired',
 	statusDownloading: 'Downloading',
+	statusAllHere: 'All here',
+	statusPaused: 'Paused',
+	statusMissing: (n: string) => `${n} missing`,
+	partsOf: (n: number, of: number) => `${n} of ${of} parts`,
+	retry: 'Retry',
+	downloadAgain: 'Download again',
+	askAgain: 'Ask again',
+	moreActions: 'More',
 	since: (d: string) => `Since ${d}`,
 	until: (d: string) => `Until ${d}`,
 	download: 'Download',
 	newTakeout: 'New takeout',
 	readingTakeouts: 'Reading your takeouts from Google…',
 	noTakeouts: 'No takeouts on Google yet.',
-	unknownNote:
-		"Not known: a takeout made on Google. Google doesn't say what it holds; Homewend reads its list of files once the account has downloaded anything.",
 	reading: 'Reading…',
 
 	library: 'LIBRARY',

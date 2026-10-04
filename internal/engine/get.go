@@ -33,6 +33,8 @@ type Get struct {
 	New bool
 	// Profile is whose photos they are: the library's folder they go in.
 	Profile string
+	// Again downloads the takeout once more, though it is all here.
+	Again bool
 }
 
 // waitPoll is how often /manage is read while Google prepares the export: the
@@ -180,6 +182,7 @@ func (g Get) run(ctx context.Context, sess *session.Session, emit progress.Func)
 		Library: g.Library,
 		Account: Google + "/" + Account(sess),
 		Profile: g.Profile,
+		Again:   g.Again,
 	}.Run(ctx, sess, emit)
 }
 
