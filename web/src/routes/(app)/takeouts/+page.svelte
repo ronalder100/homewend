@@ -12,7 +12,7 @@
 	import { onMount } from 'svelte';
 	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
 	import { app, sidebarOf } from '#lib/app.svelte.js';
-	import { folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
+	import { ApiError, folderOf, getTakeouts, login, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -22,13 +22,19 @@
 	let account = $state('');
 	// The download this account runs, to say which takeout it is.
 	const job = $derived(app.jobs[account]);
+	const email = $derived(accounts.find((a) => a.id === account)?.email ?? '');
 	$effect(() => {
 		if (!account && accounts.length > 0) account = accounts[0].id;
 	});
 
 	let list = $state<Takeout[] | null>(null);
 	let failed = $state('');
+	let signedOut = $state(false);
 	let tries = $state(0);
+	async function signInAgain() {
+		await login(account);
+		tries++;
+	}
 	let reading = $state('');
 	$effect(() => {
 		const a = account;
@@ -37,6 +43,7 @@
 		// The list seen last shows at once; Google's answer replaces it.
 		list = seen.get(a) ?? null;
 		failed = '';
+		signedOut = false;
 		getTakeouts(a).then(
 			async (l) => {
 				seen.set(a, l);
@@ -57,7 +64,10 @@
 					}
 				}
 			},
-			(e) => (failed = String(e))
+			(e) => {
+				failed = String(e);
+				signedOut = e instanceof ApiError && e.status === 401;
+			}
 		);
 	});
 
@@ -147,9 +157,14 @@
 	{#if failed && list === null}
 		<!-- What went wrong is the engine's to log; the person is told what
 		     they can do. -->
-		<div class="failed accent" title={failed}>
-			<p>{text.takeoutsFailed}</p>
-			<button class="pill" onclick={() => tries++}>{text.retry}</button>
+		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
+			{#if signedOut}
+				<p>{text.bannerSignedOut(email)}</p>
+				<button class="pill" onclick={signInAgain}>{text.signInAgain}</button>
+			{:else}
+				<p>{text.takeoutsFailed}</p>
+				<button class="pill" onclick={() => tries++}>{text.retry}</button>
+			{/if}
 		</div>
 	{:else if list === null}
 		<Skeleton label={text.readingTakeouts} />
@@ -412,6 +427,10 @@
 	}
 	.muted {
 		color: var(--muted);
+	}
+	.failed .pill {
+		width: auto;
+		padding: 0 14px;
 	}
 	.failed {
 		display: flex;

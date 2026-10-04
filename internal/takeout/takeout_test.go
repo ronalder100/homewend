@@ -5,6 +5,7 @@ package takeout
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -165,5 +166,17 @@ func TestSignedInAsksGoogle(t *testing.T) {
 		if ok != c.ok || (err != nil) != c.err {
 			t.Errorf("%+v: got %v, %v; want %v, error %v", c.answer, ok, err, c.ok, c.err)
 		}
+	}
+}
+
+// A session Google no longer accepts is told apart from any other failure:
+// the window asks to sign in again, instead of reporting an error.
+func TestExportsOfASignedOutSession(t *testing.T) {
+	_, err := Exports(answer{status: 302, location: "https://accounts.google.com/ServiceLogin?passive=1209600&continue=https://takeout.google.com/manage"})
+	if !errors.Is(err, ErrSignedOut) {
+		t.Errorf("got %v, want ErrSignedOut", err)
+	}
+	if _, err := Exports(answer{status: 500}); err == nil || errors.Is(err, ErrSignedOut) {
+		t.Errorf("a 500: got %v, want another error", err)
 	}
 }

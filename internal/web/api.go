@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
+	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // apiRoutes are the engine calls the page makes. Each is a thin translation
@@ -240,6 +241,8 @@ func reply(w http.ResponseWriter, v any, err error) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, engine.ErrJobRunning), errors.Is(err, engine.ErrNoUserYet):
 		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, takeout.ErrSignedOut):
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 	case errors.Is(err, fs.ErrNotExist), errors.Is(err, engine.ErrNoLibrary):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:

@@ -29,13 +29,23 @@ export interface Overview {
 	takeouts: number;
 }
 
+/** A call the engine refused; status 401 means Google signed the account out. */
+export class ApiError extends Error {
+	constructor(
+		readonly status: number,
+		message: string
+	) {
+		super(message);
+	}
+}
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
 	const res = await fetch(path, {
 		method,
 		headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
 		body: body === undefined ? undefined : JSON.stringify(body)
 	});
-	if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${await res.text()}`);
+	if (!res.ok) throw new ApiError(res.status, `${method} ${path}: ${res.status} ${await res.text()}`);
 	return res.json();
 }
 

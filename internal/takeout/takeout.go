@@ -143,12 +143,23 @@ func SignedIn(g Getter) (bool, error) {
 	switch {
 	case res.StatusCode == http.StatusOK:
 		return true, nil
-	case res.StatusCode >= 300 && res.StatusCode < 400:
-		if to, err := url.Parse(res.Header.Get("Location")); err == nil && to.Host == "accounts.google.com" {
-			return false, nil
-		}
+	case toSignIn(res):
+		return false, nil
 	}
 	return false, fmt.Errorf("checking the session: HTTP %d", res.StatusCode)
+}
+
+// ErrSignedOut means Google no longer accepts the session: /manage sent it to
+// sign in.
+var ErrSignedOut = errors.New("Google signed this account out")
+
+// toSignIn reports whether /manage answered by sending the session to sign in.
+func toSignIn(res *http.Response) bool {
+	if res.StatusCode < 300 || res.StatusCode >= 400 {
+		return false
+	}
+	to, err := url.Parse(res.Header.Get("Location"))
+	return err == nil && to.Host == "accounts.google.com"
 }
 
 // The page names the account it is shown to, in the data its scripts start
@@ -193,6 +204,9 @@ func Exports(g Getter) ([]Export, error) {
 		return nil, fmt.Errorf("reading the export list: %w", err)
 	}
 	defer res.Body.Close()
+	if toSignIn(res) {
+		return nil, ErrSignedOut
+	}
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("reading the export list: HTTP %d", res.StatusCode)
 	}
