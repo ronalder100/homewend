@@ -29,36 +29,38 @@ https://homewend.app`,
 	"help login": `homewend login — sign in to Google, once
 
 Usage:
-  homewend login [--profile DIR] [--fallback] [--json]
+  homewend login [--new | --account EMAIL] [--fallback] [--json]
 
 Opens a small Chrome, Chromium, Brave or Edge window of its own and waits while
 you sign in to Google there. Google asks you to let homewend see your email
 address: that is how the window knows you are done, and nothing is read with
-it. homewend never sees your password. Run it again whenever a command says
-the sign-in expired.
+it. homewend never sees your password. A new account is asked, once, whose
+photos they are: the folder of the library they go in, its profile. Run it
+again whenever a command says the sign-in expired.
 
 Flags:
-  --profile DIR   where the sign-in is kept (default: homewend/profile in your
-                  config directory)
+  --new           sign in to another account, beside the ones there are
+  --account EMAIL sign in to this account again
   --fallback      sign in on Google Takeout's page, in a full window: for when
                   the small window shows a Google error instead of the sign-in
   --json          one JSON object per line, for scripts
 
 Examples:
   homewend login
+  homewend login --new
   homewend login --fallback
   BROWSER_BIN=/usr/bin/brave-browser homewend login`,
 
 	"help logout": `homewend logout — sign out of Google
 
 Usage:
-  homewend logout [--profile DIR]
+  homewend logout [--account EMAIL]
 
-Forgets the Google sign-in: the next command that needs Google asks you to
-sign in again. Your photos and your library are not touched.
+Forgets an account's Google sign-in: the next command that needs it asks you
+to sign in again. Your photos and your library are not touched.
 
 Flags:
-  --profile DIR   where the sign-in is kept (default: the one login made)
+  --account EMAIL the account to sign out of, when there are several
 
 Examples:
   homewend logout`,
@@ -66,13 +68,13 @@ Examples:
 	"help status": `homewend status — where things stand
 
 Usage:
-  homewend status [--profile DIR] [--json]
+  homewend status [--json]
 
-Shows the Google account, the export homewend asked for last, the library
-folder and the version. Nothing is downloaded and nothing changes.
+Shows each Google account and its profile, the export homewend asked for last
+for it, the library folder and the version. Nothing is downloaded and nothing
+changes.
 
 Flags:
-  --profile DIR   where the sign-in is kept (default: the one login made)
   --json          one JSON object, for scripts
 
 Examples:
@@ -82,12 +84,13 @@ Examples:
 
 Usage:
   homewend takeout [YEAR] [--new] [--yes] [--library DIR] [--export ID]
-                   [--profile DIR] [--json]
+                   [--account EMAIL] [--profile NAME] [--json]
   homewend takeout --list
 
 Brings your Google Photos home, one year or all of them, into the library
-folder: the photos by date, with your albums beside them, each one counted
-against the list Google puts in the export.
+folder, under the account's profile: the photos by year, month and day, with
+your albums beside them and the pictures that came through chats apart, each
+one counted against the list Google puts in the export.
 
 If Google Takeout still has the export homewend asked for last, it asks you
 whether to download it or to ask for a new one. When there is none, it asks
@@ -103,7 +106,8 @@ Flags:
   --library DIR   where the photos go, for this run (the first run asks, and
                   remembers it)
   --export ID     this export, by the id --list shows
-  --profile DIR   where the sign-in is kept (default: the one login made)
+  --account EMAIL the account, when there are several (otherwise you are asked)
+  --profile NAME  whose photos, for this run: the library's folder they go in
   --json          one JSON object per line, for scripts
 
 Examples:
@@ -163,18 +167,25 @@ Examples:
   homewend update`,
 
 	// Sign-in.
-	"checking":       "Checking your Google sign-in",
-	"sign in":        "Waiting for you to sign in to Google in the new window",
-	"session ready":  "Setting up your Google account",
-	"signed in":      "Signed in",
-	"signed in as":   "Signed in as **%s**",
-	"already":        "Already signed in",
-	"already as":     "Already signed in as **%s**",
-	"after login":    "to bring your %d photos home, run: **homewend takeout %d**",
-	"signed out":     "Signed out of Google",
-	"was not signed": "Not signed in: there was nothing to sign out of",
-	"password":       "Waiting for you to enter your password in the Google window",
-	"prepare":        "Setting up the download",
+	"checking":         "Checking your Google sign-in",
+	"sign in":          "Waiting for you to sign in to Google in the new window",
+	"session ready":    "Setting up your Google account",
+	"signed in":        "Signed in",
+	"signed in as":     "Signed in as **%s**",
+	"already":          "Already signed in",
+	"already as":       "Already signed in as **%s**",
+	"after login":      "to bring your %d photos home, run: **homewend takeout %d**",
+	"signed out":       "Signed out of Google",
+	"signed out of":    "Signed out of **%s**",
+	"ask profile":      "Whose photos are these?",
+	"ask profile meta": "The folder of the library they go in. Asked once; --profile NAME overrides it.",
+	"profile is":       "Their profile is **%s**",
+	"which account":    "Which account?",
+	"which profile":    "Whose photos?",
+	"sign-in expired":  " · sign-in expired",
+	"was not signed":   "Not signed in: there was nothing to sign out of",
+	"password":         "Waiting for you to enter your password in the Google window",
+	"prepare":          "Setting up the download",
 
 	// Questions.
 	"ask new":          "Ask Google to export your %s?",
@@ -298,4 +309,11 @@ Examples:
 	"update damaged":    "the download was damaged on the way, and nothing was installed",
 	"update again":      "to try again, run: **homewend update**",
 	"error":             "%v",
+	"no such account":   "%v",
+	"accounts hint":     "to see the accounts, run: **homewend status**",
+	"which account err": "more than one account is signed in",
+	"account hint":      "to say which, run: **%s --account EMAIL**",
+	"no profile":        "there is no profile yet",
+	"which profile err": "there is more than one profile",
+	"profile hint":      "to say which, run: **%s --profile NAME**",
 }

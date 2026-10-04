@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -30,8 +31,14 @@ func TestMain(m *testing.M) {
 
 func homewend(t *testing.T, args ...string) (string, int) {
 	t.Helper()
+	return homewendIn(t, t.TempDir(), args...)
+}
+
+// homewendIn runs homewend with config as the user's config directory.
+func homewendIn(t *testing.T, config string, args ...string) (string, int) {
+	t.Helper()
 	cmd := exec.Command(os.Args[0], args...)
-	cmd.Env = append(os.Environ(), "HOMEWEND_TEST_MAIN=1", "XDG_CONFIG_HOME="+t.TempDir(), "HOME="+t.TempDir())
+	cmd.Env = append(os.Environ(), "HOMEWEND_TEST_MAIN=1", "XDG_CONFIG_HOME="+config, "HOME="+t.TempDir())
 	out, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok {
 		return string(out), exit.ExitCode()
@@ -92,7 +99,7 @@ func TestDressedKeepsEveryWord(t *testing.T) {
 		}
 	}
 	got := dressed(on, text["help login"])
-	if !strings.Contains(got, on.paint("--profile DIR", nil, true)) || !strings.Contains(got, on.paint("  homewend login", nil, true)) {
+	if !strings.Contains(got, on.paint("--new", nil, true)) || !strings.Contains(got, on.paint("  homewend login", nil, true)) {
 		t.Error("what to type is not bold")
 	}
 	if strings.Contains(got, on.paint("config directory)", nil, true)) {
@@ -175,7 +182,11 @@ func TestTakeoutWantsAYear(t *testing.T) {
 
 // With no library chosen and no one to ask, the command says how to give one.
 func TestTakeoutWithoutALibrary(t *testing.T) {
-	out, code := homewend(t, "takeout", "2025")
+	config := t.TempDir()
+	account := filepath.Join(config, "homewend", "accounts", "google", "ron@example.com")
+	os.MkdirAll(account, 0o700)
+	os.WriteFile(filepath.Join(account, "homewend-account"), []byte("ron@example.com\n"), 0o600)
+	out, code := homewendIn(t, config, "takeout", "2025")
 	if code != exitError || !strings.Contains(out, "error: no library folder chosen") || !strings.Contains(out, "homewend takeout 2025 --library DIR") {
 		t.Errorf("exit %d, output\n%s", code, out)
 	}
@@ -277,10 +288,24 @@ func TestTheWaitCountsNoTime(t *testing.T) {
 	p := &printer{out: look{}}
 	l := &liveLine{out: look{}}
 	p.live = l
-	p.event(progress.Event{Stage: progress.Waiting, Name: "job"})
+	captured(t, func() { p.event(progress.Event{Stage: progress.Waiting, Name: "job"}) })
 	p.live = nil
 	got := l.line(timeZero.Add(3 * 3600e9))
 	if !strings.HasPrefix(got, signPulse+" "+text["preparing"]+"\n") || strings.Contains(got, "·") {
 		t.Errorf("got %q", got)
+	}
+}
+
+// With two accounts and none named, a script is told to name one.
+func TestTwoAccountsNeedAName(t *testing.T) {
+	config := t.TempDir()
+	for _, email := range []string{"ron@example.com", "sam@example.com"} {
+		dir := filepath.Join(config, "homewend", "accounts", "google", email)
+		os.MkdirAll(dir, 0o700)
+		os.WriteFile(filepath.Join(dir, "homewend-account"), []byte(email+"\n"), 0o600)
+	}
+	out, code := homewendIn(t, config, "takeout", "2025", "--library", t.TempDir())
+	if code != exitError || !strings.Contains(out, "error: more than one account is signed in") || !strings.Contains(out, "--account EMAIL") {
+		t.Errorf("exit %d, output\n%s", code, out)
 	}
 }

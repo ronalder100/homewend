@@ -202,133 +202,252 @@ func interrupted() (context.Context, context.CancelFunc) {
 
 func login(args []string) int {
 	flags := newFlags("login")
-	profile := flags.String("profile", "", "where the sign-in is kept")
+	accountFlag := flags.String("account", "", "the account to sign in to again, by address")
+	another := flags.Bool("new", false, "sign in to another account")
 	fallback := flags.Bool("fallback", false, "sign in on Google Takeout's page, in a full window")
-	flags.Bool("json", false, "one JSON object per line")
+	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
 	out := begin(args)
 	defer out.close()
+	ctx, stop := interrupted()
+	defer stop()
 
-	sess, err := openSession(*profile)
+	// The account signed in to: the one named, the only one there is, or a
+	// new one when there is none or another was asked for.
+	id := ""
+	if !*another {
+		a, err := pickAccount(ctx, *accountFlag, *asJSON)
+		switch {
+		case err == nil:
+			id = a.ID
+		case !errors.Is(err, engine.ErrNotSignedIn):
+			return out.fail(err)
+		}
+	}
+	fresh := id == ""
+	if fresh {
+		var err error
+		if id, err = engine.NextAccount(); err != nil {
+			return out.fail(err)
+		}
+	}
+	sess, err := engine.AccountSession(id)
 	if err != nil {
 		return out.fail(err)
 	}
-	ctx, stop := interrupted()
-	defer stop()
 	signIn := engine.Login
 	if *fallback {
 		signIn = engine.LoginAtTakeout
 	}
-	account, already, err := signIn(ctx, sess, out.event)
+	_, already, err := signIn(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
-	// With the account: a person with two accounts has to know whose photos
-	// these are. For a sign-in already there it is the one kept at sign-in.
-	if already {
-		account = engine.Account(sess)
+	a, err := engine.Adopt(id)
+	if err != nil {
+		return out.fail(err)
 	}
+	out.now(going{})
 	said := map[bool]string{false: "signed in", true: "already"}[already]
-	if account != "" {
-		said = fmt.Sprintf(text[said+" as"], account)
+	if a.Email != "" {
+		said = fmt.Sprintf(text[said+" as"], a.Email)
 	} else {
 		said = text[said]
 	}
-	out.now(going{})
-	out.line("signed_in", true, out.out.done(said, ""))
-	if !already {
-		year := time.Now().Year() - 1
-		out.say("")
-		out.say(out.out.hint(fmt.Sprintf(text["after login"], year, year)))
+	out.line("signed_in", a, out.out.done(said, ""))
+	if already {
+		return exitOK
 	}
+	// Whose photos these are is asked once, when the account is new: the
+	// folder of the library they go in.
+	if fresh && interactive(*asJSON) {
+		out.close()
+		fmt.Println()
+		profile, err := field(ctx, text["ask profile"], text["ask profile meta"], a.Profile)
+		if err != nil {
+			return newPrinter(*asJSON).fail(err)
+		}
+		if profile == "" {
+			profile = a.Profile
+		}
+		if err := engine.SetProfile(a.ID, profile); err != nil {
+			return newPrinter(*asJSON).fail(err)
+		}
+		out = newPrinter(*asJSON)
+		out.say(out.out.done(fmt.Sprintf(text["profile is"], profile), ""))
+	}
+	year := time.Now().Year() - 1
+	out.say("")
+	out.say(out.out.hint(fmt.Sprintf(text["after login"], year, year)))
 	return exitOK
 }
 
 func logout(args []string) int {
 	flags := newFlags("logout")
-	profile := flags.String("profile", "", "where the sign-in is kept")
+	accountFlag := flags.String("account", "", "the account to sign out of, by address")
 	flags.Parse(args)
 	out := begin(args)
 	defer out.close()
-	dir, err := profileDir(*profile)
-	if err != nil {
-		return out.fail(err)
-	}
-	was, err := engine.Logout(dir)
-	if err != nil {
-		return out.fail(err)
-	}
-	if was {
-		out.say(out.out.done(text["signed out"], ""))
-	} else {
+	ctx, stop := interrupted()
+	defer stop()
+	a, err := pickAccount(ctx, *accountFlag, false)
+	if errors.Is(err, engine.ErrNotSignedIn) {
 		out.say(out.out.stopped(text["was not signed"], ""))
+		return exitOK
 	}
+	if err != nil {
+		return out.fail(err)
+	}
+	if _, err := engine.Logout(a.Dir); err != nil {
+		return out.fail(err)
+	}
+	out.say(out.out.done(fmt.Sprintf(text["signed out of"], a.Email), ""))
 	return exitOK
 }
 
-// profileDir is profile, or the default profile when none is given.
-func profileDir(profile string) (string, error) {
-	if profile != "" {
-		return profile, nil
+// pickAccount is the account a command works with: the one named, by address,
+// the only one signed in, or, for a person, one chosen from a list. With none
+// signed in it is engine.ErrNotSignedIn.
+func pickAccount(ctx context.Context, given string, asJSON bool) (engine.AccountInfo, error) {
+	all, err := engine.Accounts()
+	if err != nil {
+		return engine.AccountInfo{}, err
 	}
-	return engine.DefaultProfile()
+	var signed []engine.AccountInfo
+	for _, a := range all {
+		if a.Email != "" {
+			signed = append(signed, a)
+		}
+	}
+	if given != "" {
+		for _, a := range signed {
+			if a.Email == given || a.ID == given {
+				return a, nil
+			}
+		}
+		return engine.AccountInfo{}, fmt.Errorf("%w: %s", errNoSuchAccount, given)
+	}
+	switch {
+	case len(signed) == 0:
+		return engine.AccountInfo{}, engine.ErrNotSignedIn
+	case len(signed) == 1:
+		return signed[0], nil
+	case !interactive(asJSON):
+		return engine.AccountInfo{}, errWhichAccount
+	}
+	var names []string
+	for _, a := range signed {
+		names = append(names, a.Email)
+	}
+	at, err := choose(ctx, text["which account"], "", names)
+	return signed[at], err
 }
 
-// openSession opens the session over profile, or over the default profile
-// when none is given.
-func openSession(profile string) (*session.Session, error) {
-	dir, err := profileDir(profile)
-	if err != nil {
-		return nil, err
+var (
+	errNoSuchAccount = errors.New("no account signed in with that address")
+	errWhichAccount  = errors.New("more than one account is signed in")
+)
+
+// pickProfile is the profile of a command's photos: the one named, the only
+// one there is, or, for a person, one chosen from a list.
+func pickProfile(ctx context.Context, given string, asJSON bool) (string, error) {
+	if given != "" {
+		return given, nil
 	}
-	return session.New(dir)
+	accounts, err := engine.Accounts()
+	if err != nil {
+		return "", err
+	}
+	s, err := engine.LoadSettings()
+	if err != nil {
+		return "", err
+	}
+	names := engine.ProfileNames(accounts, s)
+	switch {
+	case len(names) == 1:
+		return names[0], nil
+	case len(names) == 0:
+		return "", errNoProfile
+	case !interactive(asJSON):
+		return "", errWhichProfile
+	}
+	at, err := choose(ctx, text["which profile"], "", names)
+	return names[at], err
 }
+
+var (
+	errNoProfile    = errors.New("there is no profile yet")
+	errWhichProfile = errors.New("there is more than one profile")
+)
 
 func status(args []string) int {
 	flags := newFlags("status")
-	profile := flags.String("profile", "", "where the sign-in is kept")
 	asJSON := flags.Bool("json", false, "one JSON object")
 	flags.Parse(args)
 	out := begin(args)
 	defer out.close()
-	sess, err := openSession(*profile)
+	accounts, err := engine.Accounts()
+	if err != nil {
+		return out.fail(err)
+	}
+	library, err := engine.DefaultLibrary()
 	if err != nil {
 		return out.fail(err)
 	}
 	out.now(going{said: text["checking"], bar: -1})
-	st, err := engine.Now(sess)
-	out.now(going{})
-	if err != nil {
-		return out.fail(err)
+	type state struct {
+		engine.AccountInfo
+		engine.State
 	}
+	var states []state
+	for _, a := range accounts {
+		if a.Email == "" {
+			continue
+		}
+		sess, err := engine.AccountSession(a.ID)
+		if err != nil {
+			return out.fail(err)
+		}
+		st, err := engine.Now(sess)
+		if err != nil {
+			return out.fail(err)
+		}
+		states = append(states, state{a, st})
+	}
+	out.now(going{})
 	newer := update.Newer(context.Background(), version)
 	if *asJSON {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"status": st, "version": version, "newer": newer})
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"accounts": states, "library": library, "version": version, "newer": newer})
 		return exitOK
 	}
 	l := out.out
 	none := func(name, said string) string { return l.field(name, signStopped, mutedColour, said, "") }
-	if st.SignedIn {
-		out.say(l.field(text["field google"], signDone, okColour, st.Account, ""))
-	} else {
+	if len(states) == 0 {
 		out.say(none(text["field google"], text["not signed in"]))
 	}
-	switch e := st.Export; {
-	case e == nil:
-		out.say(none(text["field takeout"], text["not requested"]))
-	default:
-		details := fmt.Sprintf(text["export of"], e.ID, e.Status)
-		switch e.Status {
-		case engine.Ready:
-			out.say(l.field(text["field takeout"], signDone, okColour, what(e.Year), " · "+details))
-		case engine.Expired:
-			out.say(l.field(text["field takeout"], signStopped, mutedColour, what(e.Year), " · "+details))
+	for _, st := range states {
+		if st.SignedIn {
+			out.say(l.field(text["field google"], signDone, okColour, st.Email, " · "+st.Profile))
+		} else {
+			out.say(l.field(text["field google"], signStopped, mutedColour, st.Email, text["sign-in expired"]))
+		}
+		switch e := st.Export; {
+		case e == nil:
+			out.say(none(text["field takeout"], text["not requested"]))
 		default:
-			out.say(l.field(text["field takeout"], signWaiting, warnColour, what(e.Year), " · "+details))
+			details := fmt.Sprintf(text["export of"], e.ID, e.Status)
+			switch e.Status {
+			case engine.Ready:
+				out.say(l.field(text["field takeout"], signDone, okColour, what(e.Year), " · "+details))
+			case engine.Expired:
+				out.say(l.field(text["field takeout"], signStopped, mutedColour, what(e.Year), " · "+details))
+			default:
+				out.say(l.field(text["field takeout"], signWaiting, warnColour, what(e.Year), " · "+details))
+			}
 		}
 	}
-	if st.Library != "" {
-		out.say(l.field(text["field library"], "", nil, st.Library, ""))
+	if library != "" {
+		out.say(l.field(text["field library"], "", nil, library, ""))
 	} else {
 		out.say(none(text["field library"], text["not chosen"]))
 	}
@@ -337,7 +456,7 @@ func status(args []string) int {
 	} else {
 		out.say(l.field(text["field version"], "", nil, version, text["latest"]))
 	}
-	if !st.SignedIn {
+	if len(states) == 0 {
 		out.say("")
 		out.say(l.hint(text["status start"]))
 	}
@@ -358,7 +477,8 @@ func interactive(asJSON bool) bool { return !asJSON && term.IsTerminal(int(os.St
 
 func takeoutCommand(args []string) int {
 	flags := newFlags("takeout")
-	profile := flags.String("profile", "", "where the sign-in is kept")
+	accountFlag := flags.String("account", "", "the account, by address, when there are several")
+	profileFlag := flags.String("profile", "", "whose photos: the library's folder they go in")
 	list := flags.Bool("list", false, "list the exports on Google Takeout")
 	libraryDir := flags.String("library", "", "where the photos go, for this run")
 	exportID := flags.String("export", "", "this export, by its id")
@@ -377,11 +497,19 @@ func takeoutCommand(args []string) int {
 		flags.Parse(rest[1:])
 	}
 	if *list {
-		return takeoutList(args, *profile, *asJSON)
+		return takeoutList(args, *accountFlag, *asJSON)
 	}
 
 	ctx, stop := interrupted()
 	defer stop()
+	a, err := pickAccount(ctx, *accountFlag, *asJSON)
+	if err != nil {
+		return newPrinter(*asJSON).fail(err)
+	}
+	profile := a.Profile
+	if *profileFlag != "" {
+		profile = *profileFlag
+	}
 	dir, code := libraryFor(ctx, *libraryDir, *asJSON)
 	if dir == "" {
 		return code
@@ -389,16 +517,12 @@ func takeoutCommand(args []string) int {
 	out := begin(args)
 	defer func() { out.close() }()
 	out.what = what(year)
-	sess, err := openSession(*profile)
+	sess, err := engine.AccountSession(a.ID)
 	if err != nil {
 		return out.fail(err)
 	}
-	account, _, err := engine.Login(ctx, sess, out.event)
-	if err != nil {
+	if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
 		return out.fail(err)
-	}
-	if account == "" {
-		account = engine.Account(sess)
 	}
 	out.signedIn = true
 	// Reading Takeout's list of exports takes seconds: say so, until there
@@ -406,7 +530,7 @@ func takeoutCommand(args []string) int {
 	looking := going{said: fmt.Sprintf(text["looking"], out.what), bar: -1}
 	out.now(looking)
 
-	g := engine.Get{Year: year, Library: dir, Takeout: *exportID, New: *fresh}
+	g := engine.Get{Year: year, Library: dir, Takeout: *exportID, New: *fresh, Profile: profile}
 	var found *engine.Found
 	if !g.New {
 		if found, err = g.Existing(sess); err != nil {
@@ -451,9 +575,9 @@ func takeoutCommand(args []string) int {
 		out.shown = found.Job
 	}
 	home, _ := os.UserHomeDir()
-	out.say(out.out.param(text["field google"], account, ""))
+	out.say(out.out.param(text["field google"], a.Email, ""))
 	out.say(out.out.param(text["field takeout"], unmarked(out.what), details))
-	out.say(out.out.param(text["field library"], tilde(dir, home), ""))
+	out.say(out.out.param(text["field library"], tilde(filepath.Join(dir, profile), home), ""))
 	out.say("")
 	result, err := g.Run(ctx, sess, out.event)
 	if err != nil {
@@ -511,15 +635,19 @@ func tilde(path, home string) string {
 }
 
 // takeoutList lists the exports on Google Takeout.
-func takeoutList(args []string, profile string, asJSON bool) int {
+func takeoutList(args []string, account string, asJSON bool) int {
+	ctx, stop := interrupted()
+	defer stop()
+	a, err := pickAccount(ctx, account, asJSON)
+	if err != nil {
+		return newPrinter(asJSON).fail(err)
+	}
 	out := begin(args)
 	defer out.close()
-	sess, err := openSession(profile)
+	sess, err := engine.AccountSession(a.ID)
 	if err != nil {
 		return out.fail(err)
 	}
-	ctx, stop := interrupted()
-	defer stop()
 	if _, _, err := engine.Login(ctx, sess, out.event); err != nil {
 		return out.fail(err)
 	}
@@ -781,6 +909,14 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
+	case errors.Is(err, errNoSuchAccount):
+		return exitError, fmt.Sprintf(text["no such account"], err), nil, []string{text["accounts hint"]}
+	case errors.Is(err, errWhichAccount):
+		return exitError, text["which account err"], nil, []string{fmt.Sprintf(text["account hint"], again)}
+	case errors.Is(err, errNoProfile):
+		return exitError, text["no profile"], nil, []string{text["sign in hint"]}
+	case errors.Is(err, errWhichProfile):
+		return exitError, text["which profile err"], nil, []string{fmt.Sprintf(text["profile hint"], again)}
 	case errors.Is(err, session.ErrNoBrowser):
 		return exitError, text["no browser"], nil, []string{text["no browser hint"]}
 	}
