@@ -4,7 +4,8 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the window goes.
-const { app, BrowserWindow, Menu, MenuItem, Notification, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
@@ -35,6 +36,46 @@ const windowButtons =
 	process.platform !== 'linux' || !TILING.test(process.env.XDG_CURRENT_DESKTOP || '');
 
 let child;
+let win;
+
+// Where the window was, as a native app reopens where it was left.
+const placeFile = () => path.join(app.getPath('userData'), 'window.json');
+function lastPlace() {
+	try {
+		return JSON.parse(fs.readFileSync(placeFile(), 'utf8'));
+	} catch {
+		return null;
+	}
+}
+const inside = (p, a) => p.x >= a.x && p.y >= a.y && p.x < a.x + a.width && p.y < a.y + a.height;
+function keepPlace() {
+	if (!win.isMinimized()) fs.writeFileSync(placeFile(), JSON.stringify(win.getNormalBounds()));
+}
+
+// The menu of a native app, without a browser's: no reload, no zoom, no
+// developer tools once packaged. On the Mac the sidebar opens from the View
+// menu, ⌃⌘S, as in Apple's own apps, since its place in the titlebar belongs
+// to the traffic lights. Elsewhere the menu is never drawn: it only carries
+// the shortcuts to close and quit.
+function menu() {
+	const dev = app.isPackaged ? [] : [{ type: 'separator' }, { role: 'reload' }, { role: 'toggleDevTools' }];
+	if (process.platform !== 'darwin') return Menu.buildFromTemplate([{ role: 'fileMenu', submenu: [{ role: 'close' }, { role: 'quit' }, ...dev] }]);
+	return Menu.buildFromTemplate([
+		{ role: 'appMenu' },
+		{ role: 'fileMenu' },
+		{ role: 'editMenu' },
+		{
+			label: 'View',
+			submenu: [
+				{ label: 'Show Sidebar', accelerator: 'Ctrl+Cmd+S', click: () => win?.webContents.send('toggle-sidebar') },
+				{ type: 'separator' },
+				{ role: 'togglefullscreen' },
+				...dev
+			]
+		},
+		{ role: 'windowMenu' }
+	]);
+}
 
 function theme(name) {
 	const mode = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
@@ -59,9 +100,16 @@ function startEngine() {
 async function open() {
 	const url = await startEngine();
 	const area = screen.getPrimaryDisplay().workAreaSize;
-	const win = new BrowserWindow({
+	let last = lastPlace();
+	// A screen unplugged since: the size is kept, the system places the window.
+	if (last && !screen.getAllDisplays().some((d) => inside(last, d.workArea))) last = { width: last.width, height: last.height };
+	win = new BrowserWindow({
 		width: Math.max(MIN.width, Math.min(DESIGN.width, area.width)),
 		height: Math.max(MIN.height, Math.min(DESIGN.height, area.height)),
+		...last,
+		// Shown once the page is drawn: never an empty window first.
+		show: false,
+		autoHideMenuBar: true,
 		// A tiling window manager gives the window the size of its tile and
 		// cuts off what does not fit a minimum: there the page fits itself.
 		minWidth: windowButtons ? MIN.width : undefined,
@@ -70,8 +118,12 @@ async function open() {
 		// The page draws the titlebar; the system keeps its own buttons.
 		titleBarStyle: 'hidden',
 		titleBarOverlay: process.platform === 'darwin' ? true : windowButtons && overlay(),
-		webPreferences: { preload: path.join(__dirname, 'preload.js') }
+		webPreferences: { preload: path.join(__dirname, 'preload.js'), spellcheck: false }
 	});
+	win.once('ready-to-show', () => win.show());
+	win.on('close', keepPlace);
+	// A pinch enlarges the page in a browser; an app's interface keeps its size.
+	win.webContents.setVisualZoomLevelLimits(1, 1);
 	// The person's choice in Settings, or the system's when they chose none.
 	ipcMain.on('theme', (_event, theme) => {
 		if (['system', 'light', 'dark'].includes(theme)) nativeTheme.themeSource = theme;
@@ -107,23 +159,17 @@ async function open() {
 		shell.openExternal(target);
 		return { action: 'deny' };
 	});
-	// On the Mac the sidebar's place in the titlebar belongs to the traffic
-	// lights: it opens from the View menu, ⌃⌘S, as in Apple's own apps.
-	if (process.platform === 'darwin') {
-		const menu = Menu.getApplicationMenu();
-		const view = menu?.items.find((m) => m.role === 'viewmenu' || m.label === 'View');
-		view?.submenu?.insert(
-			0,
-			new MenuItem({
-				label: 'Show Sidebar',
-				accelerator: 'Ctrl+Cmd+S',
-				click: () => win.webContents.send('toggle-sidebar')
-			})
-		);
-		Menu.setApplicationMenu(menu);
-	}
+	Menu.setApplicationMenu(menu());
 	win.loadURL(url);
 }
+
+// One app, one window: opening it again brings the open window forward.
+if (!app.requestSingleInstanceLock()) app.exit();
+app.on('second-instance', () => {
+	if (!win) return;
+	if (win.isMinimized()) win.restore();
+	win.focus();
+});
 
 app.whenReady().then(open).catch((err) => {
 	console.error(err.message);

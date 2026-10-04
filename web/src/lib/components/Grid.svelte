@@ -5,7 +5,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { Play } from '@lucide/svelte';
-	import type { GridPhoto } from '#lib/api.js';
+	import { pathOf, type GridPhoto } from '#lib/api.js';
+	import ContextMenu from './ContextMenu.svelte';
 	import { text } from '#lib/strings.js';
 
 	let {
@@ -31,6 +32,15 @@
 	let height = $state(0);
 	let scrollTop = $state(0);
 	let headerHeight = $state(0);
+
+	// A photo's menu, at the end of its tile: its folder, its path.
+	let menu = $state<{ x: number; y: number; start: number; path: string } | null>(null);
+	async function context(e: MouseEvent, hash: string) {
+		e.preventDefault();
+		const tile = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const { path } = await pathOf(hash);
+		menu = { x: tile.right, y: tile.top + tile.height / 2, start: tile.left, path };
+	}
 
 	const cols = $derived(Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP))));
 	const tile = $derived(width > 0 ? (width - GAP * (cols - 1)) / cols : MIN_TILE);
@@ -104,6 +114,7 @@
 						style:height="{tile}px"
 						style:transform="translate({c * (tile + GAP)}px, {row.top}px)"
 						onclick={() => onopen?.(photos.indexOf(p))}
+						oncontextmenu={(e) => context(e, p.hash)}
 					>
 						<img
 							src="/api/thumb/{p.hash}"
@@ -119,6 +130,7 @@
 		{/each}
 	</div>
 </div>
+{#if menu}<ContextMenu {...menu} file onclose={() => (menu = null)} />{/if}
 
 <style>
 	.scroller {

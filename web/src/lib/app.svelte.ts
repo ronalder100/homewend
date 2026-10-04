@@ -65,6 +65,10 @@ export function watchJobs(): () => void {
 	return () => clearInterval(t);
 }
 
+/** Every account's download has been asked about at least once. */
+export const jobsKnown = () =>
+	app.overview !== null && app.overview.accounts.every((a) => a.id in app.jobs);
+
 /** The account whose download the window shows: the one running, or the first. */
 export function shownJob(): { account: string; job: JobState } | null {
 	const entries = Object.entries(app.jobs);

@@ -1,6 +1,6 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- B7: one photo, over the grid. ← and → move, Esc closes. -->
+<!-- B7: one photo, over the grid. ← and → move, Esc or Space closes. -->
 <script lang="ts">
 	import { X, ChevronLeft, ChevronRight, FolderOpen } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
@@ -41,7 +41,11 @@
 	}
 	function key(e: KeyboardEvent) {
 		if (index === null) return;
-		if (e.key === 'Escape') index = null;
+		// Space closes it, as it closes Quick Look.
+		if (e.key === 'Escape' || e.key === ' ') {
+			e.preventDefault();
+			index = null;
+		}
 		if (e.key === 'ArrowLeft') move(-1);
 		if (e.key === 'ArrowRight') move(1);
 	}

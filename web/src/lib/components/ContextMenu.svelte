@@ -9,27 +9,46 @@
 	let {
 		x,
 		y,
+		start = x,
 		path,
+		file = false,
 		onclose
-	}: { x: number; y: number; path: string; onclose: () => void } = $props();
+	}: {
+		x: number;
+		y: number;
+		/** Where the row begins, for the bubble that opens to its left. */
+		start?: number;
+		path: string;
+		/** A photo: its folder opens with the photo picked in it. */
+		file?: boolean;
+		onclose: () => void;
+	} = $props();
+
+	// Where the window ends, the bubble opens to the left of its row instead.
+	const WIDTH = 208;
+	let innerWidth = $state(Infinity);
+	const flip = $derived(x + 7 + WIDTH > innerWidth);
 
 	function open() {
-		window.shell?.openFolder(path);
+		if (file) window.shell?.showInFolder(path);
+		else window.shell?.openFolder(path);
 		onclose();
 	}
 	async function copy() {
-		await navigator.clipboard.writeText(path);
+		// The folder's path, as the item says, also for a photo.
+		await navigator.clipboard.writeText(file ? path.replace(/[\\/][^\\/]*$/, '') : path);
 		onclose();
 	}
 </script>
 
 <svelte:window
+	bind:innerWidth
 	onkeydown={(e) => e.key === 'Escape' && onclose()}
 	onmousedown={(e) => !(e.target as Element).closest('.menu') && onclose()}
 />
 
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
-<div class="menu" style:left="{x + 7}px" style:top="{y - 24}px" role="menu">
+<div class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	<button role="menuitem" onclick={open}><FolderOpen size={16} />{text.openInFolder}</button>
 	<button role="menuitem" onclick={copy}><Copy size={16} />{text.copyFolderPath}</button>
 </div>
@@ -61,6 +80,11 @@
 		border-left: 1px solid var(--border);
 		border-bottom: 1px solid var(--border);
 		transform: rotate(45deg);
+	}
+	.flip::before {
+		left: auto;
+		right: -6px;
+		transform: rotate(225deg);
 	}
 	button {
 		position: relative;

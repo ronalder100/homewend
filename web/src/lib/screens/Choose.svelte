@@ -189,7 +189,7 @@
 		text-align: left;
 	}
 	.card {
-		cursor: pointer;
+		cursor: default;
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -247,7 +247,7 @@
 		font: inherit;
 		font-size: var(--text-callout);
 		background: transparent;
-		cursor: pointer;
+		cursor: default;
 	}
 	.chip.on {
 		border-color: var(--accent);

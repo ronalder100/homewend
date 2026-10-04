@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Folder, CircleCheck, ArrowRight, Loader } from '@lucide/svelte';
-	import { app, shownJob } from '#lib/app.svelte.js';
+	import { app, jobsKnown, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, startGet, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
 	import { bytes, roughly } from '#lib/format.js';
@@ -15,6 +15,10 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 
 	const shown = $derived(shownJob());
+	// No download to show, once that is known: the page to start one.
+	$effect(() => {
+		if (jobsKnown() && !shown) goto('/choose', { replaceState: true });
+	});
 	const job = $derived(shown?.job);
 	const waiting = $derived(job?.stage === 'waiting');
 	const paused = $derived(job && !job.running && !job.finished && !job.error && job.stage);
@@ -59,10 +63,7 @@
 
 <div class="page">
 	{#if !shown || !job}
-		<div class="none">
-			<p class="lead">{text.noPhotosDesc}</p>
-			<PrimaryButton onclick={() => goto('/choose')}>{text.bringHome}</PrimaryButton>
-		</div>
+		<!-- Known within a second: a download, or the page to start one. -->
 	{:else}
 		<div class="left">
 			<span class="pill" class:err={job.error} class:live={job.running}><i></i>{headline(job)}</span>
@@ -155,14 +156,6 @@
 		gap: 40px;
 		padding: 64px 40px 40px;
 		align-items: flex-start;
-	}
-	.none {
-		margin: auto;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 24px;
-		text-align: center;
 	}
 	.left {
 		flex: 1;

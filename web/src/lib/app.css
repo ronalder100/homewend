@@ -34,7 +34,21 @@ button {
 	background: none;
 	border: 0;
 	padding: 0;
-	cursor: pointer;
+	/* The arrow, as on every native control; the hand is for links. */
+	cursor: default;
+}
+
+/* What is dragged out of the window is a file or nothing: never a thumbnail
+   or a link to the page. */
+img,
+a {
+	-webkit-user-drag: none;
+}
+
+/* The keyboard's place, in the accent, as the system draws it. */
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 /* Every control answers the pointer, briefly. Nothing moves for whoever asked
