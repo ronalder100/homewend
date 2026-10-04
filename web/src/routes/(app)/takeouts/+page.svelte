@@ -28,9 +28,11 @@
 
 	let list = $state<Takeout[] | null>(null);
 	let failed = $state('');
+	let tries = $state(0);
 	let reading = $state('');
 	$effect(() => {
 		const a = account;
+		void tries;
 		if (!a) return;
 		// The list seen last shows at once; Google's answer replaces it.
 		list = seen.get(a) ?? null;
@@ -142,8 +144,13 @@
 		</div>
 	{/if}
 
-	{#if failed}
-		<p class="err">{failed}</p>
+	{#if failed && list === null}
+		<!-- What went wrong is the engine's to log; the person is told what
+		     they can do. -->
+		<div class="failed accent" title={failed}>
+			<p>{text.takeoutsFailed}</p>
+			<button class="pill" onclick={() => tries++}>{text.retry}</button>
+		</div>
 	{:else if list === null}
 		<Skeleton label={text.readingTakeouts} />
 	{:else if list.length === 0}
@@ -406,7 +413,10 @@
 	.muted {
 		color: var(--muted);
 	}
-	p.err {
-		color: var(--err);
+	.failed {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		color: var(--muted);
 	}
 </style>

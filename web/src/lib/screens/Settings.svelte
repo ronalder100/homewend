@@ -122,6 +122,9 @@
 </div>
 
 <style>
+	:global(.narrow) .page {
+		padding: 24px;
+	}
 	.page {
 		padding: 32px 40px 40px;
 		display: flex;
@@ -150,10 +153,13 @@
 		border: 1px solid var(--border);
 		border-radius: 12px;
 	}
+	/* A narrow window puts the control under its words, instead of squeezing
+	   the words into a column. */
 	.item {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 24px;
+		gap: 12px 24px;
 		padding: 16px 24px;
 	}
 	.item + .item {
@@ -164,7 +170,7 @@
 		padding: 12px 24px;
 	}
 	.text {
-		flex: 1;
+		flex: 1 1 240px;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
@@ -182,6 +188,7 @@
 	}
 	.mono {
 		font-family: var(--font-mono);
+		overflow-wrap: anywhere;
 		user-select: text;
 	}
 	.segments {

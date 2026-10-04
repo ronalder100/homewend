@@ -127,6 +127,7 @@ export const text = {
 	download: 'Download',
 	newTakeout: 'New takeout',
 	readingTakeouts: 'Reading your takeouts from Google…',
+	takeoutsFailed: 'Google did not answer.',
 	noTakeouts: 'No takeouts on Google yet.',
 	reading: 'Reading…',
 
