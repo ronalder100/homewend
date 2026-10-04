@@ -24,7 +24,8 @@
 		"files": [
 			"main.js",
 			"preload.js",
-			"tokens.json"
+			"tokens.json",
+			"build/icon.png"
 		],
 		"extraResources": [
 			{

@@ -115,6 +115,8 @@ async function open() {
 		minWidth: windowButtons ? MIN.width : undefined,
 		minHeight: windowButtons ? MIN.height : undefined,
 		backgroundColor: theme('bg'),
+		// The site's icon; the Mac and Windows take it from the app bundle.
+		icon: path.join(__dirname, 'build', 'icon.png'),
 		// The page draws the titlebar; the system keeps its own buttons.
 		titleBarStyle: 'hidden',
 		titleBarOverlay: process.platform === 'darwin' ? true : windowButtons && overlay(),
