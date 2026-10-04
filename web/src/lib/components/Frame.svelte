@@ -4,7 +4,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Titlebar from './Titlebar.svelte';
-	import { page } from '$app/state';
 	import Sidebar from './Sidebar.svelte';
 	import type { Place, Sidebar as SidebarData } from '#lib/library.js';
 
@@ -46,9 +45,6 @@
 		if (narrow && (p.kind === 'takeouts' || p.kind === 'settings')) open = false;
 		onplace?.(p);
 	}
-	// The new page settles in from half-visible: never a blank frame between.
-	const settle = (_: Element) => ({ duration: 140, css: (t: number) => `opacity: ${0.5 + t / 2}` });
-
 	function expand() {
 		if (narrow) open = true;
 		else folded = false;
@@ -79,9 +75,9 @@
 			<button class="scrim" aria-label="close" onclick={() => (open = false)}></button>
 		{/if}
 		<div class="main">
-			{#key page.url.pathname}
-				<div class="content" in:settle>{@render children()}</div>
-			{/key}
+			<!-- A page replaces the last at once, as in a native app: a fade
+			     between them reads as a flash. -->
+			<div class="content">{@render children()}</div>
 			{#if status}<footer>{@render status()}</footer>{/if}
 		</div>
 	</div>

@@ -1,9 +1,14 @@
 <!-- homewend — Copyright (C) 2026 Ron Alder -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- C1: the exports on Google Takeout, each account's. -->
+<script module lang="ts">
+	import type { Takeout as Seen } from '#lib/api.js';
+	// Each account's list as last read, kept while the window is open.
+	const seen = new Map<string, Seen[]>();
+</script>
+
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { fade } from 'svelte/transition';
 	import { Archive, Download } from '@lucide/svelte';
 	import { app, sidebarOf } from '#lib/app.svelte.js';
 	import { getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
@@ -25,10 +30,13 @@
 	$effect(() => {
 		const a = account;
 		if (!a) return;
-		list = null;
+		// The list seen last shows at once; Google's answer replaces it.
+		list = seen.get(a) ?? null;
 		failed = '';
 		getTakeouts(a).then(
 			async (l) => {
+				seen.set(a, l);
+				if (account !== a) return;
 				list = l;
 				// A ready takeout made on Google: read its list of files, one at a
 				// time, to say what it holds.
@@ -94,7 +102,7 @@
 	{:else if list.length === 0}
 		<p class="muted">{text.noTakeouts}</p>
 	{:else}
-		<table in:fade={{ duration: 150 }}>
+		<table>
 			<thead>
 				<tr><th>{text.takeoutCol}</th><th>{text.askedCol}</th><th>{text.sizeCol}</th><th>{text.statusCol}</th><th></th></tr>
 			</thead>

@@ -12,7 +12,11 @@
 </div>
 
 <style>
+	/* Shown only when the wait is long enough to see: an answer that comes
+	   at once never blinks a placeholder first. */
 	.skeleton {
+		opacity: 0;
+		animation: appear 150ms ease 300ms forwards;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -27,6 +31,11 @@
 		background-size: 200% 100%;
 		animation: shimmer 1.4s ease-in-out infinite;
 	}
+	@keyframes appear {
+		to {
+			opacity: 1;
+		}
+	}
 	@keyframes shimmer {
 		from {
 			background-position: 100% 0;
@@ -38,6 +47,9 @@
 	@media (prefers-reduced-motion: reduce) {
 		.bar {
 			animation: none;
+		}
+		.skeleton {
+			opacity: 1;
 		}
 	}
 </style>
