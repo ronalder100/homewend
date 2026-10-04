@@ -6,6 +6,7 @@
 	import { fade } from 'svelte/transition';
 	import { getAbout, pathOf, type GridPhoto } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
+	import { app } from '#lib/app.svelte.js';
 
 	let {
 		photos,
@@ -29,7 +30,10 @@
 		about = '';
 		if (hash)
 			getAbout(hash).then((a) => {
-				if (p?.hash === hash) about = [...a.albums, ...a.accounts].map((x) => ` · ${x}`).join('');
+				if (p?.hash !== hash) return;
+				// Sources are account ids; the window names an account by its address.
+				const email = (id: string) => app.overview?.accounts.find((x) => x.id === id)?.email ?? id;
+				about = [...a.albums, ...a.accounts.map(email)].map((x) => ` · ${x}`).join('');
 			});
 	});
 

@@ -8,11 +8,17 @@ export type Theme = 'system' | 'light' | 'dark';
 export interface Settings {
 	theme?: Theme;
 	hidden?: string[];
+	/** The profile of each account, by id, once it has been asked. */
+	profiles?: Record<string, string>;
 }
 
 export interface AccountInfo {
+	/** "google/<email>" */
 	id: string;
+	service: string;
 	email: string;
+	/** Whose photos they are: the folder of the library they go in. */
+	profile: string;
 }
 
 export interface Overview {
@@ -35,6 +41,8 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const getSettings = () => call<Settings>('GET', '/api/settings');
 export const putSettings = (s: Settings) => call<Settings>('PUT', '/api/settings', s);
+export const putProfile = (account: string, profile: string) =>
+	call<{ profile: string }>('PUT', `/api/profile?account=${encodeURIComponent(account)}`, { profile });
 export const getOverview = () => call<Overview>('GET', '/api/overview');
 /** Opens the system browser on Google's sign-in and waits for it. */
 export const login = (account?: string) =>
@@ -109,8 +117,11 @@ export const getVersion = () => call<{ version: string }>('GET', '/api/about');
 
 export const pathOf = (hash: string) => call<{ path: string }>('GET', `/api/path/${hash}`);
 
-export const folderOf = (o: { year?: string; album?: string; noDate?: boolean }) =>
-	call<{ path: string }>('GET', `/api/folder?${q({ year: o.year, album: o.album, nodate: o.noDate ? '1' : undefined })}`);
+export const folderOf = (o: { account?: string; year?: string; album?: string; noDate?: boolean }) =>
+	call<{ path: string }>(
+		'GET',
+		`/api/folder?${q({ account: o.account, year: o.year, album: o.album, nodate: o.noDate ? '1' : undefined })}`
+	);
 
 export const getLatest = () => call<GridPhoto[]>('GET', '/api/latest');
 export const getAbout = (hash: string) => call<{ albums: string[]; accounts: string[] }>('GET', `/api/about/${hash}`);

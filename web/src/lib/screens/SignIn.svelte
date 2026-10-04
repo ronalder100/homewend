@@ -8,7 +8,7 @@
 	import { text } from '#lib/strings.js';
 	import { goto } from '$app/navigation';
 	import { login } from '#lib/api.js';
-	import { refresh } from '#lib/app.svelte.js';
+	import { app, refresh } from '#lib/app.svelte.js';
 
 	let waiting = $state(false);
 	let failed = $state('');
@@ -17,9 +17,10 @@
 		waiting = true;
 		failed = '';
 		try {
-			await login();
+			const a = await login();
 			await refresh();
-			goto('/choose');
+			// A new account is asked, once, whose photos it holds.
+			goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
 		} catch (e) {
 			failed = String(e);
 		} finally {

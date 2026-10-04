@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/library"
@@ -132,9 +133,12 @@ func Original(hash string) (string, error) {
 	return filepath.Join(root, rel), nil
 }
 
-// Folder is where a place of the library is on disk: the library, a year, the
-// photos with no date, or an album, as Organize files them.
-func Folder(year, album string, noDate bool) (string, error) {
+// Folder is where a place of the library is on disk: a profile, a year, the
+// photos with no date, or an album, as Organize files them. The profile is
+// the account's, when one is named, else the one profile the window shows;
+// with several shown and none named, a place is in each, and the library
+// itself is the folder.
+func Folder(s Settings, account, year, album string, noDate bool) (string, error) {
 	root, err := DefaultLibrary()
 	if err != nil {
 		return "", err
@@ -142,15 +146,35 @@ func Folder(year, album string, noDate bool) (string, error) {
 	if root == "" {
 		return "", ErrNoLibrary
 	}
+	accounts, err := Accounts()
+	if err != nil {
+		return "", err
+	}
+	return folder(root, accounts, s.Hidden, account, year, album, noDate), nil
+}
+
+func folder(root string, accounts []AccountInfo, hidden []string, account, year, album string, noDate bool) string {
+	var profiles []string
+	for _, a := range accounts {
+		named := account != "" && a.ID == account
+		shown := account == "" && a.Email != "" && !slices.Contains(hidden, a.ID)
+		if (named || shown) && !slices.Contains(profiles, a.Profile) {
+			profiles = append(profiles, a.Profile)
+		}
+	}
+	if len(profiles) != 1 {
+		return root
+	}
+	home := filepath.Join(root, profiles[0])
 	switch {
 	case album != "":
-		return filepath.Join(root, "albums", album), nil
+		return filepath.Join(home, "albums", album)
 	case noDate:
-		return filepath.Join(root, "undated"), nil
+		return filepath.Join(home, "undated")
 	case year != "":
-		return filepath.Join(root, year), nil
+		return filepath.Join(home, year)
 	}
-	return root, nil
+	return home
 }
 
 // Latest are the n photos that arrived last.

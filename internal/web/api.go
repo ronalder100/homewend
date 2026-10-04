@@ -25,13 +25,31 @@ func apiRoutes() http.Handler {
 		s, err := engine.LoadSettings()
 		reply(w, s, err)
 	})
+	// The window changes what it shows; the library and the profiles are
+	// changed by their own calls, so a page holding older settings cannot
+	// undo them.
 	mux.HandleFunc("PUT /api/settings", func(w http.ResponseWriter, r *http.Request) {
-		var s engine.Settings
-		if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
+		var in engine.Settings
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		s, err := engine.LoadSettings()
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		s.Theme, s.Hidden = in.Theme, in.Hidden
 		reply(w, s, engine.SaveSettings(s))
+	})
+	// Whose photos an account's are: the folder of the library they go in.
+	mux.HandleFunc("PUT /api/profile", func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Profile string }
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		reply(w, body, engine.SetProfile(r.URL.Query().Get("account"), body.Profile))
 	})
 	mux.HandleFunc("GET /api/overview", func(w http.ResponseWriter, r *http.Request) {
 		s, err := engine.LoadSettings()
@@ -116,7 +134,12 @@ func apiRoutes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/folder", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		path, err := engine.Folder(q.Get("year"), q.Get("album"), q.Get("nodate") != "")
+		s, err := engine.LoadSettings()
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		path, err := engine.Folder(s, q.Get("account"), q.Get("year"), q.Get("album"), q.Get("nodate") != "")
 		reply(w, map[string]string{"path": path}, err)
 	})
 	mux.HandleFunc("GET /api/library", func(w http.ResponseWriter, r *http.Request) {
@@ -146,8 +169,13 @@ func apiRoutes() http.Handler {
 			reply(w, nil, err)
 			return
 		}
+		s, err := engine.LoadSettings()
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
 		year, _ := strconv.Atoi(q.Get("year"))
-		g := engine.Get{Year: year, Library: dir, Takeout: q.Get("export"), New: q.Get("new") != ""}
+		g := engine.Get{Year: year, Library: dir, Takeout: q.Get("export"), New: q.Get("new") != "", Profile: s.ProfileFor(q.Get("account"))}
 		err = jobs.Start(q.Get("account"), g)
 		reply(w, jobs.State(q.Get("account")), err)
 	})
@@ -208,7 +236,7 @@ func apiRoutes() http.Handler {
 // caller's, anything else is ours.
 func reply(w http.ResponseWriter, v any, err error) {
 	switch {
-	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrNoSuchAccount):
+	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrNoSuchAccount), errors.Is(err, engine.ErrBadProfile):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, engine.ErrJobRunning), errors.Is(err, engine.ErrNoUserYet):
 		http.Error(w, err.Error(), http.StatusConflict)

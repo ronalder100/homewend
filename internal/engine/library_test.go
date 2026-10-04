@@ -55,3 +55,29 @@ func TestOverviewWithoutALibrary(t *testing.T) {
 		t.Fatalf("got %+v, %v", o, err)
 	}
 }
+
+func TestFolderIsInTheProfile(t *testing.T) {
+	accounts := []AccountInfo{
+		{ID: "google/ann@example.com", Email: "ann@example.com", Profile: "ann"},
+		{ID: "google/bob@example.com", Email: "bob@example.com", Profile: "bob"},
+	}
+	cases := []struct {
+		name                 string
+		hidden               []string
+		account, year, album string
+		noDate               bool
+		want                 string
+	}{
+		{"two profiles shown", nil, "", "2025", "", false, "lib"},
+		{"one shown", []string{"google/bob@example.com"}, "", "2025", "", false, "lib/ann/2025"},
+		{"an account's album", nil, "google/bob@example.com", "", "Greece", false, "lib/bob/albums/Greece"},
+		{"no date", []string{"google/ann@example.com"}, "", "", "", true, "lib/bob/undated"},
+		{"the profile", []string{"google/ann@example.com"}, "", "", "", false, "lib/bob"},
+	}
+	for _, c := range cases {
+		got := folder("lib", accounts, c.hidden, c.account, c.year, c.album, c.noDate)
+		if got != filepath.FromSlash(c.want) {
+			t.Errorf("%s: %s, want %s", c.name, got, c.want)
+		}
+	}
+}

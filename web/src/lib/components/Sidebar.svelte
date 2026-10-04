@@ -41,7 +41,7 @@
 	// Right-click on an account, a year or an album: open its folder, or copy
 	// where it is.
 	let menu = $state<{ x: number; y: number; path: string; key: string } | null>(null);
-	async function context(e: MouseEvent, key: string, where: { year?: string; album?: string; noDate?: boolean }) {
+	async function context(e: MouseEvent, key: string, where: { account?: string; year?: string; album?: string; noDate?: boolean }) {
 		if (rail) return;
 		e.preventDefault();
 		const row = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -88,7 +88,7 @@
 					aria-pressed={many ? account.shown : undefined}
 					aria-label={many ? text.showAccount(account.name) : account.name}
 					onclick={() => toggle(account.id)}
-					oncontextmenu={(e) => context(e, 'a:' + account.id, {})}
+					oncontextmenu={(e) => context(e, 'a:' + account.id, { account: account.id })}
 					class:target={menu?.key === 'a:' + account.id}
 				>
 					<span class="lead"><Avatar {account} index={data.accounts.indexOf(account)} /></span>
@@ -176,7 +176,7 @@
 									class:target={menu?.key === 'al:' + album.name}
 									title={album.name}
 									onclick={() => go({ kind: 'album', account: album.account, name: album.name })}
-									oncontextmenu={(e) => context(e, 'al:' + album.name, { album: album.name })}
+									oncontextmenu={(e) => context(e, 'al:' + album.name, { account: album.account, album: album.name })}
 								>
 									<span class="label">{album.name}</span>
 									<span class="count">{album.count.toLocaleString('en')}</span>

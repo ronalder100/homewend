@@ -138,3 +138,33 @@ func TestSettingsThroughTheAPI(t *testing.T) {
 		t.Fatalf("bad theme: %d, want 400", w.Code)
 	}
 }
+
+func TestProfileSurvivesTheWindowsSettings(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AppData", t.TempDir())
+	s := newTestServer(t)
+	cookie := &http.Cookie{Name: cookieName, Value: s.token}
+	put := func(path, body string) int {
+		r := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+		r.Host = s.host
+		r.AddCookie(cookie)
+		w := httptest.NewRecorder()
+		s.handler().ServeHTTP(w, r)
+		return w.Code
+	}
+
+	if code := put("/api/profile?account=google/ann@example.com", `{"profile":"Ann"}`); code != http.StatusOK {
+		t.Fatalf("profile: %d", code)
+	}
+	// A page that read the settings before the profile was set.
+	if code := put("/api/settings", `{"theme":"dark"}`); code != http.StatusOK {
+		t.Fatalf("settings: %d", code)
+	}
+	if got := get(s, "/api/settings", cookie).Body.String(); !strings.Contains(got, `"google/ann@example.com":"Ann"`) {
+		t.Fatalf("the profile was lost: %s", got)
+	}
+	if code := put("/api/profile?account=google/ann@example.com", `{"profile":"../x"}`); code != http.StatusBadRequest {
+		t.Fatalf("bad profile: %d, want 400", code)
+	}
+}
