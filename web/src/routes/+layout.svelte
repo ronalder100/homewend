@@ -5,10 +5,14 @@
 	import { onMount } from 'svelte';
 	import { text } from '#lib/strings.js';
 	import { loadTheme } from '#lib/theme.svelte.js';
+	import { app } from '#lib/app.svelte.js';
 
 	let { children } = $props();
 
-	onMount(loadTheme);
+	onMount(() => {
+		loadTheme();
+		window.shell?.onUpdateReady((v) => (app.update = v));
+	});
 </script>
 
 <svelte:head>

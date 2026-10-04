@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // What the page asks of the window: the theme to draw its own buttons in, the
-// system's folder picker, and the file manager.
+// system's folder picker, the file manager, and the app's updates.
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('shell', {
@@ -11,5 +11,7 @@ contextBridge.exposeInMainWorld('shell', {
 	showInFolder: (path) => ipcRenderer.send('show-in-folder', path),
 	openFolder: (path) => ipcRenderer.send('open-folder', path),
 	onToggleSidebar: (fn) => ipcRenderer.on('toggle-sidebar', () => fn()),
-	notify: (title, body) => ipcRenderer.send('notify', title, body)
+	notify: (title, body) => ipcRenderer.send('notify', title, body),
+	onUpdateReady: (fn) => ipcRenderer.on('update-ready', (_event, version) => fn(version)),
+	installUpdate: () => ipcRenderer.send('install-update')
 });

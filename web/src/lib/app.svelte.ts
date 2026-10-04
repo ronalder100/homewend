@@ -22,12 +22,15 @@ export const app = $state<{
 	/** Seconds left at the speed of the last minute, per account. */
 	left: Record<string, number>;
 	error: string;
+	/** A newer version, downloaded and waiting for a restart. */
+	update: string;
 }>({
 	settings: {},
 	overview: null,
 	jobs: {},
 	left: {},
-	error: ''
+	error: '',
+	update: ''
 });
 
 const samples: Record<string, { t: number; done: number }[]> = {};

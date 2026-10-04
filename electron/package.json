@@ -10,7 +10,7 @@
 		"tokens": "node -e \"require('fs').copyFileSync('../web/tokens.json', 'tokens.json')\"",
 		"prestart": "npm run tokens",
 		"start": "electron .",
-		"engine": "cd .. && go build -trimpath -o electron/engine/homewend ./cmd/homewend",
+		"engine": "cd .. && go build -trimpath -ldflags \"-X main.version=$npm_package_version\" -o electron/engine/homewend ./cmd/homewend",
 		"page": "cd ../web && npm run build",
 		"dist": "npm run tokens && npm run page && npm run engine && electron-builder"
 	},
@@ -53,6 +53,16 @@
 			"target": [
 				"nsis"
 			]
-		}
+		},
+		"publish": [
+			{
+				"provider": "github",
+				"owner": "ronalder100",
+				"repo": "homewend"
+			}
+		]
+	},
+	"dependencies": {
+		"electron-updater": "^6.8.9"
 	}
 }

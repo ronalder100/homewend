@@ -141,6 +141,9 @@ export const text = {
 	about: 'ABOUT',
 	aboutDesc: 'Open source, AGPL-3.0. Nothing passes through our servers.',
 	sourceCode: 'Source code',
+	updateReady: (v: string) => `Homewend ${v} is ready`,
+	updateReadyDesc: 'Downloaded. It is installed when Homewend restarts.',
+	restartToUpdate: 'Restart to update',
 	upcoming: 'Upcoming',
 	importTitle: 'Import a folder',
 	importDesc:

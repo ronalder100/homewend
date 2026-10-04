@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
+const { autoUpdater } = require('electron-updater');
 const tokens = require('./tokens.json').variables;
 
 // Where the engine is: inside the app once packaged (electron-builder's
@@ -162,7 +163,25 @@ async function open() {
 		return { action: 'deny' };
 	});
 	Menu.setApplicationMenu(menu());
+	updates();
 	win.loadURL(url);
+}
+
+// Updates come from the project's GitHub releases (build.publish), are
+// downloaded in the background and installed on the next start, or at once
+// from Settings. HOMEWEND_UPDATES points at another place that serves the
+// same files, to try an update without publishing one.
+const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+function updates() {
+	if (!app.isPackaged) return;
+	if (process.env.HOMEWEND_UPDATES) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.HOMEWEND_UPDATES });
+	autoUpdater.on('update-downloaded', (info) => win?.webContents.send('update-ready', info.version));
+	// No release yet, or no network: the app carries on as it is.
+	autoUpdater.on('error', (err) => console.error('update:', err.message));
+	ipcMain.on('install-update', () => autoUpdater.quitAndInstall());
+	const check = () => autoUpdater.checkForUpdates().catch(() => {});
+	check();
+	setInterval(check, UPDATE_EVERY);
 }
 
 // One app, one window: opening it again brings the open window forward.
