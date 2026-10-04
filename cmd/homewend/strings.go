@@ -88,7 +88,7 @@ Usage:
   homewend takeout --list
 
 Brings your Google Photos home, one year or all of them, into the library
-folder, under the account's profile: the photos by year, month and day, with
+folder, under the account's profile: the photos by year and month, with
 your albums beside them and the pictures that came through chats apart, each
 one counted against the list Google puts in the export.
 

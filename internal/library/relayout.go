@@ -34,7 +34,7 @@ var (
 )
 
 // Relayout moves a library filed before profiles into them: each photo to
-// its first source's profile, by year, month and day, a link to it in the
+// its first source's profile, by year and month, a link to it in the
 // profile of every other source, and its albums rebuilt beside it. A photo
 // with no source goes in fallback's. Nothing is copied and nothing is lost:
 // files are renamed on the same disk, and an old album entry is removed only

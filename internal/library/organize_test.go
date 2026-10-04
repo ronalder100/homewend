@@ -37,7 +37,7 @@ func TestSamePhotoInYearAndAlbumIsStoredOnce(t *testing.T) {
 	if result.Linked+result.Copied != 1 {
 		t.Errorf("album entries %d, want 1", result.Linked+result.Copied)
 	}
-	mustExist(t, filepath.Join(out, "2019", "07", "05", "IMG_1.jpg"))
+	mustExist(t, filepath.Join(out, "2019", "07", "IMG_1.jpg"))
 	mustExist(t, filepath.Join(out, "albums", "Greece 2019", "IMG_1.jpg"))
 }
 
@@ -52,7 +52,7 @@ func TestTheSidecarIsKeptBesideThePhotosPath(t *testing.T) {
 	if _, err := organize(t, src, out); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(out, WorkDir, "metadata", "2019", "07", "05", "IMG_1.jpg.json"))
+	mustExist(t, filepath.Join(out, WorkDir, "metadata", "2019", "07", "IMG_1.jpg.json"))
 }
 
 // Google handed the 344 GB export the same 8.64 GB video twice, as two separate
@@ -94,8 +94,8 @@ func TestSameNameDifferentPhotoKeepsBoth(t *testing.T) {
 	if result.Placed != 2 {
 		t.Fatalf("placed %d, want 2 — both photos must survive", result.Placed)
 	}
-	mustExist(t, filepath.Join(out, "2019", "07", "05", "IMG_0001.jpg"))
-	mustExist(t, filepath.Join(out, "2019", "07", "05", "IMG_0001-2.jpg"))
+	mustExist(t, filepath.Join(out, "2019", "07", "IMG_0001.jpg"))
+	mustExist(t, filepath.Join(out, "2019", "07", "IMG_0001-2.jpg"))
 }
 
 // No sidecar, no EXIF: the year folder is Google's own filing, and it is better
@@ -153,7 +153,7 @@ func TestSidecarBeatsTheYearFolder(t *testing.T) {
 	if result.BySource[FromSidecar] != 1 {
 		t.Errorf("date sources %v, want one from the sidecar", result.BySource)
 	}
-	mustExist(t, filepath.Join(out, "2007", "06", "28", "old.jpg"))
+	mustExist(t, filepath.Join(out, "2007", "06", "old.jpg"))
 }
 
 // Takeout truncates the sidecar suffix when the whole name would be too long.
@@ -293,8 +293,8 @@ func TestProfilesShareOnePhoto(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	first := filepath.Join(root, "ron", "2019", "07", "05", "IMG_1.jpg")
-	second := filepath.Join(root, "sam", "2019", "07", "05", "IMG_1.jpg")
+	first := filepath.Join(root, "ron", "2019", "07", "IMG_1.jpg")
+	second := filepath.Join(root, "sam", "2019", "07", "IMG_1.jpg")
 	mustExist(t, filepath.Join(root, "sam", "albums", "Greece 2019", "IMG_1.jpg"))
 	a, err1 := os.Stat(first)
 	b, err2 := os.Stat(second)

@@ -195,7 +195,7 @@ func TestPhotosArePlacedAsTheirPartsArrive(t *testing.T) {
 	}
 	// Both by the sidecar's date, the late one too: not by the year folder.
 	for _, name := range []string{"a.jpg", "b.jpg"} {
-		if _, err := os.Stat(filepath.Join(f.Library, "2024", "07", julyDay(), name)); err != nil {
+		if _, err := os.Stat(filepath.Join(f.Library, "2024", "07", name)); err != nil {
 			t.Errorf("%s is not filed under July 2024: %v", name, err)
 		}
 	}
@@ -233,14 +233,10 @@ func TestASidecarThatArrivesFirstIsUsedWhenThePhotoComes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(f.Library, "2024", "07", julyDay(), "b.jpg")); err != nil {
+	if _, err := os.Stat(filepath.Join(f.Library, "2024", "07", "b.jpg")); err != nil {
 		t.Errorf("b.jpg is not filed under July 2024: %v", err)
 	}
 	if result.Organized.Placed != 1 || !result.Verification.Complete() {
 		t.Errorf("placed %d, verification %+v", result.Organized.Placed, result.Verification)
 	}
 }
-
-// julyDay is the day of the fixtures' photo, 1721000000, in UTC, the
-// timezone the fetch is given.
-func julyDay() string { return time.Unix(1721000000, 0).UTC().Format("02") }

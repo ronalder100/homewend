@@ -109,7 +109,7 @@ type Item struct {
 // Organize moves items into a date layout under the profile's folder, and
 // rebuilds the albums beside it without storing anything twice.
 //
-//	<root>/<profile>/2019/07/14/IMG_1234.jpg
+//	<root>/<profile>/2019/07/IMG_1234.jpg
 //	<root>/<profile>/albums/Greece 2019/IMG_1234.jpg   -> a hardlink to the file above
 //	<root>/<profile>/undated/SCAN_0003.jpg
 //
@@ -247,7 +247,7 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 	var dir string
 	switch capture.Source {
 	case FromSidecar, FromEXIF:
-		dir = filepath.Join(base, local.Format("2006"), local.Format("01"), local.Format("02"))
+		dir = filepath.Join(base, local.Format("2006"), local.Format("01"))
 	case FromFolder:
 		// The year is Google's and the month is not known. Saying so in the
 		// path is more honest than picking January and looking precise. No

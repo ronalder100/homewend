@@ -116,8 +116,7 @@ Homewend/
 ├── ron/
 │   ├── 2019/
 │   │   ├── 07/
-│   │   │   └── 14/
-│   │   │       └── IMG_1234.jpg
+│   │   │   └── IMG_1234.jpg
 │   │   └── unknown-month/
 │   ├── albums/
 │   │   └── Greece 2019/
@@ -129,7 +128,7 @@ Homewend/
 ```
 
 - One folder per profile: whose photos they are. Each Google account belongs to one, named after the address the first time and changeable then; two accounts can share one.
-- Inside, one folder per year, month and day. `unknown-month/` when Google knows only the year.
+- Inside, one folder per year and month. `unknown-month/` when Google knows only the year.
 - Albums link to the same photos: no extra space, where the disk allows links. A photo two profiles both have is stored once.
 - `messaging/` keeps the pictures that came through WhatsApp, Signal or Telegram apart from your photos.
 - `undated/` for photos with no date at all.

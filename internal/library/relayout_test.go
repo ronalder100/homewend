@@ -35,7 +35,7 @@ func TestAnOldLibraryMovesIntoItsProfile(t *testing.T) {
 	if _, err := Organize(items, root, catalog, Options{Location: time.UTC, Account: "ron@example.com"}, nil); err != nil {
 		t.Fatal(err)
 	}
-	old := filepath.Join(root, "2019", "07", "05", "IMG_1.jpg")
+	old := filepath.Join(root, "2019", "07", "IMG_1.jpg")
 	if err := os.MkdirAll(filepath.Join(root, "2019", "07"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestAnOldLibraryMovesIntoItsProfile(t *testing.T) {
 	if err := Relayout(root, catalog, profileOf, "ron", time.UTC); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(root, "ron", "2019", "07", "05", "IMG_1.jpg"))
+	mustExist(t, filepath.Join(root, "ron", "2019", "07", "IMG_1.jpg"))
 	mustExist(t, filepath.Join(root, "ron", "albums", "Greece 2019", "IMG_1.jpg"))
 	for _, gone := range []string{"2019", "albums"} {
 		if _, err := os.Stat(filepath.Join(root, gone)); !os.IsNotExist(err) {
@@ -74,7 +74,7 @@ func TestAnOldLibraryMovesIntoItsProfile(t *testing.T) {
 	if Filed(root) {
 		t.Error("the library is still seen as old")
 	}
-	if p, _, _ := catalog.PathOf(mustHash(t, filepath.Join(root, "ron", "2019", "07", "05", "IMG_1.jpg"))); p != "ron/2019/07/05/IMG_1.jpg" {
+	if p, _, _ := catalog.PathOf(mustHash(t, filepath.Join(root, "ron", "2019", "07", "IMG_1.jpg"))); p != "ron/2019/07/IMG_1.jpg" {
 		t.Errorf("the catalog says %q", p)
 	}
 }
