@@ -99,6 +99,7 @@ export interface Takeout {
 	Bytes: number;
 	Parts: unknown[] | null;
 	Expires: string;
+	years?: string[];
 }
 
 export const getTakeouts = (account: string) => call<Takeout[]>('GET', `/api/takeouts?${q({ account })}`);
@@ -113,3 +114,6 @@ export const folderOf = (o: { year?: string; album?: string; noDate?: boolean })
 
 export const getLatest = () => call<GridPhoto[]>('GET', '/api/latest');
 export const getAbout = (hash: string) => call<{ albums: string[]; accounts: string[] }>('GET', `/api/about/${hash}`);
+
+export const readContents = (account: string, exportId: string) =>
+	call<{ years: string[] }>('POST', `/api/takeouts/contents?${q({ account, export: exportId })}`);

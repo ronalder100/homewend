@@ -115,7 +115,8 @@ export const text = {
 	readingTakeouts: 'Reading your takeouts from Google…',
 	noTakeouts: 'No takeouts on Google yet.',
 	unknownNote:
-		"Not known: a takeout made on Google, not by Homewend. Google doesn't say whether it holds everything or one year.",
+		"Not known: a takeout made on Google. Google doesn't say what it holds; Homewend reads its list of files once the account has downloaded anything.",
+	reading: 'Reading…',
 
 	library: 'LIBRARY',
 	whereTheyGo: 'Where your photos go',

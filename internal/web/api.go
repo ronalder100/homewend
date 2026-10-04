@@ -171,6 +171,25 @@ func apiRoutes() http.Handler {
 	mux.HandleFunc("GET /api/about", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, map[string]string{"version": Version}, nil)
 	})
+	// What a takeout made on Google holds: its manifest, fetched alone.
+	mux.HandleFunc("POST /api/takeouts/contents", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		sess, err := engine.AccountSession(q.Get("account"))
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		root, err := engine.DefaultLibrary()
+		if err == nil && root == "" {
+			err = engine.ErrNoLibrary
+		}
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		years, err := engine.ReadContents(r.Context(), sess, root, q.Get("export"))
+		reply(w, map[string][]string{"years": years}, err)
+	})
 	mux.HandleFunc("GET /api/takeouts", func(w http.ResponseWriter, r *http.Request) {
 		sess, err := engine.AccountSession(r.URL.Query().Get("account"))
 		if err != nil {
@@ -189,7 +208,7 @@ func reply(w http.ResponseWriter, v any, err error) {
 	switch {
 	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrNoSuchAccount):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, engine.ErrJobRunning):
+	case errors.Is(err, engine.ErrJobRunning), errors.Is(err, engine.ErrNoUserYet):
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, fs.ErrNotExist), errors.Is(err, engine.ErrNoLibrary):
 		http.Error(w, err.Error(), http.StatusNotFound)

@@ -82,6 +82,8 @@ type Takeout struct {
 	Status Status `json:"status"`
 	Year   int    `json:"year"`  // 0 with Known: everything
 	Known  bool   `json:"known"` // asked for by Homewend, so what it holds is known
+	// Years its manifest lists, once read (ReadContents or a download).
+	Years []string `json:"years,omitempty"`
 }
 
 // idLength is how much of a job id the takeouts command shows, as git shows
@@ -108,6 +110,11 @@ func Takeouts(sess *session.Session) ([]Takeout, error) {
 			if n.Job == e.Job {
 				list[i].Year, list[i].Known = n.Year, true
 			}
+		}
+	}
+	if root, err := DefaultLibrary(); err == nil && root != "" {
+		for i := range list {
+			list[i].Years, _ = manifestYears(root, list[i].Job)
 		}
 	}
 	sort.SliceStable(list, func(i, j int) bool { return list[i].Created.After(list[j].Created) })

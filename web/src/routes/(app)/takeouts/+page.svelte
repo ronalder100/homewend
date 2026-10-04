@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { Archive, Download } from '@lucide/svelte';
 	import { app, sidebarOf } from '#lib/app.svelte.js';
-	import { getTakeouts, startGet, type Takeout } from '#lib/api.js';
+	import { getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -19,13 +19,30 @@
 
 	let list = $state<Takeout[] | null>(null);
 	let failed = $state('');
+	let reading = $state('');
 	$effect(() => {
 		const a = account;
 		if (!a) return;
 		list = null;
 		failed = '';
 		getTakeouts(a).then(
-			(l) => (list = l),
+			async (l) => {
+				list = l;
+				// A ready takeout made on Google: read its list of files, one at a
+				// time, to say what it holds.
+				for (const t of l) {
+					if (t.known || t.years?.length || t.status !== 'ready' || account !== a) continue;
+					reading = t.id;
+					try {
+						t.years = (await readContents(a, t.id)).years;
+						list = [...l];
+					} catch {
+						break; // no download from this account yet: nothing to read with
+					} finally {
+						reading = '';
+					}
+				}
+			},
 			(e) => (failed = String(e))
 		);
 	});
@@ -37,8 +54,11 @@
 	const when = { format: (d: Date) => `${day.format(d)}, ${clock.format(d)}` };
 
 	function holds(t: Takeout) {
-		if (!t.known) return text.holdsUnknown;
-		return t.year ? text.holdsYear(t.year) : text.holdsAll;
+		if (t.known) return t.year ? text.holdsYear(t.year) : text.holdsAll;
+		const y = t.years ?? [];
+		if (y.length === 1) return y[0];
+		if (y.length > 1) return `${y[0]}–${y[y.length - 1]}`;
+		return reading === t.id ? text.reading : text.holdsUnknown;
 	}
 	async function download(t: Takeout) {
 		await startGet({ account, export: t.id });
@@ -98,7 +118,7 @@
 				{/each}
 			</tbody>
 		</table>
-		{#if list.some((t) => !t.known)}<p class="note">{text.unknownNote}</p>{/if}
+		{#if list.some((t) => !t.known && !t.years?.length)}<p class="note">{text.unknownNote}</p>{/if}
 	{/if}
 </div>
 
