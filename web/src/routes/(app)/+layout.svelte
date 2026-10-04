@@ -10,6 +10,8 @@
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import Opening from '#lib/components/Opening.svelte';
 	import Banner from '#lib/components/Banner.svelte';
+	import Titlebar from '#lib/components/Titlebar.svelte';
+	import Steps from '#lib/components/Steps.svelte';
 	import { app, refresh, shownJob, sidebarOf, toggleAccount, watchJobs } from '#lib/app.svelte.js';
 	import { placeOf, urlOf } from '#lib/places.js';
 	import { text } from '#lib/strings.js';
@@ -23,6 +25,15 @@
 	});
 	const place = $derived(placeOf(page.url));
 	const job = $derived(shownJob());
+
+	// The first run, before any photo: Choose and the download are three steps
+	// of their own, without the library around them (A2–A5).
+	const firstRun = $derived(
+		(app.overview?.total ?? 0) === 0 && (page.url.pathname === '/choose' || page.url.pathname === '/bringing')
+	);
+	const chose = $derived(
+		job?.job.year ? text.choseYear(job.job.year) : job ? text.choseEverything : text.stepChooseLabel
+	);
 
 	// Said once each, when it happens, in D2's words.
 	let said = '';
@@ -66,7 +77,17 @@
 	{/if}
 {/snippet}
 
-{#if app.overview}
+{#if app.overview && firstRun}
+	<div class="first">
+		<Titlebar menu={false} />
+		{@render strip()}
+		<Steps
+			steps={[text.stepSignIn, page.url.pathname === '/choose' ? text.stepChooseLabel : chose, text.stepBringHome]}
+			at={page.url.pathname === '/choose' ? 1 : 2}
+		/>
+		<div class="body">{@render children()}</div>
+	</div>
+{:else if app.overview}
 	<Frame
 		sidebar={sidebarOf(app.overview)}
 		{place}
@@ -80,3 +101,16 @@
 {:else}
 	<Opening />
 {/if}
+
+<style>
+	.first {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+	.body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+</style>

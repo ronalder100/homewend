@@ -191,5 +191,8 @@ export const text = {
 	keepsUntil: 'Google keeps the takeout until',
 	allHere: 'all here',
 	missing: (n: string) => `${n} missing from the takeout`,
-	arriving: 'arriving with the next parts'
+	arriving: 'arriving with the next parts',
+	stepChooseLabel: 'Choose',
+	choseEverything: 'Chose everything',
+	choseYear: (y: number) => `Chose ${y}`
 } as const;
