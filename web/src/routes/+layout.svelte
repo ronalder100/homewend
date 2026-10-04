@@ -11,7 +11,10 @@
 
 	onMount(() => {
 		loadTheme();
-		window.shell?.onUpdateReady((v) => (app.update = v));
+		window.shell?.onUpdate((v) => {
+			app.update = v;
+			window.shell?.announceUpdate(v, text.updateAvailable(v), text.updateAvailableBody);
+		});
 	});
 </script>
 

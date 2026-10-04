@@ -3,7 +3,7 @@
 <!-- D1: when Homewend needs the person, one strip under the titlebar. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { slide } from 'svelte/transition';
+	import Strip from './Strip.svelte';
 	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { login } from '#lib/api.js';
@@ -46,101 +46,37 @@
 </script>
 
 {#if kind && dismissed !== kind}
-	<div class="banner {kind}" transition:slide={{ duration: 180 }}>
-		<span class="icon">
-			{#if kind === 'password'}<KeyRound size={18} />
-			{:else if kind === 'signed-out'}<KeyRound size={18} />
+	{@const tone = kind === 'no-space' || kind === 'expired' ? 'err' : kind === 'signed-out' || kind === 'network' ? 'warn' : kind === 'finished' ? 'ok' : 'accent'}
+	{@const total = job.years.reduce((n, y) => n + y.arrived, 0).toLocaleString('en')}
+	{@const [title, detail] =
+		kind === 'password'
+			? [text.bannerPassword(email), text.bannerPasswordDesc]
+			: kind === 'signed-out'
+				? [text.bannerSignedOut(email), text.bannerSignedOutDesc(job.parts + 1)]
+				: kind === 'no-space'
+					? [text.bannerNoSpace, text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))]
+					: kind === 'expired'
+						? [text.bannerExpired(email), text.bannerExpiredDesc]
+						: kind === 'network'
+							? [text.bannerNetwork, text.bannerNetworkDesc]
+							: [text.bannerFinished(email, total), text.bannerFinishedDesc(dir)]}
+	{@const [action, onaction] =
+		kind === 'signed-out'
+			? [text.signInAgain, signInAgain]
+			: kind === 'no-space'
+				? [text.chooseAnotherFolder, chooseFolder]
+				: kind === 'expired'
+					? [text.newTakeoutAction, () => goto('/choose')]
+					: kind === 'finished'
+						? [text.openLibrary, () => ((dismissed = kind), goto('/library'))]
+						: [undefined, undefined]}
+	<Strip {tone} {title} {detail} {action} {onaction}>
+		{#snippet icon()}
+			{#if kind === 'password' || kind === 'signed-out'}<KeyRound size={18} />
 			{:else if kind === 'no-space'}<HardDrive size={18} />
 			{:else if kind === 'expired'}<CalendarX size={18} />
 			{:else if kind === 'network'}<WifiOff size={18} />
 			{:else}<CircleCheck size={18} />{/if}
-		</span>
-		<div class="text">
-			{#if kind === 'password'}
-				<b>{text.bannerPassword(email)}</b><span>{text.bannerPasswordDesc}</span>
-			{:else if kind === 'signed-out'}
-				<b>{text.bannerSignedOut(email)}</b><span>{text.bannerSignedOutDesc(job.parts + 1)}</span>
-			{:else if kind === 'no-space'}
-				<b>{text.bannerNoSpace}</b><span>{text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))}</span>
-			{:else if kind === 'expired'}
-				<b>{text.bannerExpired(email)}</b><span>{text.bannerExpiredDesc}</span>
-			{:else if kind === 'network'}
-				<b>{text.bannerNetwork}</b><span>{text.bannerNetworkDesc}</span>
-			{:else}
-				<b>{text.bannerFinished(email, job.years.reduce((n, y) => n + y.arrived, 0).toLocaleString('en'))}</b><span>{text.bannerFinishedDesc(dir)}</span>
-			{/if}
-		</div>
-		{#if kind === 'signed-out'}
-			<button class="act" onclick={signInAgain}>{text.signInAgain}</button>
-		{:else if kind === 'no-space'}
-			<button class="act" onclick={chooseFolder}>{text.chooseAnotherFolder}</button>
-		{:else if kind === 'expired'}
-			<button class="act" onclick={() => goto('/choose')}>{text.newTakeoutAction}</button>
-		{:else if kind === 'finished'}
-			<button class="act" onclick={() => ((dismissed = kind), goto('/library'))}>{text.openLibrary}</button>
-		{/if}
-	</div>
+		{/snippet}
+	</Strip>
 {/if}
-
-<style>
-	.banner {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 24px;
-		border-bottom: 1px solid var(--line);
-		background: var(--accent-soft);
-		font-size: var(--text-body);
-	}
-	.no-space,
-	.expired {
-		background: var(--err-soft);
-	}
-	.signed-out,
-	.network {
-		background: var(--warn-soft);
-	}
-	.finished {
-		background: var(--ok-soft);
-	}
-	.icon {
-		display: grid;
-		color: var(--accent);
-	}
-	.no-space .icon,
-	.expired .icon {
-		color: var(--err);
-	}
-	.signed-out .icon,
-	.network .icon {
-		color: var(--warn);
-	}
-	.finished .icon {
-		color: var(--ok);
-	}
-	.text {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-	b {
-		color: var(--fg);
-		font-weight: 600;
-	}
-	.text span {
-		font-size: var(--text-callout);
-		color: var(--muted);
-	}
-	.act {
-		height: 32px;
-		padding: 0 12px;
-		border-radius: 8px;
-		background: var(--accent);
-		color: var(--on-accent);
-		font-size: var(--text-callout);
-		font-weight: 600;
-		white-space: nowrap;
-	}
-</style>

@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Monitor, Sun, Moon, Trash2, Code, RotateCw } from '@lucide/svelte';
+	import { Monitor, Sun, Moon, Trash2, Code } from '@lucide/svelte';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import { theme, setTheme } from '#lib/theme.svelte.js';
@@ -117,17 +117,6 @@
 					><Code size={14} />{text.sourceCode}</a
 				>
 			</div>
-			{#if app.update}
-				<div class="item">
-					<div class="text">
-						<h3>{text.updateReady(app.update)}</h3>
-						<p>{text.updateReadyDesc}</p>
-					</div>
-					<button class="link" onclick={() => window.shell?.installUpdate()}
-						><RotateCw size={14} />{text.restartToUpdate}</button
-					>
-				</div>
-			{/if}
 		</div>
 	</section>
 </div>

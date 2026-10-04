@@ -167,20 +167,42 @@ async function open() {
 	win.loadURL(url);
 }
 
-// Updates come from the project's GitHub releases (build.publish), are
-// downloaded in the background and installed on the next start, or at once
-// from Settings. HOMEWEND_UPDATES points at another place that serves the
-// same files, to try an update without publishing one.
+// Updates come from the project's GitHub releases (build.publish). A newer
+// one is only announced, with a notification in the page's words; nothing is
+// downloaded until the person asks, from the notification or Settings, and
+// then it is installed and the app restarts. HOMEWEND_UPDATES points at
+// another place that serves the same files, to try an update without
+// publishing one.
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
 function updates() {
 	if (!app.isPackaged) return;
 	if (process.env.HOMEWEND_UPDATES) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.HOMEWEND_UPDATES });
-	autoUpdater.on('update-downloaded', (info) => win?.webContents.send('update-ready', info.version));
+	autoUpdater.autoDownload = false;
+	autoUpdater.autoInstallOnAppQuit = false;
+	let announced = '';
+	// The newer version found, told to the page now and whenever it asks: it
+	// may be found before the page listens.
+	let available = '';
+	autoUpdater.on('update-available', (info) => {
+		available = info.version;
+		win?.webContents.send('update-available', available);
+	});
+	ipcMain.on('update-listen', (event) => available && event.sender.send('update-available', available));
+	autoUpdater.on('update-downloaded', () => autoUpdater.quitAndInstall());
 	// No release yet, or no network: the app carries on as it is.
 	autoUpdater.on('error', (err) => console.error('update:', err.message));
-	ipcMain.on('install-update', () => autoUpdater.quitAndInstall());
+	const install = () => autoUpdater.downloadUpdate().catch((err) => console.error('update:', err.message));
+	ipcMain.on('install-update', install);
+	ipcMain.on('announce-update', (_event, version, title, body) => {
+		if (version === announced || !Notification.isSupported()) return;
+		announced = version;
+		const n = new Notification({ title: String(title), body: String(body) });
+		n.on('click', install);
+		n.show();
+	});
 	const check = () => autoUpdater.checkForUpdates().catch(() => {});
-	check();
+	// Once the page can say it.
+	win.webContents.once('did-finish-load', check);
 	setInterval(check, UPDATE_EVERY);
 }
 

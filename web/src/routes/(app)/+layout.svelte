@@ -10,6 +10,7 @@
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import Opening from '#lib/components/Opening.svelte';
 	import Banner from '#lib/components/Banner.svelte';
+	import UpdateBanner from '#lib/components/UpdateBanner.svelte';
 	import Titlebar from '#lib/components/Titlebar.svelte';
 	import Steps from '#lib/components/Steps.svelte';
 	import { app, refresh, shownJob, sidebarOf, toggleAccount, watchJobs } from '#lib/app.svelte.js';
@@ -68,6 +69,7 @@
 {/snippet}
 
 {#snippet strip()}
+	<UpdateBanner />
 	{#if job}
 		<Banner
 			account={job.account}
