@@ -35,9 +35,17 @@
 								: ''
 	);
 
+	// One sign-in at a time: while the browser is open the strip says so and
+	// offers nothing to press again.
+	let signingIn = $state(false);
 	async function signInAgain() {
-		await login(account);
-		await refresh();
+		signingIn = true;
+		try {
+			await login(account);
+			await refresh();
+		} finally {
+			signingIn = false;
+		}
 	}
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
@@ -52,7 +60,7 @@
 		kind === 'password'
 			? [text.bannerPassword(email), text.bannerPasswordDesc]
 			: kind === 'signed-out'
-				? [text.bannerSignedOut(email), text.bannerSignedOutDesc(job.parts + 1)]
+				? [text.bannerSignedOut(email), signingIn ? text.signingIn : text.bannerSignedOutDesc(job.parts + 1)]
 				: kind === 'no-space'
 					? [text.bannerNoSpace, text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))]
 					: kind === 'expired'
@@ -62,7 +70,9 @@
 							: [text.bannerFinished(email, total), text.bannerFinishedDesc(dir)]}
 	{@const [action, onaction] =
 		kind === 'signed-out'
-			? [text.signInAgain, signInAgain]
+			? signingIn
+				? [undefined, undefined]
+				: [text.signInAgain, signInAgain]
 			: kind === 'no-space'
 				? [text.chooseAnotherFolder, chooseFolder]
 				: kind === 'expired'
