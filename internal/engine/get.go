@@ -73,10 +73,10 @@ func (g Get) Existing(sess *session.Session) (*Found, error) {
 	if err != nil || export == nil {
 		return nil, err
 	}
-	_, err = os.Stat(filepath.Join(g.Library, library.WorkDir, export.Job))
 	return &Found{
 		Takeout: Takeout{Export: *export, ID: ShortID(export.Job), Status: StatusOf(*export), Year: g.Year, Known: g.Takeout == ""},
-		Started: err == nil,
+		// Begun as the list of takeouts says it: not by a folder alone.
+		Started: localOf(g.Library, *export) != nil,
 	}, nil
 }
 

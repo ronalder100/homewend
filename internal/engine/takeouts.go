@@ -98,7 +98,8 @@ type Local struct {
 	Present  int `json:"present,omitempty"`
 }
 
-// localOf reads what the library holds of e, from the state its fetch keeps.
+// localOf reads what the library holds of e, from the state its fetch keeps;
+// nil when its download is not begun.
 func localOf(root string, e takeout.Export) *Local {
 	work := filepath.Join(root, library.WorkDir, e.Job)
 	if _, err := os.Stat(filepath.Join(work, "state.json")); err != nil {

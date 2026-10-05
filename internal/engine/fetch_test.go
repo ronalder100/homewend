@@ -297,7 +297,8 @@ func TestAFetchAfterReadingTheContentsIsBegun(t *testing.T) {
 }
 
 // A download with no room for it is refused before anything is kept: the
-// takeout is not begun, and no export appears in the library.
+// takeout is not begun, no folder is made for it, and one asked again keeps
+// the parts it had.
 func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
 	f := Fetch{
 		Target:  takeout.Target{Job: "job", User: "1"},
@@ -309,10 +310,24 @@ func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
 	if _, err := f.Run(context.Background(), &host{files: map[string][]byte{}}, func(progress.Event) {}); !errors.As(err, &space) {
 		t.Fatalf("got %v, want NoSpaceError", err)
 	}
-	if l := localOf(f.Library, f.Export); l != nil {
-		t.Errorf("local %+v, want nil", l)
+	if _, err := os.Stat(filepath.Join(f.Library, library.WorkDir, "job")); !os.IsNotExist(err) {
+		t.Errorf("a folder was made for it: %v", err)
 	}
-	if _, err := downloaded(f.Library, ""); err == nil {
-		t.Error("an export appears in the library")
+
+	// Again, with a part already here: refused, it still has the part.
+	f.Export.Parts = append(f.Export.Parts, takeout.Part{Index: 1, Filename: "part-002.zip", Size: 1})
+	work := filepath.Join(f.Library, library.WorkDir, "job")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := (state{Unpacked: map[string]bool{"part-002.zip": true}, Profile: "ann"}).save(work); err != nil {
+		t.Fatal(err)
+	}
+	f.Again = true
+	if _, err := f.Run(context.Background(), &host{files: map[string][]byte{}}, func(progress.Event) {}); !errors.As(err, &space) {
+		t.Fatalf("again: got %v, want NoSpaceError", err)
+	}
+	if l := localOf(f.Library, f.Export); l == nil || l.Parts != 1 {
+		t.Errorf("local %+v, want the part still unpacked", l)
 	}
 }

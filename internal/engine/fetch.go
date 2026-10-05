@@ -70,11 +70,6 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	work := filepath.Join(f.Library, library.WorkDir, f.Target.Job)
 	parts := filepath.Join(work, "parts")
 	unpacked := filepath.Join(work, "unpacked")
-	for _, dir := range []string{parts, unpacked} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return Result{}, err
-		}
-	}
 
 	st, err := loadState(work)
 	if err != nil {
@@ -83,13 +78,19 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if f.Again {
 		st.Unpacked, st.Checked = map[string]bool{}, nil
 	}
+	// A download refused for room leaves no trace: nothing is made or kept
+	// before the check.
 	if err := f.checkSpace(st); err != nil {
 		return Result{}, err
 	}
-	// Once there is room, and before anything comes, the profile is named,
-	// even when the manifest is already here from reading what the takeout
-	// holds: the list of takeouts tells a begun download by it, and the
-	// check counts in its folder. A download refused for room leaves no trace.
+	for _, dir := range []string{parts, unpacked} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return Result{}, err
+		}
+	}
+	// Before anything comes, the profile is named, even when the manifest is
+	// already here from reading what the takeout holds: a begun download is
+	// told by it (begun), and the check counts in its folder.
 	if st.Profile == "" || f.Again {
 		st.Profile = f.Profile
 		if err := st.save(work); err != nil {

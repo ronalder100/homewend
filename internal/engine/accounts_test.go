@@ -117,7 +117,9 @@ func TestAdoptNamesTheFolder(t *testing.T) {
 
 func TestProfiles(t *testing.T) {
 	dir := config(t)
-	os.MkdirAll(filepath.Join(dir, "accounts", "google", "sam@example.com"), 0o700)
+	if err := os.MkdirAll(filepath.Join(dir, "accounts", "google", "sam@example.com"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := SetProfile("google/sam@example.com", "../x"); err != ErrBadProfile {
 		t.Errorf("a path as a profile: %v", err)
 	}
