@@ -8,7 +8,6 @@
 	import { text } from '#lib/strings.js';
 	import { signing, signInNew } from '#lib/app.svelte.js';
 
-
 	const steps = [
 		{ icon: LogIn, title: text.stepSignIn, desc: text.stepSignInDesc },
 		{ icon: ListChecks, title: text.stepChoose, desc: text.stepChooseDesc },

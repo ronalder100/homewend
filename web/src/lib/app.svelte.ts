@@ -6,9 +6,9 @@
 import { goto } from '$app/navigation';
 import {
 	getJob,
-	login,
 	getOverview,
 	getSettings,
+	login,
 	putSettings,
 	type JobState,
 	type Overview,

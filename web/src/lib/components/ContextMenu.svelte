@@ -49,6 +49,8 @@
 	let innerWidth = $state(Infinity);
 	const flip = $derived(x + 7 + WIDTH > innerWidth);
 
+	let bubble = $state<HTMLElement>();
+
 	async function pick(item: MenuItem) {
 		onclose();
 		await item.run();
@@ -58,11 +60,11 @@
 <svelte:window
 	bind:innerWidth
 	onkeydown={(e) => e.key === 'Escape' && onclose()}
-	onmousedown={(e) => !(e.target as Element).closest('.menu') && onclose()}
+	onmousedown={(e) => !bubble?.contains(e.target as Node) && onclose()}
 />
 
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
-<div class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
+<div bind:this={bubble} class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	{#each items as item (item.label)}
 		<button role="menuitem" onclick={() => pick(item)}><item.icon size={16} />{item.label}</button>
 	{/each}

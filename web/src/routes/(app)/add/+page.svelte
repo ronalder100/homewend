@@ -5,7 +5,6 @@
 	import { signing, signInNew } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 	import GoogleButton from '#lib/components/GoogleButton.svelte';
-
 </script>
 
 <div class="page">

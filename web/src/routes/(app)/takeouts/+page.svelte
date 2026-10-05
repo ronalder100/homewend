@@ -127,15 +127,20 @@
 		window.shell?.openFolder((await folderOf({ account })).path);
 	}
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
-	let menu = $state<{ x: number; y: number; start: number; items: MenuItem[] } | null>(null);
+	// Pressed again, the ⋯ closes it.
+	let menu = $state<{ id: string; x: number; y: number; start: number; items: MenuItem[] } | null>(null);
 	function more(e: MouseEvent, t: Takeout) {
+		if (menu?.id === t.id) {
+			menu = null;
+			return;
+		}
 		const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const items: MenuItem[] =
 			t.status === 'expired'
 				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t) }]
 				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true) }];
 		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: openFolder });
-		menu = { x: b.right, y: b.top + b.height / 2, start: b.left, items };
+		menu = { id: t.id, x: b.right, y: b.top + b.height / 2, start: b.left, items };
 	}
 
 	// How long Google has been preparing, counted while the page is open.
@@ -209,7 +214,11 @@
 							{:else if r.act === 'timer'}<span class="slot timer"><Timer size={14} />{since(t.Created)}</span>
 							{:else if r.act === 'more'}
 								<span class="slot"
-									><button class="more" aria-label={text.moreActions} onclick={(e) => more(e, t)}><Ellipsis size={16} /></button></span
+									><button
+										class="more"
+										aria-label={text.moreActions}
+										onmousedown={(e) => e.stopPropagation()}
+										onclick={(e) => more(e, t)}><Ellipsis size={16} /></button></span
 								>
 							{/if}
 						</td>
