@@ -119,11 +119,13 @@
 		}
 	}}
 	onscrollcapture={() => (bubble?.contains(document.activeElement) ? back() : onclose())}
+	onresize={onclose}
 	onmousedown={(e) => outside(e.target) && onclose()}
 />
 
-<!-- Placed where its row was: whatever scrolls closes it, rather than leave
-     it pointing at another row, and gives the keyboard back if it had it. -->
+<!-- Placed where its row was: whatever scrolls, or a window resized, closes
+     it rather than leave it pointing at another place, and gives the
+     keyboard back if it had it. -->
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
 <div
 	bind:this={bubble}

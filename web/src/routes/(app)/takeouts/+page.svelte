@@ -115,16 +115,13 @@
 		return { status: text.statusReady, detail: until, tone: 'ok', act: 'download' };
 	}
 
-	// The account is the takeout's, given by whoever asks: a menu opened on
-	// one account's row acts on that account, whatever tab is shown later.
 	async function bring(o: Parameters<typeof startGet>[0]) {
 		await startGet(o);
 		goto('/bringing');
 	}
-	const download = (t: Takeout, again = false, of = account) => bring({ account: of, export: t.id, again });
+	const download = (t: Takeout, again = false) => bring({ account, export: t.id, again });
 	// An expired takeout is asked of Google once more, as it was asked.
-	const askAgain = (t: Takeout, of: string) =>
-		bring({ account: of, year: t.known && t.year ? t.year : undefined, fresh: true });
+	const askAgain = (t: Takeout) => bring({ account, year: t.known && t.year ? t.year : undefined, fresh: true });
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
 	// Pressed again, the ⋯ closes it.
 	let menu = $state<{ id: string; anchor: Element; items: MenuItem[] } | null>(null);
@@ -134,15 +131,14 @@
 			return;
 		}
 		const anchor = e.currentTarget as HTMLElement;
-		const of = account;
 		const items: MenuItem[] =
 			t.status === 'expired'
-				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t, of) }]
-				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true, of) }];
+				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t) }]
+				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true) }];
 		// Where its photos are: the profile it went in, which a rename of the
 		// account's does not move.
 		const local = t.local;
-		if (local) items.push(...folderItems(async () => (await folderOf({ profile: local.profile || undefined, account: of })).path));
+		if (local) items.push(...folderItems(async () => (await folderOf({ profile: local.profile || undefined, account })).path));
 		menu = { id: t.id, anchor, items };
 	}
 
