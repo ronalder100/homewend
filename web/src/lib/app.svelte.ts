@@ -137,18 +137,33 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
 const signing = $state({ waiting: false, failed: '' });
 
 /** The sign-in, for a screen that offers it: a failure is said on that
- *  screen, and forgotten when it goes. Called as the component starts. */
+ *  screen only, from when it opens to when it goes, with the line that
+ *  stands under the button. Called as the component starts. */
 export function signingHere() {
+	signing.failed = '';
 	onDestroy(() => (signing.failed = ''));
-	return signing;
+	return {
+		get waiting() {
+			return signing.waiting;
+		},
+		get failed() {
+			return signing.failed;
+		},
+		get line() {
+			return signing.failed || (signing.waiting ? text.signingIn : text.signInCallSub);
+		}
+	};
 }
 
 export async function signInNew() {
 	signing.waiting = true;
 	signing.failed = '';
+	// Someone who went elsewhere while the browser was open stays there.
+	const from = location.pathname;
 	try {
 		const a = await login();
 		await refresh();
+		if (location.pathname !== from) return;
 		// A new account is asked, once, whose photos it holds.
 		goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
 	} catch (e) {

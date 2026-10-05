@@ -30,7 +30,7 @@
 			<div>
 				<h2>{text.signInCall}</h2>
 				<p class="sub" class:err={signing.failed}>
-					{signing.failed || (signing.waiting ? text.signingIn : text.signInCallSub)}
+					{signing.line}
 				</p>
 			</div>
 			<GoogleButton waiting={signing.waiting} onclick={signInNew} />

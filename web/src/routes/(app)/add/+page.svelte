@@ -11,7 +11,7 @@
 
 <div class="page">
 	<h1>{text.addAccount}</h1>
-	<p class:err={signing.failed}>{signing.failed || (signing.waiting ? text.signingIn : text.signInCallSub)}</p>
+	<p class:err={signing.failed}>{signing.line}</p>
 	<GoogleButton waiting={signing.waiting} onclick={signInNew} />
 </div>
 

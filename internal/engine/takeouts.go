@@ -117,9 +117,10 @@ func localOf(root string, e takeout.Export) *Local {
 	if st.Checked != nil {
 		l.Declared, l.Present = st.Checked.Declared, st.Checked.Present
 	}
-	// Reading what a takeout holds fetches its manifest alone: none of its
-	// photos came, and it is not begun.
-	if l.Parts == 0 && st.Checked == nil {
+	// Reading what a takeout holds fetches its manifest alone, and names no
+	// profile: it is not begun. A download names its profile before its
+	// first part, and is begun even with none unpacked yet.
+	if st.Profile == "" && l.Parts == 0 && st.Checked == nil {
 		return nil
 	}
 	return l
