@@ -3,6 +3,10 @@
 
 # The desktop app
 
+> **Not released yet.** This guide is for when it is: until then there is no
+> app to download. [Join the waitlist](https://homewend.app/?src=github#join)
+> to hear when it is out; the [command line](../README.md) works today.
+
 The same Homewend as the command line, in a window: sign in, choose what to
 bring home, and watch your library fill.
 
