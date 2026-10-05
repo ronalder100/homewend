@@ -355,3 +355,44 @@ func TestAFirstDownloadMakesTheLibrary(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A download resumed after its account's profile was renamed goes on in the
+// profile it began in: its photos are not split between two folders.
+func TestAResumedDownloadStaysInItsProfile(t *testing.T) {
+	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
+		<div class="extracted-folder-name">Photos from 2025</div>
+		<div class="extracted-file-name">a.jpg</div>`})
+	part := archive(t, map[string]string{"Takeout/Google Photos/Photos from 2025/a.jpg": "photo a"})
+	lib := t.TempDir()
+	work := filepath.Join(lib, library.WorkDir, "job")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, "manifest.zip"), manifest, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := (state{Manifest: "manifest.zip", Profile: "ann"}).save(work); err != nil {
+		t.Fatal(err)
+	}
+	f := Fetch{
+		Target: takeout.Target{Job: "job", User: "1"},
+		Export: takeout.Export{
+			Job:      "job",
+			Parts:    []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: int64(len(part))}},
+			Manifest: takeout.Part{Index: 1, Filename: "manifest.zip", Size: int64(len(manifest))},
+		},
+		Library: lib,
+		Profile: "annie", // renamed since the download began
+	}
+	served := &host{files: map[string][]byte{"part-001.zip": part}}
+	result, err := f.Run(context.Background(), served, func(progress.Event) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Verification.Complete() {
+		t.Errorf("verification %+v", result.Verification)
+	}
+	if _, err := os.Stat(filepath.Join(lib, "annie")); !os.IsNotExist(err) {
+		t.Errorf("the renamed profile got photos: %v", err)
+	}
+}

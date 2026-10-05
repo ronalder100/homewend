@@ -86,7 +86,14 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	// The profile's folder is where what is here gets counted, so it is made
 	// before that, even for a first download into a library or a profile
 	// not made yet.
-	for _, dir := range []string{filepath.Join(f.Library, f.Profile), parts, unpacked} {
+	// A download goes on in the profile it began in, even if the account's
+	// profile was renamed meanwhile: one takeout's photos, and its count, stay
+	// in one folder. Downloaded again, it goes in the account's profile now.
+	profile := f.Profile
+	if st.Profile != "" && !f.Again {
+		profile = st.Profile
+	}
+	for _, dir := range []string{filepath.Join(f.Library, profile), parts, unpacked} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return Result{}, err
 		}
@@ -95,7 +102,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	// already here from reading what the takeout holds: a begun download is
 	// told by it (begun), and verify counts in its folder.
 	if st.Profile == "" || f.Again {
-		st.Profile = f.Profile
+		st.Profile = profile
 		if err := st.save(work); err != nil {
 			return Result{}, err
 		}
@@ -132,7 +139,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			return Result{}, err
 		}
 	}
-	home := filepath.Join(f.Library, f.Profile)
+	home := filepath.Join(f.Library, profile)
 	years, err := newYears(home, manifest)
 	if err != nil {
 		return Result{}, err
@@ -171,7 +178,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			items = ready
 		}
 		if len(items) > 0 {
-			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location, Account: f.Account, Profile: f.Profile, SeparateMessaging: true}, emit)
+			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location, Account: f.Account, Profile: profile, SeparateMessaging: true}, emit)
 			organized.Add(placed)
 			if err != nil {
 				return err
