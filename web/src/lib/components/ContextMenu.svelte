@@ -29,27 +29,27 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from 'svelte';
+
 	let {
-		x,
-		y,
-		start = x,
 		items,
 		anchor,
 		onclose
 	}: {
-		x: number;
-		y: number;
-		/** Where the row begins, for the bubble that opens to its left. */
-		start?: number;
 		items: MenuItem[];
-		/** The button that opened it: pressed again it closes it, and the
-		 *  keyboard goes back to it when the menu closes. */
-		anchor?: Element;
+		/** What opened it, a row, a tile or a button: the bubble's arrow touches
+		 *  its end, the keyboard goes back to it when the menu closes, and a
+		 *  button that pops it up (aria-haspopup) closes it when pressed again. */
+		anchor: Element;
 		onclose: () => void;
 	} = $props();
 
-	// Where the window ends, the bubble opens to the left of its row instead.
+	// Placed once, where its opener is as it opens. Where the window ends, the
+	// bubble opens to the left of the opener instead.
 	const WIDTH = 208;
+	const at = untrack(() => anchor.getBoundingClientRect());
+	const x = at.right;
+	const y = at.top + at.height / 2;
 	let innerWidth = $state(Infinity);
 	const flip = $derived(x + 7 + WIDTH > innerWidth);
 
@@ -67,7 +67,7 @@
 	// as any other click.
 	const outside = (target: EventTarget | null) =>
 		!bubble?.contains(target as Node) &&
-		!(anchor?.hasAttribute('aria-haspopup') && anchor.contains(target as Node));
+		!(anchor.hasAttribute('aria-haspopup') && anchor.contains(target as Node));
 	// The arrows walk the items, round from the last to the first.
 	function step(by: number) {
 		const buttons = [...(bubble?.querySelectorAll('button') ?? [])];
@@ -77,9 +77,9 @@
 	// Closed by the keyboard or by a choice, the keyboard goes back to what
 	// opened it. Read before closing: closed, its props are gone with it.
 	function back() {
-		const opener = anchor as HTMLElement | undefined;
+		const opener = anchor as HTMLElement;
 		onclose();
-		opener?.focus();
+		opener.focus();
 	}
 
 	async function pick(item: MenuItem) {
@@ -109,7 +109,7 @@
 <div
 	bind:this={bubble}
 	onfocusout={(e) => e.relatedTarget && outside(e.relatedTarget) && onclose()}
-	class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
+	class="menu" class:flip style:left="{flip ? at.left - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	{#each items as item (item.label)}
 		<button role="menuitem" onclick={() => pick(item)}><item.icon size={16} />{item.label}</button>
 	{/each}

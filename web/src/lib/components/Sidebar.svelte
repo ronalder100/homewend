@@ -40,14 +40,13 @@
 
 	// Right-click on an account, a year or an album: open its folder, or copy
 	// where it is.
-	let menu = $state<{ x: number; y: number; path: string; key: string; anchor: Element } | null>(null);
+	let menu = $state<{ path: string; key: string; anchor: Element } | null>(null);
 	async function context(e: MouseEvent, key: string, where: { account?: string; year?: string; album?: string; noDate?: boolean }) {
 		if (rail) return;
 		e.preventDefault();
 		const anchor = e.currentTarget as HTMLElement;
-		const row = anchor.getBoundingClientRect();
 		const { path } = await folderOf(where);
-		menu = { x: row.right, y: row.top + row.height / 2, path, key, anchor };
+		menu = { path, key, anchor };
 	}
 	const years = $derived(allYears ? data.years : data.years.slice(0, FOLD.years));
 	let folded = $state<Record<string, boolean>>({});
@@ -222,7 +221,7 @@
 	</div>
 </nav>
 
-{#if menu}<ContextMenu x={menu.x} y={menu.y} items={folderItems(menu.path)} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu items={folderItems(menu.path)} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
 
 <style>
 	nav {

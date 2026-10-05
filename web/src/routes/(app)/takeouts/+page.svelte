@@ -12,7 +12,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { type MenuItem } from '#lib/components/ContextMenu.svelte';
-	import { app, signIn, sidebarOf, signInAgain } from '#lib/app.svelte.js';
+	import { app, signIn, sidebarOf, signInAgain, signingInAgain } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
@@ -35,8 +35,7 @@
 	// One sign-in at a time, shared with the download's banner: none can start
 	// while one is open, and the page reads the list again once this
 	// account's is done, wherever it was started.
-	const busy = $derived(signIn.account !== '');
-	const signingIn = $derived(signIn.account === account);
+	const again = signingInAgain(() => account);
 	let was = '';
 	$effect(() => {
 		const now = signIn.account;
@@ -132,21 +131,20 @@
 	}
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
 	// Pressed again, the ⋯ closes it.
-	let menu = $state<{ id: string; anchor: Element; x: number; y: number; start: number; items: MenuItem[] } | null>(null);
+	let menu = $state<{ id: string; anchor: Element; items: MenuItem[] } | null>(null);
 	function more(e: MouseEvent, t: Takeout) {
 		if (menu?.id === t.id) {
 			menu = null;
 			return;
 		}
 		const anchor = e.currentTarget as HTMLElement;
-		const b = anchor.getBoundingClientRect();
 		const of = account;
 		const items: MenuItem[] =
 			t.status === 'expired'
 				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t, of) }]
 				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true, of) }];
 		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: () => openFolder(of) });
-		menu = { id: t.id, anchor, x: b.right, y: b.top + b.height / 2, start: b.left, items };
+		menu = { id: t.id, anchor, items };
 	}
 
 	// How long Google has been preparing, counted while the page is open.
@@ -185,8 +183,8 @@
 		     they can do. -->
 		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
 			{#if signedOut}
-				<p>{signingIn ? text.signingIn : text.bannerSignedOut(email)}</p>
-				<button class="pill" disabled={busy} onclick={() => signInAgain(account)}>{text.signInAgain}</button>
+				<p>{again.here ? text.signingIn : text.bannerSignedOut(email)}</p>
+				<button class="pill" disabled={again.busy} onclick={() => signInAgain(account)}>{text.signInAgain}</button>
 			{:else}
 				<p>{text.takeoutsFailed}</p>
 				<button class="pill" onclick={() => tries++}>{text.retry}</button>
@@ -235,7 +233,7 @@
 	{/if}
 </div>
 
-{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={menu.items} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu items={menu.items} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
 
 <style>
 	.page {

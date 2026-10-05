@@ -7,7 +7,7 @@
 	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { signIn, signInAgain } from '#lib/app.svelte.js';
+	import { signInAgain, signingInAgain } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 
 	import { onMount } from 'svelte';
@@ -34,10 +34,7 @@
 								: ''
 	);
 
-	// While this account's browser is open the strip says so; while any is
-	// open it offers nothing to press, one sign-in being open at a time.
-	const signingIn = $derived(signIn.account === account);
-	const busy = $derived(signIn.account !== '');
+	const again = signingInAgain(() => account);
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
 		if (picked) goto('/settings');
@@ -51,7 +48,7 @@
 		kind === 'password'
 			? [text.bannerPassword(email), text.bannerPasswordDesc]
 			: kind === 'signed-out'
-				? [text.bannerSignedOut(email), signingIn ? text.signingIn : text.bannerSignedOutDesc(job.parts + 1)]
+				? [text.bannerSignedOut(email), again.here ? text.signingIn : text.bannerSignedOutDesc(job.parts + 1)]
 				: kind === 'no-space'
 					? [text.bannerNoSpace, text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))]
 					: kind === 'expired'
@@ -61,7 +58,7 @@
 							: [text.bannerFinished(email, total), text.bannerFinishedDesc(dir)]}
 	{@const [action, onaction] =
 		kind === 'signed-out'
-			? busy
+			? again.busy
 				? [undefined, undefined]
 				: [text.signInAgain, () => signInAgain(account)]
 			: kind === 'no-space'

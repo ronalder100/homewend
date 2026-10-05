@@ -178,6 +178,19 @@ export async function signInNew() {
 	}
 }
 
+/** What a place offering an account's sign-in again shows: this account's
+ *  browser open (here), or any (busy), when none can start. */
+export function signingInAgain(account: () => string) {
+	return {
+		get here() {
+			return signIn.account !== '' && signIn.account === account();
+		},
+		get busy() {
+			return signIn.account !== '';
+		}
+	};
+}
+
 /** An account signing in again, from whichever place offered it. */
 export async function signInAgain(account: string) {
 	if (signIn.account) return;
