@@ -280,16 +280,16 @@ func TestAFetchAfterReadingTheContentsIsBegun(t *testing.T) {
 		Target: takeout.Target{Job: "job", User: "1"},
 		Export: takeout.Export{
 			Job:      "job",
-			Parts:    []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: 10}},
+			Parts:    []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: 9}},
 			Manifest: takeout.Part{Index: 1, Filename: "manifest.zip", Size: int64(len(manifest))},
 		},
 		Library: lib,
 		Profile: "ann",
 	}
-	stopped, cancel := context.WithCancel(context.Background())
-	cancel()
-	if _, err := f.Run(stopped, &host{files: map[string][]byte{}}, func(progress.Event) {}); err == nil {
-		t.Fatal("a stopped run went through")
+	// The part never unpacks: the run stops before any photo comes.
+	damaged := &host{files: map[string][]byte{"part-001.zip": []byte("not a zip")}}
+	if _, err := f.Run(context.Background(), damaged, func(progress.Event) {}); err == nil {
+		t.Fatal("a damaged part went through")
 	}
 	if l := localOf(lib, f.Export); l == nil || l.Parts != 0 || l.Of != 1 {
 		t.Errorf("local %+v, want begun, 0 of 1 parts", l)
@@ -329,5 +329,28 @@ func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
 	}
 	if l := localOf(f.Library, f.Export); l == nil || l.Parts != 1 {
 		t.Errorf("local %+v, want the part still unpacked", l)
+	}
+}
+
+// The first download into a library and a profile not made yet makes them,
+// rather than fail to measure the room or to count what is there.
+func TestAFirstDownloadMakesTheLibrary(t *testing.T) {
+	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
+		<div class="extracted-folder-name">Photos from 2025</div>
+		<div class="extracted-file-name">a.jpg</div>`})
+	part := archive(t, map[string]string{"Takeout/Google Photos/Photos from 2025/a.jpg": "photo a"})
+	f := Fetch{
+		Target: takeout.Target{Job: "job", User: "1"},
+		Export: takeout.Export{
+			Job:      "job",
+			Parts:    []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: int64(len(part))}},
+			Manifest: takeout.Part{Index: 1, Filename: "manifest.zip", Size: int64(len(manifest))},
+		},
+		Library: filepath.Join(t.TempDir(), "Pictures", "Homewend"),
+		Profile: "ann",
+	}
+	served := &host{files: map[string][]byte{"part-001.zip": part, "manifest.zip": manifest}}
+	if _, err := f.Run(context.Background(), served, func(progress.Event) {}); err != nil {
+		t.Fatal(err)
 	}
 }

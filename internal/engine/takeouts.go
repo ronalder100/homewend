@@ -101,12 +101,8 @@ type Local struct {
 // localOf reads what the library holds of e, from the state its fetch keeps;
 // nil when its download is not begun.
 func localOf(root string, e takeout.Export) *Local {
-	work := filepath.Join(root, library.WorkDir, e.Job)
-	if _, err := os.Stat(filepath.Join(work, "state.json")); err != nil {
-		return nil
-	}
-	st, err := loadState(work)
-	if err != nil {
+	st, ok := stateIn(filepath.Join(root, library.WorkDir, e.Job))
+	if !ok || !st.begun() {
 		return nil
 	}
 	l := &Local{Of: len(e.Parts)}
@@ -117,12 +113,6 @@ func localOf(root string, e takeout.Export) *Local {
 	}
 	if st.Checked != nil {
 		l.Declared, l.Present = st.Checked.Declared, st.Checked.Present
-	}
-	// Reading what a takeout holds fetches its manifest alone, and names no
-	// profile: it is not begun. A download names its profile before its
-	// first part, and is begun even with none unpacked yet.
-	if st.Profile == "" && l.Parts == 0 && st.Checked == nil {
-		return nil
 	}
 	return l
 }

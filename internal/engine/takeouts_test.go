@@ -116,7 +116,7 @@ func TestNotesSurviveBetweenRuns(t *testing.T) {
 func TestDownloadedFindsTheExportInTheLibrary(t *testing.T) {
 	lib := t.TempDir()
 	for _, job := range []string{"8f6c3233-aaaa", "8f6d0000-bbbb"} {
-		if err := writeJSON(filepath.Join(lib, library.WorkDir, job, "state.json"), state{}); err != nil {
+		if err := writeJSON(filepath.Join(lib, library.WorkDir, job, "state.json"), state{Unpacked: map[string]bool{"part-001.zip": true}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -152,5 +152,22 @@ func TestLocalOfATakeoutWhoseContentsWereOnlyRead(t *testing.T) {
 	}
 	if l := localOf(lib, e); l == nil || l.Parts != 0 || l.Of != 1 {
 		t.Errorf("got %+v, want 0 of 1 parts", l)
+	}
+}
+
+// verify, like the list, counts only a begun download: a takeout whose list of
+// files was only read is not one of the exports in the library.
+func TestDownloadedSkipsATakeoutOnlyRead(t *testing.T) {
+	lib := t.TempDir()
+	for job, st := range map[string]state{
+		"aaaa-begun": {Manifest: "m.zip", Profile: "ann"},
+		"bbbb-read":  {Manifest: "m.zip"},
+	} {
+		if err := writeJSON(filepath.Join(lib, library.WorkDir, job, "state.json"), st); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if job, err := downloaded(lib, ""); err != nil || job != "aaaa-begun" {
+		t.Errorf("got %q, %v; want the begun one alone", job, err)
 	}
 }

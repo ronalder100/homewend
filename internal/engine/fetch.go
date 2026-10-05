@@ -78,8 +78,14 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if f.Again {
 		st.Unpacked, st.Checked = map[string]bool{}, nil
 	}
-	// A download refused for room leaves no trace: nothing is made or kept
-	// before the check.
+	// The room is measured on the library's disk, and what is here counted in
+	// the profile's folder, so both are made first, even for a first download
+	// into a library or a profile not made yet; the takeout's own folder and
+	// state wait for the check, and a download refused for room leaves
+	// nothing of it.
+	if err := os.MkdirAll(filepath.Join(f.Library, f.Profile), 0o755); err != nil {
+		return Result{}, err
+	}
 	if err := f.checkSpace(st); err != nil {
 		return Result{}, err
 	}
@@ -369,8 +375,10 @@ func downloaded(libraryRoot, id string) (string, error) {
 	}
 	var found []string
 	for _, e := range entries {
-		state := filepath.Join(libraryRoot, library.WorkDir, e.Name(), "state.json")
-		if _, err := os.Stat(state); err == nil && strings.HasPrefix(e.Name(), id) {
+		if !strings.HasPrefix(e.Name(), id) {
+			continue
+		}
+		if st, ok := stateIn(filepath.Join(libraryRoot, library.WorkDir, e.Name())); ok && st.begun() {
 			found = append(found, e.Name())
 		}
 	}
@@ -407,6 +415,28 @@ type state struct {
 type checked struct {
 	Declared int `json:"declared"`
 	Present  int `json:"present"`
+}
+
+// begun tells a download from a takeout whose list of files was only read:
+// that fetches its manifest alone and names no profile; a download names its
+// profile before anything comes. The one rule for the list of takeouts, the
+// CLI's question and verify.
+func (st state) begun() bool {
+	for _, done := range st.Unpacked {
+		if done {
+			return true
+		}
+	}
+	return st.Profile != "" || st.Checked != nil
+}
+
+// stateIn reads the state kept in work, if a fetch or a reading kept one.
+func stateIn(work string) (state, bool) {
+	if _, err := os.Stat(filepath.Join(work, "state.json")); err != nil {
+		return state{}, false
+	}
+	st, err := loadState(work)
+	return st, err == nil
 }
 
 func loadState(work string) (state, error) {
