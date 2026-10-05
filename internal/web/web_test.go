@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -182,5 +183,31 @@ func TestProfileSurvivesTheWindowsSettings(t *testing.T) {
 	// An account that is not here gets no profile.
 	if code := put("/api/profile?account=google/bob@example.com", `{"profile":"Bob"}`); code != http.StatusNotFound {
 		t.Fatalf("unknown account: %d, want 404", code)
+	}
+}
+
+// A takeout's folder is asked by the profile it went in, which may no longer
+// be its account's.
+func TestFolderOfAProfile(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AppData", cfg)
+	s := newTestServer(t)
+	cookie := &http.Cookie{Name: cookieName, Value: s.token}
+
+	if got := get(s, "/api/folder?profile=ann", cookie); got.Code != http.StatusNotFound {
+		t.Errorf("no library yet: %d, want 404", got.Code)
+	}
+	lib := t.TempDir()
+	if err := engine.SetDefaultLibrary(lib); err != nil {
+		t.Fatal(err)
+	}
+	got := get(s, "/api/folder?profile=ann", cookie)
+	if want := strings.ReplaceAll(filepath.Join(lib, "ann"), `\`, `\\`); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), want) {
+		t.Errorf("got %d %s, want %s", got.Code, got.Body, want)
+	}
+	if got := get(s, "/api/folder?profile=..%2Fx", cookie); got.Code != http.StatusBadRequest {
+		t.Errorf("a path as a profile: %d, want 400", got.Code)
 	}
 }

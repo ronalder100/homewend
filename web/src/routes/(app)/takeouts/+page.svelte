@@ -58,6 +58,8 @@
 			async (l) => {
 				seen.set(a, l);
 				if (account !== a) return;
+				// Google's answer replaces the rows a menu was opened on.
+				menu = null;
 				list = l;
 				// A ready takeout made on Google: read its list of files, one at a
 				// time, to say what it holds.

@@ -76,6 +76,14 @@
 	const outside = (target: EventTarget | null) =>
 		!bubble?.contains(target as Node) &&
 		!(anchor.hasAttribute('aria-haspopup') && anchor.contains(target as Node));
+	// Its opener gone from the page, a row read again or scrolled away, the
+	// menu goes too, rather than point at nothing.
+	$effect(() => {
+		const gone = new MutationObserver(() => !anchor.isConnected && onclose());
+		gone.observe(document.body, { childList: true, subtree: true });
+		return () => gone.disconnect();
+	});
+
 	// The arrows walk the items, round from the last to the first.
 	function step(by: number) {
 		const buttons = [...(bubble?.querySelectorAll('button') ?? [])];

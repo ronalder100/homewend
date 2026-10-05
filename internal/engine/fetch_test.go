@@ -25,6 +25,16 @@ import (
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
+// onePhoto is a takeout of one photo, from 2025: its manifest and its part.
+func onePhoto(t *testing.T) (manifest, part []byte) {
+	t.Helper()
+	manifest = archive(t, map[string]string{"Takeout/archive_browser.html": `
+		<div class="extracted-folder-name">Photos from 2025</div>
+		<div class="extracted-file-name">a.jpg</div>`})
+	part = archive(t, map[string]string{"Takeout/Google Photos/Photos from 2025/a.jpg": "photo a"})
+	return manifest, part
+}
+
 // archive is a zip with the files given, each with its content.
 func archive(t *testing.T, files map[string]string) []byte {
 	t.Helper()
@@ -262,9 +272,7 @@ func TestASidecarThatArrivesFirstIsUsedWhenThePhotoComes(t *testing.T) {
 // profile. A download that follows names its profile first, so that, stopped
 // before any part is unpacked, it is still begun.
 func TestAFetchAfterReadingTheContentsIsBegun(t *testing.T) {
-	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
-		<div class="extracted-folder-name">Photos from 2025</div>
-		<div class="extracted-file-name">a.jpg</div>`})
+	manifest, _ := onePhoto(t)
 	lib := t.TempDir()
 	work := filepath.Join(lib, library.WorkDir, "job")
 	if err := os.MkdirAll(work, 0o755); err != nil {
@@ -336,10 +344,7 @@ func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
 // The first download into a library and a profile not made yet makes them,
 // rather than fail to measure the room or to count what is there.
 func TestAFirstDownloadMakesTheLibrary(t *testing.T) {
-	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
-		<div class="extracted-folder-name">Photos from 2025</div>
-		<div class="extracted-file-name">a.jpg</div>`})
-	part := archive(t, map[string]string{"Takeout/Google Photos/Photos from 2025/a.jpg": "photo a"})
+	manifest, part := onePhoto(t)
 	f := Fetch{
 		Target: takeout.Target{Job: "job", User: "1"},
 		Export: takeout.Export{
@@ -359,10 +364,7 @@ func TestAFirstDownloadMakesTheLibrary(t *testing.T) {
 // A download resumed after its account's profile was renamed goes on in the
 // profile it began in: its photos are not split between two folders.
 func TestAResumedDownloadStaysInItsProfile(t *testing.T) {
-	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
-		<div class="extracted-folder-name">Photos from 2025</div>
-		<div class="extracted-file-name">a.jpg</div>`})
-	part := archive(t, map[string]string{"Takeout/Google Photos/Photos from 2025/a.jpg": "photo a"})
+	manifest, part := onePhoto(t)
 	lib := t.TempDir()
 	work := filepath.Join(lib, library.WorkDir, "job")
 	if err := os.MkdirAll(work, 0o755); err != nil {
