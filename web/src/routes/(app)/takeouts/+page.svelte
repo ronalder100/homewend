@@ -128,19 +128,20 @@
 	}
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
 	// Pressed again, the ⋯ closes it.
-	let menu = $state<{ id: string; x: number; y: number; start: number; items: MenuItem[] } | null>(null);
+	let menu = $state<{ id: string; anchor: Element; x: number; y: number; start: number; items: MenuItem[] } | null>(null);
 	function more(e: MouseEvent, t: Takeout) {
 		if (menu?.id === t.id) {
 			menu = null;
 			return;
 		}
-		const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const anchor = e.currentTarget as HTMLElement;
+		const b = anchor.getBoundingClientRect();
 		const items: MenuItem[] =
 			t.status === 'expired'
 				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t) }]
 				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true) }];
 		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: openFolder });
-		menu = { id: t.id, x: b.right, y: b.top + b.height / 2, start: b.left, items };
+		menu = { id: t.id, anchor, x: b.right, y: b.top + b.height / 2, start: b.left, items };
 	}
 
 	// How long Google has been preparing, counted while the page is open.
@@ -217,7 +218,6 @@
 									><button
 										class="more"
 										aria-label={text.moreActions}
-										onmousedown={(e) => e.stopPropagation()}
 										onclick={(e) => more(e, t)}><Ellipsis size={16} /></button></span
 								>
 							{/if}
@@ -229,7 +229,7 @@
 	{/if}
 </div>
 
-{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={menu.items} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={menu.items} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
 
 <style>
 	.page {

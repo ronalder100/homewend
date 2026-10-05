@@ -34,6 +34,7 @@
 		y,
 		start = x,
 		items,
+		anchor,
 		onclose
 	}: {
 		x: number;
@@ -41,6 +42,8 @@
 		/** Where the row begins, for the bubble that opens to its left. */
 		start?: number;
 		items: MenuItem[];
+		/** The button that opened it, which closes it itself. */
+		anchor?: Element;
 		onclose: () => void;
 	} = $props();
 
@@ -60,7 +63,7 @@
 <svelte:window
 	bind:innerWidth
 	onkeydown={(e) => e.key === 'Escape' && onclose()}
-	onmousedown={(e) => !bubble?.contains(e.target as Node) && onclose()}
+	onmousedown={(e) => !bubble?.contains(e.target as Node) && !anchor?.contains(e.target as Node) && onclose()}
 />
 
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
