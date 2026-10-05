@@ -151,9 +151,9 @@ async function open() {
 	// one: dropped in a folder, a mail or an editor, the original goes.
 	ipcMain.on('drag-file', (event, file) => {
 		if (typeof file !== 'string' || !path.isAbsolute(file)) return;
-		const preview = nativeImage.createFromPath(file);
-		const icon = preview.isEmpty() ? nativeImage.createFromPath(ICON) : preview;
-		event.sender.startDrag({ file, icon: icon.resize({ width: 64 }) });
+		// The app's icon under the pointer: decoding the photo itself, which
+		// may be a 50 MB original, would hold the window up.
+		event.sender.startDrag({ file, icon: nativeImage.createFromPath(ICON).resize({ width: 64 }) });
 	});
 	ipcMain.handle('choose-folder', async (_event, start) => {
 		const r = await dialog.showOpenDialog(win, {
@@ -242,17 +242,22 @@ function desktopEntry() {
 	const appimage = process.env.APPIMAGE;
 	if (process.platform !== 'linux' || !appimage) return;
 	const data = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
-	const icon = path.join(data, 'icons', 'hicolor', '512x512', 'apps', 'homewend.png');
-	const entry = path.join(data, 'applications', 'homewend.desktop');
+	// Named as the window reports itself (its WM class and Wayland app id,
+	// the package's name), so the desktop ties the window to the entry.
+	const name = 'homewend-desktop';
+	const icon = path.join(data, 'icons', 'hicolor', '512x512', 'apps', `${name}.png`);
+	const entry = path.join(data, 'applications', `${name}.desktop`);
+	// Inside quotes the desktop-entry spec reserves " ` $ \ : each escaped.
+	const quoted = '"' + appimage.replace(/["`$\\]/g, '\\$&') + '"';
 	const text = [
 		'[Desktop Entry]',
 		'Type=Application',
 		'Name=Homewend',
 		'Comment=Google Photos, on your own disk.',
-		`Exec="${appimage}" --no-sandbox %U`,
-		'Icon=homewend',
+		`Exec=${quoted} --no-sandbox %U`,
+		`Icon=${name}`,
 		'Terminal=false',
-		'StartupWMClass=homewend-desktop',
+		`StartupWMClass=${name}`,
 		'Categories=Graphics;',
 		''
 	].join('\n');
