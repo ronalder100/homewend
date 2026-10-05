@@ -65,6 +65,9 @@ func SetProfile(id, profile string) error {
 	if !validProfile(profile) {
 		return ErrBadProfile
 	}
+	if _, err := AccountDir(id); err != nil {
+		return err
+	}
 	s, err := LoadSettings()
 	if err != nil {
 		return err

@@ -12,7 +12,7 @@
 		ChevronRight
 	} from '@lucide/svelte';
 	import Avatar from './Avatar.svelte';
-	import ContextMenu from './ContextMenu.svelte';
+	import ContextMenu, { folderItems } from './ContextMenu.svelte';
 	import { folderOf } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 	import { FOLD, samePlace, type Place, type Sidebar } from '#lib/library.js';
@@ -221,7 +221,7 @@
 	</div>
 </nav>
 
-{#if menu}<ContextMenu x={menu.x} y={menu.y} path={menu.path} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu x={menu.x} y={menu.y} items={folderItems(menu.path)} onclose={() => (menu = null)} />{/if}
 
 <style>
 	nav {

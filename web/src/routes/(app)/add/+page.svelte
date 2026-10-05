@@ -2,35 +2,16 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- C2: another Google account, signed in in the system browser like the first. -->
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { login } from '#lib/api.js';
-	import { app, refresh } from '#lib/app.svelte.js';
+	import { signing, signInNew } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 	import GoogleButton from '#lib/components/GoogleButton.svelte';
 
-	let waiting = $state(false);
-	let failed = $state('');
-
-	async function signIn() {
-		waiting = true;
-		failed = '';
-		try {
-			const a = await login();
-			await refresh();
-			// A new account is asked, once, whose photos it holds.
-			goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
-		} catch (e) {
-			failed = String(e);
-		} finally {
-			waiting = false;
-		}
-	}
 </script>
 
 <div class="page">
 	<h1>{text.addAccount}</h1>
-	<p class:err={failed}>{failed || (waiting ? text.signingIn : text.signInCallSub)}</p>
-	<GoogleButton {waiting} onclick={signIn} />
+	<p class:err={signing.failed}>{signing.failed || (signing.waiting ? text.signingIn : text.signInCallSub)}</p>
+	<GoogleButton waiting={signing.waiting} onclick={signInNew} />
 </div>
 
 <style>

@@ -82,7 +82,6 @@ export const text = {
 	byYear: 'By year.',
 	byYearLegend: 'arrived / in the takeout',
 	waitingForGoogle: 'Waiting for Google',
-	downloadingPart: (n: number, of: number) => `Downloading part ${n} of ${of}`,
 	bringingPart: (n: number, of: number) => `Bringing home part ${n} of ${of}`,
 	pausedAt: (n: number, of: number) => `Paused at part ${n} of ${of}`,
 	checking: 'Checking with Google',

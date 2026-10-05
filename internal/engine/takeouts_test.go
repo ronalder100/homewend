@@ -136,3 +136,14 @@ func TestLocalOfATakeoutNeverDownloaded(t *testing.T) {
 		t.Errorf("got %+v, want nil", l)
 	}
 }
+
+func TestLocalOfATakeoutWhoseContentsWereOnlyRead(t *testing.T) {
+	lib := t.TempDir()
+	e := takeout.Export{Job: "job", Parts: []takeout.Part{{Filename: "part-001.zip"}}}
+	if err := writeJSON(filepath.Join(lib, library.WorkDir, "job", "state.json"), state{Manifest: "manifest.zip"}); err != nil {
+		t.Fatal(err)
+	}
+	if l := localOf(lib, e); l != nil {
+		t.Errorf("got %+v, want nil: only its manifest is here", l)
+	}
+}

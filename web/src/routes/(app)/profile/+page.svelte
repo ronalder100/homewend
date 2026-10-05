@@ -20,8 +20,13 @@
 	onMount(() => {
 		getLibrary().then((l) => (dir = l.dir), () => {});
 	});
+	// The address's name is proposed once; the person may clear it.
+	let proposed = false;
 	$effect(() => {
-		if (!name && account) name = account.profile;
+		if (!proposed && account) {
+			name = account.profile;
+			proposed = true;
+		}
 	});
 	// As the engine keeps it: one name, a folder, no separators.
 	const sep = $derived(dir.includes('\\') ? '\\' : '/');

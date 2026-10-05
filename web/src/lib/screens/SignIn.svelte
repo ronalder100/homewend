@@ -6,27 +6,8 @@
 	import GoogleButton from '#lib/components/GoogleButton.svelte';
 	import Mark from '#lib/components/Mark.svelte';
 	import { text } from '#lib/strings.js';
-	import { goto } from '$app/navigation';
-	import { login } from '#lib/api.js';
-	import { app, refresh } from '#lib/app.svelte.js';
+	import { signing, signInNew } from '#lib/app.svelte.js';
 
-	let waiting = $state(false);
-	let failed = $state('');
-
-	async function signIn() {
-		waiting = true;
-		failed = '';
-		try {
-			const a = await login();
-			await refresh();
-			// A new account is asked, once, whose photos it holds.
-			goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
-		} catch (e) {
-			failed = String(e);
-		} finally {
-			waiting = false;
-		}
-	}
 
 	const steps = [
 		{ icon: LogIn, title: text.stepSignIn, desc: text.stepSignInDesc },
@@ -47,11 +28,11 @@
 		<section class="action">
 			<div>
 				<h2>{text.signInCall}</h2>
-				<p class="sub" class:err={failed}>
-					{failed || (waiting ? text.signingIn : text.signInCallSub)}
+				<p class="sub" class:err={signing.failed}>
+					{signing.failed || (signing.waiting ? text.signingIn : text.signInCallSub)}
 				</p>
 			</div>
-			<GoogleButton {waiting} onclick={signIn} />
+			<GoogleButton waiting={signing.waiting} onclick={signInNew} />
 		</section>
 
 		<ol class="steps">

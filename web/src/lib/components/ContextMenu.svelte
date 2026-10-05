@@ -2,25 +2,45 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- B1's menu: one bubble whose arrow touches the end of the row it is for,
      its first item on the row's centre line. Ours, the same on every system. -->
-<script lang="ts">
+<script module lang="ts">
 	import { FolderOpen, Copy } from '@lucide/svelte';
+	import type { Component } from 'svelte';
 	import { text } from '#lib/strings.js';
 
+	export type MenuItem = { icon: Component; label: string; run: () => void | Promise<void> };
+
+	/** A folder's two items, or a photo's: open it, copy its path. */
+	export function folderItems(path: string, file = false): MenuItem[] {
+		return [
+			{
+				icon: FolderOpen,
+				label: text.openInFolder,
+				// A photo's folder opens with the photo picked in it.
+				run: () => (file ? window.shell?.showInFolder(path) : window.shell?.openFolder(path))
+			},
+			{
+				icon: Copy,
+				label: text.copyFolderPath,
+				// The folder's path, as the item says, also for a photo.
+				run: () => navigator.clipboard.writeText(file ? path.replace(/[\\/][^\\/]*$/, '') : path)
+			}
+		];
+	}
+</script>
+
+<script lang="ts">
 	let {
 		x,
 		y,
 		start = x,
-		path,
-		file = false,
+		items,
 		onclose
 	}: {
 		x: number;
 		y: number;
 		/** Where the row begins, for the bubble that opens to its left. */
 		start?: number;
-		path: string;
-		/** A photo: its folder opens with the photo picked in it. */
-		file?: boolean;
+		items: MenuItem[];
 		onclose: () => void;
 	} = $props();
 
@@ -29,15 +49,9 @@
 	let innerWidth = $state(Infinity);
 	const flip = $derived(x + 7 + WIDTH > innerWidth);
 
-	function open() {
-		if (file) window.shell?.showInFolder(path);
-		else window.shell?.openFolder(path);
+	async function pick(item: MenuItem) {
 		onclose();
-	}
-	async function copy() {
-		// The folder's path, as the item says, also for a photo.
-		await navigator.clipboard.writeText(file ? path.replace(/[\\/][^\\/]*$/, '') : path);
-		onclose();
+		await item.run();
 	}
 </script>
 
@@ -49,8 +63,9 @@
 
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
 <div class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
-	<button role="menuitem" onclick={open}><FolderOpen size={16} />{text.openInFolder}</button>
-	<button role="menuitem" onclick={copy}><Copy size={16} />{text.copyFolderPath}</button>
+	{#each items as item (item.label)}
+		<button role="menuitem" onclick={() => pick(item)}><item.icon size={16} />{item.label}</button>
+	{/each}
 </div>
 
 <style>

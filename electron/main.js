@@ -191,7 +191,16 @@ function updates() {
 	autoUpdater.on('update-downloaded', () => autoUpdater.quitAndInstall());
 	// No release yet, or no network: the app carries on as it is.
 	autoUpdater.on('error', (err) => console.error('update:', err.message));
-	const install = () => autoUpdater.downloadUpdate().catch((err) => console.error('update:', err.message));
+	// Asked from the notification and the strip alike: fetched once.
+	let installing = false;
+	const install = () => {
+		if (installing) return;
+		installing = true;
+		autoUpdater.downloadUpdate().catch((err) => {
+			installing = false;
+			console.error('update:', err.message);
+		});
+	};
 	ipcMain.on('install-update', install);
 	ipcMain.on('announce-update', (_event, version, title, body) => {
 		if (version === announced || !Notification.isSupported()) return;

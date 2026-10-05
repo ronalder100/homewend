@@ -6,7 +6,7 @@
 	import type { Snippet } from 'svelte';
 	import { Play } from '@lucide/svelte';
 	import { pathOf, type GridPhoto } from '#lib/api.js';
-	import ContextMenu from './ContextMenu.svelte';
+	import ContextMenu, { folderItems } from './ContextMenu.svelte';
 	import { text } from '#lib/strings.js';
 
 	let {
@@ -130,7 +130,7 @@
 		{/each}
 	</div>
 </div>
-{#if menu}<ContextMenu {...menu} file onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={folderItems(menu.path, true)} onclose={() => (menu = null)} />{/if}
 
 <style>
 	.scroller {

@@ -3,8 +3,10 @@
 
 // What the window knows: the settings and the library's overview, read from
 // the engine and kept in step with it.
+import { goto } from '$app/navigation';
 import {
 	getJob,
+	login,
 	getOverview,
 	getSettings,
 	putSettings,
@@ -128,4 +130,22 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
 		return j.running ? 'arriving' : 'none';
 	}
 	return 'none';
+}
+
+/** A new account's sign-in, in the system browser: one at a time, wherever it starts. */
+export const signing = $state({ waiting: false, failed: '' });
+
+export async function signInNew() {
+	signing.waiting = true;
+	signing.failed = '';
+	try {
+		const a = await login();
+		await refresh();
+		// A new account is asked, once, whose photos it holds.
+		goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
+	} catch (e) {
+		signing.failed = String(e);
+	} finally {
+		signing.waiting = false;
+	}
 }

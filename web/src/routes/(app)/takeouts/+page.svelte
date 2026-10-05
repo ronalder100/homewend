@@ -11,6 +11,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
+	import ContextMenu, { type MenuItem } from '#lib/components/ContextMenu.svelte';
 	import { app, sidebarOf } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, login, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
@@ -114,21 +115,28 @@
 	}
 
 	async function download(t: Takeout, again = false) {
-		menu = '';
 		await startGet({ account, export: t.id, again });
 		goto('/bringing');
 	}
 	// An expired takeout is asked of Google once more, as it was asked.
 	async function askAgain(t: Takeout) {
-		menu = '';
 		await startGet({ account, year: t.known && t.year ? t.year : undefined, fresh: true });
 		goto('/bringing');
 	}
 	async function openFolder() {
-		menu = '';
 		window.shell?.openFolder((await folderOf({ account })).path);
 	}
-	let menu = $state('');
+	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
+	let menu = $state<{ x: number; y: number; start: number; items: MenuItem[] } | null>(null);
+	function more(e: MouseEvent, t: Takeout) {
+		const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const items: MenuItem[] =
+			t.status === 'expired'
+				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t) }]
+				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true) }];
+		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: openFolder });
+		menu = { x: b.right, y: b.top + b.height / 2, start: b.left, items };
+	}
 
 	// How long Google has been preparing, counted while the page is open.
 	let now = $state(Date.now());
@@ -200,19 +208,9 @@
 							{:else if r.act === 'retry'}<button class="pill" onclick={() => download(t, true)}>{text.retry}</button>
 							{:else if r.act === 'timer'}<span class="slot timer"><Timer size={14} />{since(t.Created)}</span>
 							{:else if r.act === 'more'}
-								<span class="slot more-at">
-									<button class="more" aria-label={text.moreActions} onclick={() => (menu = menu === t.id ? '' : t.id)}><Ellipsis size={16} /></button>
-									{#if menu === t.id}
-										<div class="menu" role="menu">
-											{#if t.status === 'expired'}
-												<button role="menuitem" onclick={() => askAgain(t)}><RotateCw size={14} />{text.askAgain}</button>
-											{:else}
-												<button role="menuitem" onclick={() => download(t, true)}><RotateCw size={14} />{text.downloadAgain}</button>
-											{/if}
-											{#if t.local}<button role="menuitem" onclick={openFolder}><FolderOpen size={14} />{text.openInFolder}</button>{/if}
-										</div>
-									{/if}
-								</span>
+								<span class="slot"
+									><button class="more" aria-label={text.moreActions} onclick={(e) => more(e, t)}><Ellipsis size={16} /></button></span
+								>
 							{/if}
 						</td>
 					</tr>
@@ -222,7 +220,7 @@
 	{/if}
 </div>
 
-<svelte:window onmousedown={(e) => menu && !(e.target as Element).closest('.more-at') && (menu = '')} onkeydown={(e) => e.key === 'Escape' && (menu = '')} />
+{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={menu.items} onclose={() => (menu = null)} />{/if}
 
 <style>
 	.page {
@@ -375,9 +373,6 @@
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
 	}
-	.more-at {
-		position: relative;
-	}
 	.more {
 		width: 28px;
 		height: 28px;
@@ -388,42 +383,6 @@
 	}
 	.more:hover {
 		background: var(--field);
-	}
-	.menu {
-		position: absolute;
-		right: 0;
-		top: 32px;
-		z-index: 5;
-		width: 208px;
-		padding: 8px;
-		display: flex;
-		flex-direction: column;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		box-shadow:
-			0 12px 40px #0a0a1a14,
-			0 2px 6px #0a0a1a12;
-	}
-	.menu button {
-		height: 32px;
-		padding: 0 8px;
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		border-radius: 4px;
-		color: var(--fg);
-		text-align: left;
-	}
-	.menu button :global(svg) {
-		color: var(--muted);
-	}
-	.menu button:hover {
-		background: var(--accent-soft);
-		color: var(--accent);
-	}
-	.menu button:hover :global(svg) {
-		color: var(--accent);
 	}
 	/* Half a screen: the table scrolls sideways rather than break its lines. */
 	.page:has(table) {
