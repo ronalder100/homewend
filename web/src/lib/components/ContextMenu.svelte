@@ -65,8 +65,7 @@
 
 	// As a native menu: it takes the keyboard when it opens, the arrows move
 	// through it, and Escape or Tab closes it and gives the keyboard back to
-	// what opened it. Focus that goes nowhere, as a click on its edge, is not
-	// leaving it: clicks are told by mousedown.
+	// what opened it; a click anywhere else closes it.
 	$effect(() => {
 		bubble?.querySelector('button')?.focus();
 	});
@@ -128,7 +127,6 @@
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
 <div
 	bind:this={bubble}
-	onfocusout={(e) => e.relatedTarget && outside(e.relatedTarget) && onclose()}
 	class="menu" class:flip style:left="{flip ? at.left - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	{#each items as item (item.label)}
 		<button role="menuitem" onclick={() => pick(item)}><item.icon size={16} />{item.label}</button>

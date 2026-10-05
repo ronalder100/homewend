@@ -28,13 +28,19 @@ type GridPhoto struct {
 // ErrNoLibrary is asking for photos before a library folder was chosen.
 var ErrNoLibrary = errors.New("no library folder chosen yet")
 
-func openLibrary() (*library.Catalog, string, error) {
+// ChosenLibrary is the library folder, or ErrNoLibrary before one is chosen.
+func ChosenLibrary() (string, error) {
 	root, err := DefaultLibrary()
+	if err == nil && root == "" {
+		err = ErrNoLibrary
+	}
+	return root, err
+}
+
+func openLibrary() (*library.Catalog, string, error) {
+	root, err := ChosenLibrary()
 	if err != nil {
 		return nil, "", err
-	}
-	if root == "" {
-		return nil, "", ErrNoLibrary
 	}
 	if _, err := os.Stat(catalogPath(root)); errors.Is(err, fs.ErrNotExist) {
 		return nil, root, nil
@@ -139,12 +145,9 @@ func Original(hash string) (string, error) {
 // with several shown and none named, a place is in each, and the library
 // itself is the folder.
 func Folder(s Settings, account, year, album string, noDate bool) (string, error) {
-	root, err := DefaultLibrary()
+	root, err := ChosenLibrary()
 	if err != nil {
 		return "", err
-	}
-	if root == "" {
-		return "", ErrNoLibrary
 	}
 	accounts, err := Accounts()
 	if err != nil {
@@ -182,12 +185,9 @@ func ProfileFolder(profile string) (string, error) {
 	if !validProfile(profile) {
 		return "", ErrBadProfile
 	}
-	root, err := DefaultLibrary()
+	root, err := ChosenLibrary()
 	if err != nil {
 		return "", err
-	}
-	if root == "" {
-		return "", ErrNoLibrary
 	}
 	return filepath.Join(root, profile), nil
 }
