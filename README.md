@@ -52,8 +52,10 @@ Google Photos to your disk in one click: no zips to babysit, no download to rest
 Install Homewend (macOS or Linux):
 
 ```bash
-curl -fsSL https://homewend.app/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ronalder100/homewend/main/install.sh | sh
 ```
+
+Read it first if you like: [install.sh](install.sh) downloads the binary from the [latest release](https://github.com/ronalder100/homewend/releases/latest) and checks it against the release's checksums before installing. Or download the binary yourself and check its signature as [SECURITY.md](SECURITY.md#checking-a-release) shows.
 
 Sign in to Google. A small window opens; you sign in there, once:
 

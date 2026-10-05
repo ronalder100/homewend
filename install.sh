@@ -133,7 +133,7 @@ echo "  ${on}$run login${off}"
 echo
 say "Then bring your photos home, here one year of them:"
 echo
-echo "  ${on}$run get --year 2025 --library ~/Pictures/Homewend${off}"
+echo "  ${on}$run takeout 2025${off}"
 echo
 echo "All the commands: ${on}$run help${off}"
 case ":$PATH:" in
