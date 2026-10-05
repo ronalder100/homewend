@@ -310,8 +310,10 @@ func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
 	if _, err := f.Run(context.Background(), &host{files: map[string][]byte{}}, func(progress.Event) {}); !errors.As(err, &space) {
 		t.Fatalf("got %v, want NoSpaceError", err)
 	}
-	if _, err := os.Stat(filepath.Join(f.Library, library.WorkDir, "job")); !os.IsNotExist(err) {
-		t.Errorf("a folder was made for it: %v", err)
+	for _, dir := range []string{filepath.Join(library.WorkDir, "job"), "ann"} {
+		if _, err := os.Stat(filepath.Join(f.Library, dir)); !os.IsNotExist(err) {
+			t.Errorf("%s was made for it: %v", dir, err)
+		}
 	}
 
 	// Again, with a part already here: refused, it still has the part.

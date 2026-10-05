@@ -78,25 +78,25 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if f.Again {
 		st.Unpacked, st.Checked = map[string]bool{}, nil
 	}
-	// The room is measured on the library's disk, and what is here counted in
-	// the profile's folder, so both are made first, even for a first download
-	// into a library or a profile not made yet; the takeout's own folder and
-	// state wait for the check, and a download refused for room leaves
-	// nothing of it.
-	if err := os.MkdirAll(filepath.Join(f.Library, f.Profile), 0o755); err != nil {
+	// The room is measured on the library's disk, so the library is made
+	// first, even for a first download into one not made yet. All the rest
+	// waits for the check: a download refused for room leaves nothing of it.
+	if err := os.MkdirAll(f.Library, 0o755); err != nil {
 		return Result{}, err
 	}
 	if err := f.checkSpace(st); err != nil {
 		return Result{}, err
 	}
-	for _, dir := range []string{parts, unpacked} {
+	// The profile's folder is where what is here gets counted, so it is made
+	// before that, even for a first download into a profile not made yet.
+	for _, dir := range []string{filepath.Join(f.Library, f.Profile), parts, unpacked} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return Result{}, err
 		}
 	}
 	// Before anything comes, the profile is named, even when the manifest is
 	// already here from reading what the takeout holds: a begun download is
-	// told by it (begun), and the check counts in its folder.
+	// told by it (begun), and verify counts in its folder.
 	if st.Profile == "" || f.Again {
 		st.Profile = f.Profile
 		if err := st.save(work); err != nil {

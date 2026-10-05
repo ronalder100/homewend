@@ -54,6 +54,21 @@
 
 	let bubble = $state<HTMLElement>();
 
+	// As a native menu: it takes the keyboard when it opens, Escape gives it
+	// back to the button that opened it, and leaving it by Tab closes it.
+	$effect(() => {
+		bubble?.querySelector('button')?.focus();
+	});
+	// The button that opened it is not outside: pressed again, it closes it.
+	const outside = (target: EventTarget | null) =>
+		!bubble?.contains(target as Node) && !anchor?.contains(target as Node);
+	function escape() {
+		// Read before closing: closed, its props are gone with it.
+		const opener = anchor as HTMLElement | undefined;
+		onclose();
+		opener?.focus();
+	}
+
 	async function pick(item: MenuItem) {
 		onclose();
 		await item.run();
@@ -62,15 +77,18 @@
 
 <svelte:window
 	bind:innerWidth
-	onkeydown={(e) => e.key === 'Escape' && onclose()}
+	onkeydown={(e) => e.key === 'Escape' && escape()}
 	onscrollcapture={onclose}
-	onmousedown={(e) => !bubble?.contains(e.target as Node) && !anchor?.contains(e.target as Node) && onclose()}
+	onmousedown={(e) => outside(e.target) && onclose()}
 />
 
 <!-- Placed once, where its row was: whatever scrolls closes it, rather than
      leave it pointing at another row. -->
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
-<div bind:this={bubble} class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
+<div
+	bind:this={bubble}
+	onfocusout={(e) => outside(e.relatedTarget) && onclose()}
+	class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	{#each items as item (item.label)}
 		<button role="menuitem" onclick={() => pick(item)}><item.icon size={16} />{item.label}</button>
 	{/each}
