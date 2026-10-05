@@ -7,7 +7,7 @@
 	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { resigning, signInAgain } from '#lib/app.svelte.js';
+	import { signIn, signInAgain } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 
 	import { onMount } from 'svelte';
@@ -36,8 +36,8 @@
 
 	// While this account's browser is open the strip says so; while any is
 	// open it offers nothing to press, one sign-in being open at a time.
-	const signingIn = $derived(resigning.account === account);
-	const busy = $derived(resigning.account !== '');
+	const signingIn = $derived(signIn.account === account);
+	const busy = $derived(signIn.account !== '');
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
 		if (picked) goto('/settings');

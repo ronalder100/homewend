@@ -133,31 +133,35 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
 	return 'none';
 }
 
-/** A new account's sign-in, in the system browser: one at a time, wherever it starts. */
-const signing = $state({ waiting: false, failed: '' });
+/** The sign-in open in the system browser, one at a time as the engine
+ *  allows, wherever it was started: the account signing in again, or NEW for
+ *  a new one; '' when none is. A new account's failure is kept to say. */
+export const signIn = $state({ account: '', failed: '' });
+const NEW = 'new';
 
-/** The sign-in, for a screen that offers it: a failure is said on that
- *  screen only, from when it opens to when it goes, with the line that
- *  stands under the button. Called as the component starts. */
+/** The new account's sign-in, for a screen that offers it: a failure is said
+ *  on that screen only, from when it opens to when it goes, with the line
+ *  that stands under the button. Called as the component starts. */
 export function signingHere() {
-	signing.failed = '';
-	onDestroy(() => (signing.failed = ''));
+	signIn.failed = '';
+	onDestroy(() => (signIn.failed = ''));
 	return {
 		get waiting() {
-			return signing.waiting;
+			return signIn.account !== '';
 		},
 		get failed() {
-			return signing.failed;
+			return signIn.failed;
 		},
 		get line() {
-			return signing.failed || (signing.waiting ? text.signingIn : text.signInCallSub);
+			return signIn.failed || (signIn.account ? text.signingIn : text.signInCallSub);
 		}
 	};
 }
 
 export async function signInNew() {
-	signing.waiting = true;
-	signing.failed = '';
+	if (signIn.account) return;
+	signIn.account = NEW;
+	signIn.failed = '';
 	// Someone who went elsewhere while the browser was open stays there.
 	const from = location.pathname;
 	try {
@@ -167,23 +171,23 @@ export async function signInNew() {
 		// A new account is asked, once, whose photos it holds.
 		goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
 	} catch (e) {
-		signing.failed = String(e);
+		signIn.failed = String(e);
 	} finally {
-		signing.waiting = false;
+		signIn.account = '';
 	}
 }
 
-/** The account signing in again, from whichever place offered it: one at a
- *  time, so every "Sign in again" waits for the same browser window. */
-export const resigning = $state({ account: '' });
-
+/** An account signing in again, from whichever place offered it. */
 export async function signInAgain(account: string) {
-	if (resigning.account) return;
-	resigning.account = account;
+	if (signIn.account) return;
+	signIn.account = account;
 	try {
 		await login(account);
 		await refresh();
+	} catch {
+		// Not signed in after all: the strip that offered it still says so,
+		// and offers it again.
 	} finally {
-		resigning.account = '';
+		signIn.account = '';
 	}
 }

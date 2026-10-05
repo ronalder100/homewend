@@ -12,7 +12,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { type MenuItem } from '#lib/components/ContextMenu.svelte';
-	import { app, resigning, sidebarOf, signInAgain } from '#lib/app.svelte.js';
+	import { app, signIn, sidebarOf, signInAgain } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
@@ -35,11 +35,11 @@
 	// One sign-in at a time, shared with the download's banner: none can start
 	// while one is open, and the page reads the list again once this
 	// account's is done, wherever it was started.
-	const busy = $derived(resigning.account !== '');
-	const signingIn = $derived(resigning.account === account);
+	const busy = $derived(signIn.account !== '');
+	const signingIn = $derived(signIn.account === account);
 	let was = '';
 	$effect(() => {
-		const now = resigning.account;
+		const now = signIn.account;
 		if (was === untrack(() => account) && now === '') untrack(() => tries++);
 		was = now;
 	});
