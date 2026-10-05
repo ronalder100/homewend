@@ -7,6 +7,7 @@
 	import { Play } from '@lucide/svelte';
 	import { pathOf, type GridPhoto } from '#lib/api.js';
 	import ContextMenu, { folderItems } from './ContextMenu.svelte';
+	import { Opener } from '#lib/menu.svelte.js';
 	import { text } from '#lib/strings.js';
 
 	let {
@@ -34,15 +35,9 @@
 	let headerHeight = $state(0);
 
 	// A photo's menu, at the end of its tile: its folder, its path.
-	let menu = $state<{ path: string; anchor: Element } | null>(null);
-	let opening: Element | null = null;
-	async function context(e: MouseEvent, hash: string) {
-		e.preventDefault();
-		const anchor = (opening = e.currentTarget as HTMLElement);
-		const { path } = await pathOf(hash);
-		// A later right-click answered for: this one is gone.
-		if (opening === anchor) menu = { path, anchor };
-	}
+	const opener = new Opener<{ path: string }>();
+	const menu = $derived(opener.menu);
+	const context = (e: MouseEvent, hash: string) => opener.open(e, () => pathOf(hash));
 
 	const cols = $derived(Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP))));
 	const tile = $derived(width > 0 ? (width - GAP * (cols - 1)) / cols : MIN_TILE);
@@ -132,7 +127,7 @@
 		{/each}
 	</div>
 </div>
-{#if menu}<ContextMenu items={folderItems(menu.path, true)} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu items={folderItems(menu.path, true)} anchor={menu.anchor} onclose={opener.close} />{/if}
 
 <style>
 	.scroller {

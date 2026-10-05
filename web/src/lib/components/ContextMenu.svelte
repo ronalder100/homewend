@@ -98,12 +98,12 @@
 			step(e.key === 'ArrowDown' ? 1 : -1);
 		}
 	}}
-	onscrollcapture={onclose}
+	onscrollcapture={() => (bubble?.contains(document.activeElement) ? back() : onclose())}
 	onmousedown={(e) => outside(e.target) && onclose()}
 />
 
-<!-- Placed once, where its row was: whatever scrolls closes it, rather than
-     leave it pointing at another row. -->
+<!-- Placed where its row was: whatever scrolls closes it, rather than leave
+     it pointing at another row, and gives the keyboard back if it had it. -->
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
 <div
 	bind:this={bubble}

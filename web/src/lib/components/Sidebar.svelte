@@ -14,6 +14,7 @@
 	import Avatar from './Avatar.svelte';
 	import ContextMenu, { folderItems } from './ContextMenu.svelte';
 	import { folderOf } from '#lib/api.js';
+	import { Opener } from '#lib/menu.svelte.js';
 	import { text } from '#lib/strings.js';
 	import { FOLD, samePlace, type Place, type Sidebar } from '#lib/library.js';
 
@@ -40,15 +41,11 @@
 
 	// Right-click on an account, a year or an album: open its folder, or copy
 	// where it is.
-	let menu = $state<{ path: string; key: string; anchor: Element } | null>(null);
-	let opening: Element | null = null;
-	async function context(e: MouseEvent, key: string, where: { account?: string; year?: string; album?: string; noDate?: boolean }) {
+	const opener = new Opener<{ path: string; key: string }>();
+	const menu = $derived(opener.menu);
+	function context(e: MouseEvent, key: string, where: { account?: string; year?: string; album?: string; noDate?: boolean }) {
 		if (rail) return;
-		e.preventDefault();
-		const anchor = (opening = e.currentTarget as HTMLElement);
-		const { path } = await folderOf(where);
-		// A later right-click answered for: this one is gone.
-		if (opening === anchor) menu = { path, key, anchor };
+		opener.open(e, async () => ({ path: (await folderOf(where)).path, key }));
 	}
 	const years = $derived(allYears ? data.years : data.years.slice(0, FOLD.years));
 	let folded = $state<Record<string, boolean>>({});
@@ -223,7 +220,7 @@
 	</div>
 </nav>
 
-{#if menu}<ContextMenu items={folderItems(menu.path)} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu items={folderItems(menu.path)} anchor={menu.anchor} onclose={opener.close} />{/if}
 
 <style>
 	nav {
