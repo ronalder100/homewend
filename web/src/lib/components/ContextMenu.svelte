@@ -63,9 +63,12 @@
 <svelte:window
 	bind:innerWidth
 	onkeydown={(e) => e.key === 'Escape' && onclose()}
+	onscrollcapture={onclose}
 	onmousedown={(e) => !bubble?.contains(e.target as Node) && !anchor?.contains(e.target as Node) && onclose()}
 />
 
+<!-- Placed once, where its row was: whatever scrolls closes it, rather than
+     leave it pointing at another row. -->
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
 <div bind:this={bubble} class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	{#each items as item (item.label)}

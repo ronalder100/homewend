@@ -80,20 +80,21 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if err != nil {
 		return Result{}, err
 	}
-	// The profile is named before anything comes, even when the manifest is
-	// already here from reading what the takeout holds: the list of takeouts
-	// tells a begun download by it, and the check counts in its folder.
-	if st.Profile == "" || f.Again {
-		st.Profile = f.Profile
-		if f.Again {
-			st.Unpacked, st.Checked = map[string]bool{}, nil
-		}
-		if err := st.save(work); err != nil {
-			return Result{}, err
-		}
+	if f.Again {
+		st.Unpacked, st.Checked = map[string]bool{}, nil
 	}
 	if err := f.checkSpace(st); err != nil {
 		return Result{}, err
+	}
+	// Once there is room, and before anything comes, the profile is named,
+	// even when the manifest is already here from reading what the takeout
+	// holds: the list of takeouts tells a begun download by it, and the
+	// check counts in its folder. A download refused for room leaves no trace.
+	if st.Profile == "" || f.Again {
+		st.Profile = f.Profile
+		if err := st.save(work); err != nil {
+			return Result{}, err
+		}
 	}
 
 	// The manifest is one more archive, and counted as one.

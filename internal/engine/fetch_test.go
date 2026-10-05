@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -292,5 +293,26 @@ func TestAFetchAfterReadingTheContentsIsBegun(t *testing.T) {
 	}
 	if l := localOf(lib, f.Export); l == nil || l.Parts != 0 || l.Of != 1 {
 		t.Errorf("local %+v, want begun, 0 of 1 parts", l)
+	}
+}
+
+// A download with no room for it is refused before anything is kept: the
+// takeout is not begun, and no export appears in the library.
+func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
+	f := Fetch{
+		Target:  takeout.Target{Job: "job", User: "1"},
+		Export:  takeout.Export{Job: "job", Parts: []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: 1 << 60}}},
+		Library: t.TempDir(),
+		Profile: "ann",
+	}
+	var space NoSpaceError
+	if _, err := f.Run(context.Background(), &host{files: map[string][]byte{}}, func(progress.Event) {}); !errors.As(err, &space) {
+		t.Fatalf("got %v, want NoSpaceError", err)
+	}
+	if l := localOf(f.Library, f.Export); l != nil {
+		t.Errorf("local %+v, want nil", l)
+	}
+	if _, err := downloaded(f.Library, ""); err == nil {
+		t.Error("an export appears in the library")
 	}
 }
