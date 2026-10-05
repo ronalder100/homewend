@@ -162,14 +162,15 @@ export async function signInNew() {
 	if (signIn.account) return;
 	signIn.account = NEW;
 	signIn.failed = '';
-	// Someone who went elsewhere while the browser was open stays there.
 	const from = location.pathname;
 	try {
 		const a = await login();
 		await refresh();
-		if (location.pathname !== from) return;
-		// A new account is asked, once, whose photos it holds.
-		goto(app.settings.profiles?.[a.id] ? '/choose' : `/profile?account=${encodeURIComponent(a.id)}`);
+		// A new account is asked, once, whose photos it holds, wherever the
+		// person went meanwhile: nothing else asks it. One already asked
+		// goes on to Choose, unless the person went elsewhere.
+		if (!app.settings.profiles?.[a.id]) goto(`/profile?account=${encodeURIComponent(a.id)}`);
+		else if (location.pathname === from) goto('/choose');
 	} catch (e) {
 		signIn.failed = String(e);
 	} finally {

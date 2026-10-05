@@ -34,12 +34,13 @@
 	let headerHeight = $state(0);
 
 	// A photo's menu, at the end of its tile: its folder, its path.
-	let menu = $state<{ x: number; y: number; start: number; path: string } | null>(null);
+	let menu = $state<{ x: number; y: number; start: number; path: string; anchor: Element } | null>(null);
 	async function context(e: MouseEvent, hash: string) {
 		e.preventDefault();
-		const tile = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const anchor = e.currentTarget as HTMLElement;
+		const tile = anchor.getBoundingClientRect();
 		const { path } = await pathOf(hash);
-		menu = { x: tile.right, y: tile.top + tile.height / 2, start: tile.left, path };
+		menu = { x: tile.right, y: tile.top + tile.height / 2, start: tile.left, path, anchor };
 	}
 
 	const cols = $derived(Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP))));
@@ -130,7 +131,7 @@
 		{/each}
 	</div>
 </div>
-{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={folderItems(menu.path, true)} onclose={() => (menu = null)} />{/if}
+{#if menu}<ContextMenu x={menu.x} y={menu.y} start={menu.start} items={folderItems(menu.path, true)} anchor={menu.anchor} onclose={() => (menu = null)} />{/if}
 
 <style>
 	.scroller {

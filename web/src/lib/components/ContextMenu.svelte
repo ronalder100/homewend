@@ -42,7 +42,8 @@
 		/** Where the row begins, for the bubble that opens to its left. */
 		start?: number;
 		items: MenuItem[];
-		/** The button that opened it, which closes it itself. */
+		/** The button that opened it: pressed again it closes it, and the
+		 *  keyboard goes back to it when the menu closes. */
 		anchor?: Element;
 		onclose: () => void;
 	} = $props();
@@ -54,8 +55,8 @@
 
 	let bubble = $state<HTMLElement>();
 
-	// As a native menu: it takes the keyboard when it opens, Escape gives it
-	// back to the button that opened it, and leaving it by Tab closes it.
+	// As a native menu: it takes the keyboard when it opens, and Escape or Tab
+	// closes it and gives the keyboard back to the button that opened it.
 	$effect(() => {
 		bubble?.querySelector('button')?.focus();
 	});
@@ -77,7 +78,12 @@
 
 <svelte:window
 	bind:innerWidth
-	onkeydown={(e) => e.key === 'Escape' && escape()}
+	onkeydown={(e) => {
+		if (e.key === 'Escape' || (e.key === 'Tab' && bubble?.contains(document.activeElement))) {
+			e.preventDefault();
+			escape();
+		}
+	}}
 	onscrollcapture={onclose}
 	onmousedown={(e) => outside(e.target) && onclose()}
 />
