@@ -78,17 +78,14 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if f.Again {
 		st.Unpacked, st.Checked = map[string]bool{}, nil
 	}
-	// The room is measured on the library's disk, so the library is made
-	// first, even for a first download into one not made yet. All the rest
-	// waits for the check: a download refused for room leaves nothing of it.
-	if err := os.MkdirAll(f.Library, 0o755); err != nil {
-		return Result{}, err
-	}
+	// Nothing is made or kept before the room is checked: a download refused
+	// for room leaves nothing of it, not even a library not made yet.
 	if err := f.checkSpace(st); err != nil {
 		return Result{}, err
 	}
 	// The profile's folder is where what is here gets counted, so it is made
-	// before that, even for a first download into a profile not made yet.
+	// before that, even for a first download into a library or a profile
+	// not made yet.
 	for _, dir := range []string{filepath.Join(f.Library, f.Profile), parts, unpacked} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return Result{}, err
@@ -317,7 +314,8 @@ func (e NoSpaceError) Error() string {
 // export placed 4.1 MiB of photos.
 func (f Fetch) checkSpace(st state) error {
 	need := f.spaceNeeded(st)
-	free, err := freeBytes(f.Library)
+	// Measured where the library will be, made or not.
+	free, err := Free(f.Library)
 	if err != nil {
 		return fmt.Errorf("reading the free space: %w", err)
 	}

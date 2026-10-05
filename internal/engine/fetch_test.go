@@ -300,20 +300,19 @@ func TestAFetchAfterReadingTheContentsIsBegun(t *testing.T) {
 // takeout is not begun, no folder is made for it, and one asked again keeps
 // the parts it had.
 func TestADownloadWithNoRoomLeavesNoTrace(t *testing.T) {
+	// A library not made yet, as on a first download: it is not made either.
 	f := Fetch{
 		Target:  takeout.Target{Job: "job", User: "1"},
 		Export:  takeout.Export{Job: "job", Parts: []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: 1 << 60}}},
-		Library: t.TempDir(),
+		Library: filepath.Join(t.TempDir(), "Homewend"),
 		Profile: "ann",
 	}
 	var space NoSpaceError
 	if _, err := f.Run(context.Background(), &host{files: map[string][]byte{}}, func(progress.Event) {}); !errors.As(err, &space) {
 		t.Fatalf("got %v, want NoSpaceError", err)
 	}
-	for _, dir := range []string{filepath.Join(library.WorkDir, "job"), "ann"} {
-		if _, err := os.Stat(filepath.Join(f.Library, dir)); !os.IsNotExist(err) {
-			t.Errorf("%s was made for it: %v", dir, err)
-		}
+	if _, err := os.Stat(f.Library); !os.IsNotExist(err) {
+		t.Errorf("the library was made for it: %v", err)
 	}
 
 	// Again, with a part already here: refused, it still has the part.

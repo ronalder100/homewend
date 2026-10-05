@@ -55,8 +55,10 @@
 
 	let bubble = $state<HTMLElement>();
 
-	// As a native menu: it takes the keyboard when it opens, and Escape or Tab
-	// closes it and gives the keyboard back to the button that opened it.
+	// As a native menu: it takes the keyboard when it opens, the arrows move
+	// through it, and Escape or Tab closes it and gives the keyboard back to
+	// what opened it. Focus that goes nowhere, as a click on its edge, is not
+	// leaving it: clicks are told by mousedown.
 	$effect(() => {
 		bubble?.querySelector('button')?.focus();
 	});
@@ -66,6 +68,12 @@
 	const outside = (target: EventTarget | null) =>
 		!bubble?.contains(target as Node) &&
 		!(anchor?.hasAttribute('aria-haspopup') && anchor.contains(target as Node));
+	// The arrows walk the items, round from the last to the first.
+	function step(by: number) {
+		const buttons = [...(bubble?.querySelectorAll('button') ?? [])];
+		const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+		buttons[(at + by + buttons.length) % buttons.length]?.focus();
+	}
 	// Closed by the keyboard or by a choice, the keyboard goes back to what
 	// opened it. Read before closing: closed, its props are gone with it.
 	function back() {
@@ -86,6 +94,9 @@
 		if (e.key === 'Escape' || (e.key === 'Tab' && bubble?.contains(document.activeElement))) {
 			e.preventDefault();
 			back();
+		} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			e.preventDefault();
+			step(e.key === 'ArrowDown' ? 1 : -1);
 		}
 	}}
 	onscrollcapture={onclose}
@@ -97,7 +108,7 @@
 <!-- 8px padding, 32px items: the first item's centre is 24px below the top. -->
 <div
 	bind:this={bubble}
-	onfocusout={(e) => outside(e.relatedTarget) && onclose()}
+	onfocusout={(e) => e.relatedTarget && outside(e.relatedTarget) && onclose()}
 	class="menu" class:flip style:left="{flip ? start - 7 - WIDTH : x + 7}px" style:top="{y - 24}px" role="menu">
 	{#each items as item (item.label)}
 		<button role="menuitem" onclick={() => pick(item)}><item.icon size={16} />{item.label}</button>
