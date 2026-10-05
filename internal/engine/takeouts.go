@@ -92,10 +92,13 @@ type Takeout struct {
 // Local is how far a takeout came into the library: its parts unpacked, and
 // the last count of its files against its manifest.
 type Local struct {
-	Parts    int `json:"parts"`
-	Of       int `json:"of"`
-	Declared int `json:"declared,omitempty"`
-	Present  int `json:"present,omitempty"`
+	// Profile is the folder of the library it goes in, which a rename of the
+	// account's profile does not move.
+	Profile  string `json:"profile"`
+	Parts    int    `json:"parts"`
+	Of       int    `json:"of"`
+	Declared int    `json:"declared,omitempty"`
+	Present  int    `json:"present,omitempty"`
 }
 
 // localOf reads what the library holds of e, from the state its fetch keeps;
@@ -106,7 +109,7 @@ func localOf(root string, e takeout.Export) *Local {
 	if err != nil || !st.begun() {
 		return nil
 	}
-	l := &Local{Of: len(e.Parts)}
+	l := &Local{Of: len(e.Parts), Profile: st.Profile}
 	for _, p := range e.Parts {
 		if st.Unpacked[p.Filename] {
 			l.Parts++

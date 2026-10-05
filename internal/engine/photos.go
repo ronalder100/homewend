@@ -177,6 +177,21 @@ func folder(root string, accounts []AccountInfo, hidden []string, account, year,
 	return home
 }
 
+// ProfileFolder is the folder of a profile in the library.
+func ProfileFolder(profile string) (string, error) {
+	if !validProfile(profile) {
+		return "", ErrBadProfile
+	}
+	root, err := DefaultLibrary()
+	if err != nil {
+		return "", err
+	}
+	if root == "" {
+		return "", ErrNoLibrary
+	}
+	return filepath.Join(root, profile), nil
+}
+
 // Latest are the n photos that arrived last.
 func Latest(n int) ([]GridPhoto, error) {
 	c, _, err := openLibrary()

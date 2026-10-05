@@ -62,6 +62,9 @@ type Found struct {
 	Takeout
 	// This library already holds some of it: Run carries on where it was.
 	Started bool
+	// Profile is the folder of the library Run fills: for one begun, the one
+	// it began in.
+	Profile string
 }
 
 // Existing reports the export Run would download, or nil when it would ask
@@ -82,7 +85,14 @@ func (g Get) found(export takeout.Export) *Found {
 	return &Found{
 		Takeout: Takeout{Export: export, ID: ShortID(export.Job), Status: StatusOf(export), Year: g.Year, Known: g.Takeout == ""},
 		Started: localOf(g.Library, export) != nil,
+		Profile: g.profileFor(export),
 	}
+}
+
+// profileFor is the profile a run of export fills, as Fetch decides it.
+func (g Get) profileFor(export takeout.Export) string {
+	st, _ := loadState(filepath.Join(g.Library, library.WorkDir, export.Job))
+	return st.profileOf(g.Profile, g.Again)
 }
 
 // pick is the export Run downloads, or nil when it has to ask for a new one.

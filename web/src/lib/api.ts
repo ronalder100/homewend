@@ -119,7 +119,7 @@ export interface Takeout {
 	Expires: string;
 	years?: string[];
 	/** What of it the library holds; absent when it never came here. */
-	local?: { parts: number; of: number; declared?: number; present?: number };
+	local?: { profile: string; parts: number; of: number; declared?: number; present?: number };
 }
 
 export const getTakeouts = (account: string) => call<Takeout[]>('GET', `/api/takeouts?${q({ account })}`);
@@ -129,10 +129,10 @@ export const getVersion = () => call<{ version: string }>('GET', '/api/about');
 
 export const pathOf = (hash: string) => call<{ path: string }>('GET', `/api/path/${hash}`);
 
-export const folderOf = (o: { account?: string; year?: string; album?: string; noDate?: boolean }) =>
+export const folderOf = (o: { account?: string; profile?: string; year?: string; album?: string; noDate?: boolean }) =>
 	call<{ path: string }>(
 		'GET',
-		`/api/folder?${q({ account: o.account, year: o.year, album: o.album, nodate: o.noDate ? '1' : undefined })}`
+		`/api/folder?${q({ account: o.account, profile: o.profile, year: o.year, album: o.album, nodate: o.noDate ? '1' : undefined })}`
 	);
 
 export const getLatest = () => call<GridPhoto[]>('GET', '/api/latest');

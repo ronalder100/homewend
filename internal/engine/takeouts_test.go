@@ -150,8 +150,8 @@ func TestLocalOfATakeoutWhoseContentsWereOnlyRead(t *testing.T) {
 	if err := writeJSON(filepath.Join(lib, library.WorkDir, "job", "state.json"), state{Manifest: "manifest.zip", Profile: "ann"}); err != nil {
 		t.Fatal(err)
 	}
-	if l := localOf(lib, e); l == nil || l.Parts != 0 || l.Of != 1 {
-		t.Errorf("got %+v, want 0 of 1 parts", l)
+	if l := localOf(lib, e); l == nil || l.Parts != 0 || l.Of != 1 || l.Profile != "ann" {
+		t.Errorf("got %+v, want 0 of 1 parts, in ann", l)
 	}
 }
 

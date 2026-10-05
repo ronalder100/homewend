@@ -140,7 +140,10 @@
 			t.status === 'expired'
 				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t, of) }]
 				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true, of) }];
-		if (t.local) items.push(...folderItems(async () => (await folderOf({ account: of })).path));
+		// Where its photos are: the profile it went in, which a rename of the
+		// account's does not move.
+		const local = t.local;
+		if (local) items.push(...folderItems(async () => (await folderOf({ profile: local.profile || undefined, account: of })).path));
 		menu = { id: t.id, anchor, items };
 	}
 

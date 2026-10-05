@@ -67,3 +67,25 @@ func TestFoundIsStartedOnlyWhenBegun(t *testing.T) {
 		t.Error("a download stopped before its first part: not started")
 	}
 }
+
+// What the CLI shows as the destination is where Run puts the photos: a
+// begun takeout's profile, even after the account's was renamed; a new one,
+// the account's.
+func TestFoundSaysTheProfileRunFills(t *testing.T) {
+	lib := t.TempDir()
+	e := takeout.Export{Job: "job"}
+	g := Get{Library: lib, Profile: "annie"}
+	if p := g.found(e).Profile; p != "annie" {
+		t.Errorf("not begun: %q, want the account's", p)
+	}
+	if err := writeJSON(filepath.Join(lib, library.WorkDir, "job", "state.json"), state{Manifest: "m.zip", Profile: "ann"}); err != nil {
+		t.Fatal(err)
+	}
+	if p := g.found(e).Profile; p != "ann" {
+		t.Errorf("begun as ann: %q, want ann", p)
+	}
+	g.Again = true
+	if p := g.found(e).Profile; p != "annie" {
+		t.Errorf("downloaded again: %q, want the account's", p)
+	}
+}

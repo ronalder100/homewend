@@ -86,13 +86,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	// The profile's folder is where what is here gets counted, so it is made
 	// before that, even for a first download into a library or a profile
 	// not made yet.
-	// A download goes on in the profile it began in, even if the account's
-	// profile was renamed meanwhile: one takeout's photos, and its count, stay
-	// in one folder. Downloaded again, it goes in the account's profile now.
-	profile := f.Profile
-	if st.Profile != "" && !f.Again {
-		profile = st.Profile
-	}
+	profile := st.profileOf(f.Profile, f.Again)
 	for _, dir := range []string{filepath.Join(f.Library, profile), parts, unpacked} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return Result{}, err
@@ -420,6 +414,18 @@ type state struct {
 type checked struct {
 	Declared int `json:"declared"`
 	Present  int `json:"present"`
+}
+
+// profileOf is the profile a run of this download fills: the one it began in,
+// even if the account's profile was renamed meanwhile, so that one takeout's
+// photos, and its count, stay in one folder; downloaded again, or not begun,
+// the account's profile now. The one rule for the engine and for whatever
+// shows where the photos go.
+func (st state) profileOf(account string, again bool) string {
+	if st.Profile != "" && !again {
+		return st.Profile
+	}
+	return account
 }
 
 // begun tells a download from a takeout whose list of files was only read:

@@ -135,6 +135,13 @@ func apiRoutes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/folder", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
+		// A takeout's folder is its profile's, which may no longer be its
+		// account's.
+		if p := q.Get("profile"); p != "" {
+			path, err := engine.ProfileFolder(p)
+			reply(w, map[string]string{"path": path}, err)
+			return
+		}
 		s, err := engine.LoadSettings()
 		if err != nil {
 			reply(w, nil, err)

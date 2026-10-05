@@ -577,6 +577,10 @@ func takeoutCommand(args []string) int {
 	home, _ := os.UserHomeDir()
 	out.say(out.out.param(text["field google"], a.Email, ""))
 	out.say(out.out.param(text["field takeout"], unmarked(out.what), details))
+	// Where the photos go: a takeout begun stays in the profile it began in.
+	if found != nil {
+		profile = found.Profile
+	}
 	out.say(out.out.param(text["field library"], tilde(filepath.Join(dir, profile), home), ""))
 	out.say("")
 	result, err := g.Run(ctx, sess, out.event)
