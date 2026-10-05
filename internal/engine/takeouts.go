@@ -101,8 +101,9 @@ type Local struct {
 // localOf reads what the library holds of e, from the state its fetch keeps;
 // nil when its download is not begun.
 func localOf(root string, e takeout.Export) *Local {
-	st, ok := stateIn(filepath.Join(root, library.WorkDir, e.Job))
-	if !ok || !st.begun() {
+	// None kept reads as not begun.
+	st, err := loadState(filepath.Join(root, library.WorkDir, e.Job))
+	if err != nil || !st.begun() {
 		return nil
 	}
 	l := &Local{Of: len(e.Parts)}

@@ -9,20 +9,29 @@
 
 	export type MenuItem = { icon: Component; label: string; run: () => void | Promise<void> };
 
-	/** A folder's two items, or a photo's: open it, copy its path. */
-	export function folderItems(path: string, file = false): MenuItem[] {
+	/** A folder's two items, or a photo's: open it, copy its path. The path
+	 *  may be asked of the engine only when an item is chosen. */
+	export function folderItems(path: string | (() => Promise<string>), file = false): MenuItem[] {
+		const where = async () => (typeof path === 'string' ? path : path());
 		return [
 			{
 				icon: FolderOpen,
 				label: text.openInFolder,
 				// A photo's folder opens with the photo picked in it.
-				run: () => (file ? window.shell?.showInFolder(path) : window.shell?.openFolder(path))
+				run: async () => {
+					const p = await where();
+					if (file) window.shell?.showInFolder(p);
+					else window.shell?.openFolder(p);
+				}
 			},
 			{
 				icon: Copy,
 				label: text.copyFolderPath,
 				// The folder's path, as the item says, also for a photo.
-				run: () => navigator.clipboard.writeText(file ? path.replace(/[\\/][^\\/]*$/, '') : path)
+				run: async () => {
+					const p = await where();
+					await navigator.clipboard.writeText(file ? p.replace(/[\\/][^\\/]*$/, '') : p);
+				}
 			}
 		];
 	}

@@ -376,7 +376,7 @@ func downloaded(libraryRoot, id string) (string, error) {
 		if !strings.HasPrefix(e.Name(), id) {
 			continue
 		}
-		if st, ok := stateIn(filepath.Join(libraryRoot, library.WorkDir, e.Name())); ok && st.begun() {
+		if st, err := loadState(filepath.Join(libraryRoot, library.WorkDir, e.Name())); err == nil && st.begun() {
 			found = append(found, e.Name())
 		}
 	}
@@ -426,15 +426,6 @@ func (st state) begun() bool {
 		}
 	}
 	return st.Profile != "" || st.Checked != nil
-}
-
-// stateIn reads the state kept in work, if a fetch or a reading kept one.
-func stateIn(work string) (state, bool) {
-	if _, err := os.Stat(filepath.Join(work, "state.json")); err != nil {
-		return state{}, false
-	}
-	st, err := loadState(work)
-	return st, err == nil
 }
 
 func loadState(work string) (state, error) {

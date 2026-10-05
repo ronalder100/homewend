@@ -10,8 +10,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
-	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
-	import ContextMenu, { type MenuItem } from '#lib/components/ContextMenu.svelte';
+	import { Archive, Ellipsis, RotateCw, Timer } from '@lucide/svelte';
+	import ContextMenu, { folderItems, type MenuItem } from '#lib/components/ContextMenu.svelte';
 	import { app, signIn, sidebarOf, signInAgain, signingInAgain } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
@@ -126,9 +126,6 @@
 	// An expired takeout is asked of Google once more, as it was asked.
 	const askAgain = (t: Takeout, of: string) =>
 		bring({ account: of, year: t.known && t.year ? t.year : undefined, fresh: true });
-	async function openFolder(of: string) {
-		window.shell?.openFolder((await folderOf({ account: of })).path);
-	}
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
 	// Pressed again, the ⋯ closes it.
 	let menu = $state<{ id: string; anchor: Element; items: MenuItem[] } | null>(null);
@@ -143,7 +140,7 @@
 			t.status === 'expired'
 				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t, of) }]
 				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true, of) }];
-		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: () => openFolder(of) });
+		if (t.local) items.push(...folderItems(async () => (await folderOf({ account: of })).path));
 		menu = { id: t.id, anchor, items };
 	}
 
