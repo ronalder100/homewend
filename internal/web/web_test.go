@@ -180,7 +180,7 @@ func TestProfileSurvivesTheWindowsSettings(t *testing.T) {
 		t.Fatalf("bad profile: %d, want 400", code)
 	}
 	// An account that is not here gets no profile.
-	if code := put("/api/profile?account=google/bob@example.com", `{"profile":"Bob"}`); code != http.StatusBadRequest {
-		t.Fatalf("unknown account: %d, want 400", code)
+	if code := put("/api/profile?account=google/bob@example.com", `{"profile":"Bob"}`); code != http.StatusNotFound {
+		t.Fatalf("unknown account: %d, want 404", code)
 	}
 }

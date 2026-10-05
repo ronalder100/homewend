@@ -119,15 +119,14 @@
 
 	// The account is the takeout's, given by whoever asks: a menu opened on
 	// one account's row acts on that account, whatever tab is shown later.
-	async function download(t: Takeout, again = false, of = account) {
-		await startGet({ account: of, export: t.id, again });
+	async function bring(o: Parameters<typeof startGet>[0]) {
+		await startGet(o);
 		goto('/bringing');
 	}
+	const download = (t: Takeout, again = false, of = account) => bring({ account: of, export: t.id, again });
 	// An expired takeout is asked of Google once more, as it was asked.
-	async function askAgain(t: Takeout, of: string) {
-		await startGet({ account: of, year: t.known && t.year ? t.year : undefined, fresh: true });
-		goto('/bringing');
-	}
+	const askAgain = (t: Takeout, of: string) =>
+		bring({ account: of, year: t.known && t.year ? t.year : undefined, fresh: true });
 	async function openFolder(of: string) {
 		window.shell?.openFolder((await folderOf({ account: of })).path);
 	}
@@ -223,6 +222,7 @@
 								<span class="slot"
 									><button
 										class="more"
+										aria-haspopup="menu"
 										aria-label={text.moreActions}
 										onclick={(e) => more(e, t)}><Ellipsis size={16} /></button></span
 								>

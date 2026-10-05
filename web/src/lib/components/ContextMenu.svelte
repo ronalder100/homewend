@@ -60,18 +60,22 @@
 	$effect(() => {
 		bubble?.querySelector('button')?.focus();
 	});
-	// The button that opened it is not outside: pressed again, it closes it.
+	// A button that pops the menu up (aria-haspopup) is not outside: pressed
+	// again, it closes it itself. A row or a tile that opened it is outside,
+	// as any other click.
 	const outside = (target: EventTarget | null) =>
-		!bubble?.contains(target as Node) && !anchor?.contains(target as Node);
-	function escape() {
-		// Read before closing: closed, its props are gone with it.
+		!bubble?.contains(target as Node) &&
+		!(anchor?.hasAttribute('aria-haspopup') && anchor.contains(target as Node));
+	// Closed by the keyboard or by a choice, the keyboard goes back to what
+	// opened it. Read before closing: closed, its props are gone with it.
+	function back() {
 		const opener = anchor as HTMLElement | undefined;
 		onclose();
 		opener?.focus();
 	}
 
 	async function pick(item: MenuItem) {
-		onclose();
+		back();
 		await item.run();
 	}
 </script>
@@ -81,7 +85,7 @@
 	onkeydown={(e) => {
 		if (e.key === 'Escape' || (e.key === 'Tab' && bubble?.contains(document.activeElement))) {
 			e.preventDefault();
-			escape();
+			back();
 		}
 	}}
 	onscrollcapture={onclose}

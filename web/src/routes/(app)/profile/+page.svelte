@@ -6,12 +6,14 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { getLibrary, putProfile } from '#lib/api.js';
+	import { ApiError, getLibrary, putProfile } from '#lib/api.js';
 	import { app, refresh } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 
-	const id = page.url.searchParams.get('account') ?? '';
+	// From the address, which may change under the same page: a second new
+	// account comes here while the first's question is still open.
+	const id = $derived(page.url.searchParams.get('account') ?? '');
 	const account = $derived(app.overview?.accounts.find((a) => a.id === id));
 	let name = $state('');
 	let dir = $state('');
@@ -20,12 +22,14 @@
 	onMount(() => {
 		getLibrary().then((l) => (dir = l.dir), () => {});
 	});
-	// The address's name is proposed once; the person may clear it.
-	let proposed = false;
+	// The address's name is proposed once for each account; the person may
+	// clear it.
+	let proposedFor = '';
 	$effect(() => {
-		if (!proposed && account) {
+		if (account && proposedFor !== account.id) {
 			name = account.profile;
-			proposed = true;
+			failed = '';
+			proposedFor = account.id;
 		}
 	});
 	// As the engine keeps it: one name, a folder, no separators.
@@ -38,8 +42,9 @@
 			await putProfile(id, name.trim());
 			await refresh();
 			goto('/choose', { replaceState: true });
-		} catch {
-			failed = text.badProfile;
+		} catch (e) {
+			// No account to name: it signed out, or its folder went.
+			failed = e instanceof ApiError && e.status === 404 ? text.accountGone : text.badProfile;
 		}
 	}
 </script>

@@ -61,6 +61,7 @@ export const text = {
 		`${email} signed in. Its photos go in a folder of the library: say whose they are. Asked once, for each account.`,
 	askProfileField: 'Name',
 	continue: 'Continue',
+	accountGone: 'This account is no longer on this computer. Add it again.',
 	badProfile: 'A name of a folder: no / or \\, and not starting with a dot.',
 	change: 'Change…',
 	chooseFolder: 'Choose a folder',
