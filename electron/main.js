@@ -247,8 +247,9 @@ function desktopEntry() {
 	const name = 'homewend-desktop';
 	const icon = path.join(data, 'icons', 'hicolor', '512x512', 'apps', `${name}.png`);
 	const entry = path.join(data, 'applications', `${name}.desktop`);
-	// Inside quotes the desktop-entry spec reserves " ` $ \ : each escaped.
-	const quoted = '"' + appimage.replace(/["`$\\]/g, '\\$&') + '"';
+	// As the desktop-entry spec asks: inside quotes " ` $ \ take a backslash;
+	// then, the value being a string, every backslash is doubled and a % is %%.
+	const quoted = ('"' + appimage.replace(/["`$\\]/g, '\\$&') + '"').replace(/\\/g, '\\\\').replace(/%/g, '%%');
 	const text = [
 		'[Desktop Entry]',
 		'Type=Application',

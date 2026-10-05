@@ -65,12 +65,12 @@ on your disk:
 
 - **All here**: every file the takeout lists was found in your library.
 - **Paused**: part of it is here; Resume carries on where it stopped.
-- **Missing**: some files are not here; Retry downloads it again, and what you
-  already have stays as it is.
+- **Missing**: some files are not here; while Google still keeps the takeout,
+  Retry downloads it again, and what you already have stays as it is.
 - **Ready**: on Google, not downloaded yet.
 
 ## Updates
 
 When a new version is out, Homewend says so in a strip under its title bar and
-with a notification. Nothing is downloaded until you press **Update**; then it
-installs the new version and opens again.
+with a notification. Nothing is downloaded until you press **Update** or click
+the notification; then it installs the new version and opens again.
