@@ -9,7 +9,7 @@
 
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { type MenuItem } from '#lib/components/ContextMenu.svelte';
 	import { app, resigning, sidebarOf, signInAgain } from '#lib/app.svelte.js';
@@ -32,12 +32,17 @@
 	let failed = $state('');
 	let signedOut = $state(false);
 	let tries = $state(0);
-	// One sign-in at a time, shared with the download's banner.
-	const signingIn = $derived(resigning.account !== '');
-	async function signIn() {
-		await signInAgain(account);
-		tries++;
-	}
+	// One sign-in at a time, shared with the download's banner: none can start
+	// while one is open, and the page reads the list again once this
+	// account's is done, wherever it was started.
+	const busy = $derived(resigning.account !== '');
+	const signingIn = $derived(resigning.account === account);
+	let was = '';
+	$effect(() => {
+		const now = resigning.account;
+		if (was === untrack(() => account) && now === '') untrack(() => tries++);
+		was = now;
+	});
 	let reading = $state('');
 	$effect(() => {
 		const a = account;
@@ -176,7 +181,7 @@
 		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
 			{#if signedOut}
 				<p>{signingIn ? text.signingIn : text.bannerSignedOut(email)}</p>
-				<button class="pill" disabled={signingIn} onclick={signIn}>{text.signInAgain}</button>
+				<button class="pill" disabled={busy} onclick={() => signInAgain(account)}>{text.signInAgain}</button>
 			{:else}
 				<p>{text.takeoutsFailed}</p>
 				<button class="pill" onclick={() => tries++}>{text.retry}</button>

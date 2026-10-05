@@ -34,8 +34,10 @@
 								: ''
 	);
 
-	// While the browser is open the strip says so and offers nothing to press.
-	const signingIn = $derived(resigning.account !== '');
+	// While this account's browser is open the strip says so; while any is
+	// open it offers nothing to press, one sign-in being open at a time.
+	const signingIn = $derived(resigning.account === account);
+	const busy = $derived(resigning.account !== '');
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
 		if (picked) goto('/settings');
@@ -59,7 +61,7 @@
 							: [text.bannerFinished(email, total), text.bannerFinishedDesc(dir)]}
 	{@const [action, onaction] =
 		kind === 'signed-out'
-			? signingIn
+			? busy
 				? [undefined, undefined]
 				: [text.signInAgain, () => signInAgain(account)]
 			: kind === 'no-space'
