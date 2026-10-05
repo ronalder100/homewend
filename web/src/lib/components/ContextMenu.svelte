@@ -71,14 +71,18 @@
 	function step(by: number) {
 		const buttons = [...(bubble?.querySelectorAll('button') ?? [])];
 		const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-		buttons[(at + by + buttons.length) % buttons.length]?.focus();
+		// With none of them focused, down starts at the first, up at the last.
+		const next = at < 0 ? (by > 0 ? 0 : buttons.length - 1) : (at + by + buttons.length) % buttons.length;
+		buttons[next]?.focus();
 	}
 	// Closed by the keyboard or by a choice, the keyboard goes back to what
 	// opened it. Read before closing: closed, its props are gone with it.
 	function back() {
 		const opener = anchor as HTMLElement;
 		onclose();
-		opener.focus();
+		// Where the person scrolled to stays: the opener gets the keyboard, not
+		// the view.
+		opener.focus({ preventScroll: true });
 	}
 
 	async function pick(item: MenuItem) {
