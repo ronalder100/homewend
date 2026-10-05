@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('shell', {
 	setTheme: (theme) => ipcRenderer.send('theme', theme),
 	chooseFolder: (start) => ipcRenderer.invoke('choose-folder', start),
 	showInFolder: (path) => ipcRenderer.send('show-in-folder', path),
+	dragFile: (path) => ipcRenderer.send('drag-file', path),
 	openFolder: (path) => ipcRenderer.send('open-folder', path),
 	onToggleSidebar: (fn) => ipcRenderer.on('toggle-sidebar', () => fn()),
 	notify: (title, body) => ipcRenderer.send('notify', title, body),

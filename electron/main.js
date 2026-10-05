@@ -4,8 +4,9 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the window goes.
-const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
@@ -23,6 +24,7 @@ const engine = app.isPackaged
 const DESIGN = { width: 1280, height: 800 };
 const MIN = { width: 960, height: 640 };
 const TITLEBAR_HEIGHT = 44;
+const ICON = path.join(__dirname, 'build', 'icon.png');
 
 // Scrollbars float over the content and show only while it scrolls, on every
 // system, as macOS does by default.
@@ -117,7 +119,7 @@ async function open() {
 		minHeight: windowButtons ? MIN.height : undefined,
 		backgroundColor: theme('bg'),
 		// The site's icon; the Mac and Windows take it from the app bundle.
-		icon: path.join(__dirname, 'build', 'icon.png'),
+		icon: ICON,
 		// The page draws the titlebar; the system keeps its own buttons.
 		titleBarStyle: 'hidden',
 		titleBarOverlay: process.platform === 'darwin' ? true : windowButtons && overlay(),
@@ -144,6 +146,14 @@ async function open() {
 	});
 	ipcMain.on('show-in-folder', (_event, file) => {
 		if (typeof file === 'string' && path.isAbsolute(file)) shell.showItemInFolder(file);
+	});
+	// A photo dragged out of the grid is its file, as the file manager drags
+	// one: dropped in a folder, a mail or an editor, the original goes.
+	ipcMain.on('drag-file', (event, file) => {
+		if (typeof file !== 'string' || !path.isAbsolute(file)) return;
+		const preview = nativeImage.createFromPath(file);
+		const icon = preview.isEmpty() ? nativeImage.createFromPath(ICON) : preview;
+		event.sender.startDrag({ file, icon: icon.resize({ width: 64 }) });
 	});
 	ipcMain.handle('choose-folder', async (_event, start) => {
 		const r = await dialog.showOpenDialog(win, {
@@ -175,7 +185,9 @@ async function open() {
 // publishing one.
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
 function updates() {
-	if (!app.isPackaged) return;
+	// A build between releases (0.1.2-dev.5…) is not offered the last
+	// release, which is older; only HOMEWEND_UPDATES, to try one, overrides it.
+	if (!app.isPackaged || (app.getVersion().includes('-') && !process.env.HOMEWEND_UPDATES)) return;
 	if (process.env.HOMEWEND_UPDATES) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.HOMEWEND_UPDATES });
 	autoUpdater.autoDownload = false;
 	autoUpdater.autoInstallOnAppQuit = false;
@@ -223,7 +235,52 @@ app.on('second-instance', () => {
 	win.focus();
 });
 
-app.whenReady().then(open).catch((err) => {
+// An AppImage is one file with no installer: on Linux the app puts itself in
+// the desktop's menu, as an installed app is, and keeps the entry pointing at
+// wherever the file is now. Written only when it would change.
+function desktopEntry() {
+	const appimage = process.env.APPIMAGE;
+	if (process.platform !== 'linux' || !appimage) return;
+	const data = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+	const icon = path.join(data, 'icons', 'hicolor', '512x512', 'apps', 'homewend.png');
+	const entry = path.join(data, 'applications', 'homewend.desktop');
+	const text = [
+		'[Desktop Entry]',
+		'Type=Application',
+		'Name=Homewend',
+		'Comment=Google Photos, on your own disk.',
+		`Exec="${appimage}" --no-sandbox %U`,
+		'Icon=homewend',
+		'Terminal=false',
+		'StartupWMClass=homewend-desktop',
+		'Categories=Graphics;',
+		''
+	].join('\n');
+	try {
+		if (!fs.existsSync(icon)) {
+			fs.mkdirSync(path.dirname(icon), { recursive: true });
+			fs.writeFileSync(icon, nativeImage.createFromPath(ICON).resize({ width: 512 }).toPNG());
+		}
+		let was = '';
+		try {
+			was = fs.readFileSync(entry, 'utf8');
+		} catch {
+			// None yet.
+		}
+		if (was !== text) {
+			fs.mkdirSync(path.dirname(entry), { recursive: true });
+			fs.writeFileSync(entry, text);
+		}
+	} catch (err) {
+		// The menu entry is a convenience: the app runs without it.
+		console.error('desktop entry:', err.message);
+	}
+}
+
+app.whenReady().then(() => {
+	desktopEntry();
+	return open();
+}).catch((err) => {
 	console.error(err.message);
 	app.quit();
 });

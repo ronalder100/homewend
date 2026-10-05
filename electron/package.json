@@ -10,9 +10,9 @@
 		"tokens": "node -e \"require('fs').copyFileSync('../web/tokens.json', 'tokens.json')\"",
 		"prestart": "npm run tokens",
 		"start": "electron .",
-		"engine": "cd .. && go build -trimpath -ldflags \"-X main.version=$npm_package_version\" -o electron/engine/homewend ./cmd/homewend",
+		"engine": "cd .. && go build -trimpath -ldflags \"-X main.version=$(node electron/version.js)\" -o electron/engine/homewend ./cmd/homewend",
 		"page": "cd ../web && npm run build",
-		"dist": "npm run tokens && npm run page && npm run engine && electron-builder"
+		"dist": "npm run tokens && npm run page && npm run engine && electron-builder -c.extraMetadata.version=$(node version.js)"
 	},
 	"devDependencies": {
 		"electron": "^44.5.1",

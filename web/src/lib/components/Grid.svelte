@@ -37,6 +37,12 @@
 	// A photo's menu, at the end of its tile: its folder, its path.
 	const opener = new Opener<{ path: string }>();
 	const context = (e: MouseEvent, hash: string) => opener.open(e, () => pathOf(hash));
+	// Dragged out of the window, a photo is its file, handed to the system's
+	// drag as the file manager hands one: the original goes where it is dropped.
+	function drag(e: DragEvent, hash: string) {
+		e.preventDefault();
+		pathOf(hash).then(({ path }) => window.shell?.dragFile(path), () => {});
+	}
 
 	const cols = $derived(Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP))));
 	const tile = $derived(width > 0 ? (width - GAP * (cols - 1)) / cols : MIN_TILE);
@@ -111,6 +117,8 @@
 						style:transform="translate({c * (tile + GAP)}px, {row.top}px)"
 						onclick={() => onopen?.(photos.indexOf(p))}
 						oncontextmenu={(e) => context(e, p.hash)}
+						draggable={!!window.shell}
+						ondragstart={(e) => drag(e, p.hash)}
 					>
 						<img
 							src="/api/thumb/{p.hash}"
