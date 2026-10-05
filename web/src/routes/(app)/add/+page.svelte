@@ -2,9 +2,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- C2: another Google account, signed in in the system browser like the first. -->
 <script lang="ts">
-	import { signing, signInNew } from '#lib/app.svelte.js';
+	import { signingHere, signInNew } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 	import GoogleButton from '#lib/components/GoogleButton.svelte';
+
+	const signing = signingHere();
 </script>
 
 <div class="page">

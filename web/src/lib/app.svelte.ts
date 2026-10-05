@@ -4,6 +4,7 @@
 // What the window knows: the settings and the library's overview, read from
 // the engine and kept in step with it.
 import { goto } from '$app/navigation';
+import { onDestroy } from 'svelte';
 import {
 	getJob,
 	getOverview,
@@ -133,7 +134,14 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
 }
 
 /** A new account's sign-in, in the system browser: one at a time, wherever it starts. */
-export const signing = $state({ waiting: false, failed: '' });
+const signing = $state({ waiting: false, failed: '' });
+
+/** The sign-in, for a screen that offers it: a failure is said on that
+ *  screen, and forgotten when it goes. Called as the component starts. */
+export function signingHere() {
+	onDestroy(() => (signing.failed = ''));
+	return signing;
+}
 
 export async function signInNew() {
 	signing.waiting = true;

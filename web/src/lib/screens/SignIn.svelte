@@ -6,7 +6,9 @@
 	import GoogleButton from '#lib/components/GoogleButton.svelte';
 	import Mark from '#lib/components/Mark.svelte';
 	import { text } from '#lib/strings.js';
-	import { signing, signInNew } from '#lib/app.svelte.js';
+	import { signingHere, signInNew } from '#lib/app.svelte.js';
+
+	const signing = signingHere();
 
 	const steps = [
 		{ icon: LogIn, title: text.stepSignIn, desc: text.stepSignInDesc },
