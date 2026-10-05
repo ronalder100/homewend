@@ -47,6 +47,9 @@
 	$effect(() => {
 		const a = account;
 		void tries;
+		// Another account, or the list read again: a menu of the rows before
+		// goes with them.
+		menu = null;
 		if (!a) return;
 		// The list seen last shows at once; Google's answer replaces it.
 		list = seen.get(a) ?? null;
@@ -114,17 +117,19 @@
 		return { status: text.statusReady, detail: until, tone: 'ok', act: 'download' };
 	}
 
-	async function download(t: Takeout, again = false) {
-		await startGet({ account, export: t.id, again });
+	// The account is the takeout's, given by whoever asks: a menu opened on
+	// one account's row acts on that account, whatever tab is shown later.
+	async function download(t: Takeout, again = false, of = account) {
+		await startGet({ account: of, export: t.id, again });
 		goto('/bringing');
 	}
 	// An expired takeout is asked of Google once more, as it was asked.
-	async function askAgain(t: Takeout) {
-		await startGet({ account, year: t.known && t.year ? t.year : undefined, fresh: true });
+	async function askAgain(t: Takeout, of: string) {
+		await startGet({ account: of, year: t.known && t.year ? t.year : undefined, fresh: true });
 		goto('/bringing');
 	}
-	async function openFolder() {
-		window.shell?.openFolder((await folderOf({ account })).path);
+	async function openFolder(of: string) {
+		window.shell?.openFolder((await folderOf({ account: of })).path);
 	}
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
 	// Pressed again, the ⋯ closes it.
@@ -136,11 +141,12 @@
 		}
 		const anchor = e.currentTarget as HTMLElement;
 		const b = anchor.getBoundingClientRect();
+		const of = account;
 		const items: MenuItem[] =
 			t.status === 'expired'
-				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t) }]
-				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true) }];
-		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: openFolder });
+				? [{ icon: RotateCw, label: text.askAgain, run: () => askAgain(t, of) }]
+				: [{ icon: RotateCw, label: text.downloadAgain, run: () => download(t, true, of) }];
+		if (t.local) items.push({ icon: FolderOpen, label: text.openInFolder, run: () => openFolder(of) });
 		menu = { id: t.id, anchor, x: b.right, y: b.top + b.height / 2, start: b.left, items };
 	}
 
