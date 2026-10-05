@@ -12,7 +12,7 @@
 <div class="page">
 	<h1>{text.addAccount}</h1>
 	<p class:err={signing.failed}>{signing.line}</p>
-	<GoogleButton waiting={signing.waiting} onclick={signInNew} />
+	<GoogleButton waiting={signing.waiting} disabled={signing.busy} onclick={signInNew} />
 </div>
 
 <style>

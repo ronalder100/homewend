@@ -33,7 +33,7 @@
 					{signing.line}
 				</p>
 			</div>
-			<GoogleButton waiting={signing.waiting} onclick={signInNew} />
+			<GoogleButton waiting={signing.waiting} disabled={signing.busy} onclick={signInNew} />
 		</section>
 
 		<ol class="steps">

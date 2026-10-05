@@ -5,13 +5,23 @@
 
 	import { LoaderCircle } from '@lucide/svelte';
 
-	let { onclick, waiting = false }: { onclick?: () => void; waiting?: boolean } = $props();
+	let {
+		onclick,
+		waiting = false,
+		disabled = false
+	}: {
+		onclick?: () => void;
+		/** Its own sign-in is open in the browser. */
+		waiting?: boolean;
+		/** Another sign-in is open: one at a time. */
+		disabled?: boolean;
+	} = $props();
 </script>
 
 <!-- Google's "G" as Google's sign-in branding draws it, on a white tile. -->
 <!-- While the browser is open the button says so and takes no more clicks:
      a second one would open a second window. -->
-<button aria-busy={waiting} onclick={() => !waiting && onclick?.()}>
+<button aria-busy={waiting} disabled={disabled && !waiting} onclick={() => !waiting && onclick?.()}>
 	<span class="tile">
 		<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
 			<path
@@ -37,6 +47,10 @@
 </button>
 
 <style>
+	/* Not pressable while another sign-in is open, as a native button shows it. */
+	button:disabled {
+		opacity: 0.5;
+	}
 	button {
 		height: 52px;
 		padding: 0 24px 0 8px;

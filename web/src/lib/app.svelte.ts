@@ -146,14 +146,19 @@ export function signingHere() {
 	signIn.failed = '';
 	onDestroy(() => (signIn.failed = ''));
 	return {
+		/** This, a new account's, is open in the browser. */
 		get waiting() {
+			return signIn.account === NEW;
+		},
+		/** Any is: none can start. */
+		get busy() {
 			return signIn.account !== '';
 		},
 		get failed() {
 			return signIn.failed;
 		},
 		get line() {
-			return signIn.failed || (signIn.account ? text.signingIn : text.signInCallSub);
+			return signIn.failed || (signIn.account === NEW ? text.signingIn : text.signInCallSub);
 		}
 	};
 }
