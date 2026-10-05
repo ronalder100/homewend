@@ -80,8 +80,14 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 	if err != nil {
 		return Result{}, err
 	}
-	if f.Again {
-		st.Unpacked, st.Checked = map[string]bool{}, nil
+	// The profile is named before anything comes, even when the manifest is
+	// already here from reading what the takeout holds: the list of takeouts
+	// tells a begun download by it, and the check counts in its folder.
+	if st.Profile == "" || f.Again {
+		st.Profile = f.Profile
+		if f.Again {
+			st.Unpacked, st.Checked = map[string]bool{}, nil
+		}
 		if err := st.save(work); err != nil {
 			return Result{}, err
 		}
@@ -102,7 +108,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		if err := download.Part(ctx, g, f.Target, f.Export.Manifest, 1, of, work, emit); err != nil {
 			return Result{}, err
 		}
-		st.Manifest, st.Profile = f.Export.Manifest.Filename, f.Profile
+		st.Manifest = f.Export.Manifest.Filename
 		if err := st.save(work); err != nil {
 			return Result{}, err
 		}

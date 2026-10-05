@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
@@ -253,5 +254,43 @@ func TestASidecarThatArrivesFirstIsUsedWhenThePhotoComes(t *testing.T) {
 	}
 	if result.Organized.Placed != 1 || !result.Verification.Complete() {
 		t.Errorf("placed %d, verification %+v", result.Organized.Placed, result.Verification)
+	}
+}
+
+// Reading what a takeout holds leaves its manifest in the library and no
+// profile. A download that follows names its profile first, so that, stopped
+// before any part is unpacked, it is still begun.
+func TestAFetchAfterReadingTheContentsIsBegun(t *testing.T) {
+	manifest := archive(t, map[string]string{"Takeout/archive_browser.html": `
+		<div class="extracted-folder-name">Photos from 2025</div>
+		<div class="extracted-file-name">a.jpg</div>`})
+	lib := t.TempDir()
+	work := filepath.Join(lib, library.WorkDir, "job")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, "manifest.zip"), manifest, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := (state{Manifest: "manifest.zip"}).save(work); err != nil {
+		t.Fatal(err)
+	}
+	f := Fetch{
+		Target: takeout.Target{Job: "job", User: "1"},
+		Export: takeout.Export{
+			Job:      "job",
+			Parts:    []takeout.Part{{Index: 0, Filename: "part-001.zip", Size: 10}},
+			Manifest: takeout.Part{Index: 1, Filename: "manifest.zip", Size: int64(len(manifest))},
+		},
+		Library: lib,
+		Profile: "ann",
+	}
+	stopped, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := f.Run(stopped, &host{files: map[string][]byte{}}, func(progress.Event) {}); err == nil {
+		t.Fatal("a stopped run went through")
+	}
+	if l := localOf(lib, f.Export); l == nil || l.Parts != 0 || l.Of != 1 {
+		t.Errorf("local %+v, want begun, 0 of 1 parts", l)
 	}
 }

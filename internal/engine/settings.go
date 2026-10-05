@@ -65,8 +65,14 @@ func SetProfile(id, profile string) error {
 	if !validProfile(profile) {
 		return ErrBadProfile
 	}
-	if _, err := AccountDir(id); err != nil {
+	// Only an account that is here: the settings keep no profile for one
+	// that is not.
+	dir, err := AccountDir(id)
+	if err != nil {
 		return err
+	}
+	if _, err := os.Stat(dir); err != nil {
+		return ErrNoSuchAccount
 	}
 	s, err := LoadSettings()
 	if err != nil {

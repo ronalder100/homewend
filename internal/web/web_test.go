@@ -8,9 +8,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/ronalder100/homewend/internal/engine"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -140,9 +143,18 @@ func TestSettingsThroughTheAPI(t *testing.T) {
 }
 
 func TestProfileSurvivesTheWindowsSettings(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("AppData", t.TempDir())
+	t.Setenv("AppData", cfg)
+	// The account is signed in: its folder is there.
+	dir, err := engine.AccountDir("google/ann@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	s := newTestServer(t)
 	cookie := &http.Cookie{Name: cookieName, Value: s.token}
 	put := func(path, body string) int {
@@ -166,5 +178,9 @@ func TestProfileSurvivesTheWindowsSettings(t *testing.T) {
 	}
 	if code := put("/api/profile?account=google/ann@example.com", `{"profile":"../x"}`); code != http.StatusBadRequest {
 		t.Fatalf("bad profile: %d, want 400", code)
+	}
+	// An account that is not here gets no profile.
+	if code := put("/api/profile?account=google/bob@example.com", `{"profile":"Bob"}`); code != http.StatusBadRequest {
+		t.Fatalf("unknown account: %d, want 400", code)
 	}
 }

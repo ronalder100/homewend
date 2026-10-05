@@ -5,6 +5,7 @@ package engine
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -31,5 +32,21 @@ func TestSettingsRefuseUnknownTheme(t *testing.T) {
 	err := saveSettings(filepath.Join(t.TempDir(), "settings.json"), Settings{Theme: "blue"})
 	if !errors.Is(err, ErrBadTheme) {
 		t.Fatalf("got %v, want ErrBadTheme", err)
+	}
+}
+
+func TestSetProfileOnlyForAnAccountThatIsHere(t *testing.T) {
+	cfg := config(t)
+	if err := SetProfile("google/ann@example.com", "ann"); !errors.Is(err, ErrNoSuchAccount) {
+		t.Fatalf("no account yet: got %v, want ErrNoSuchAccount", err)
+	}
+	if err := os.MkdirAll(filepath.Join(cfg, "accounts", "google", "ann@example.com"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetProfile("google/ann@example.com", "ann"); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := LoadSettings(); s.Profiles["google/ann@example.com"] != "ann" {
+		t.Errorf("profiles %v", s.Profiles)
 	}
 }
