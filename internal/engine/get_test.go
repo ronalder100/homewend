@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
@@ -39,5 +40,30 @@ func TestARequestSurvivesBetweenRuns(t *testing.T) {
 	got, err := loadRequest(path)
 	if err != nil || got.Year != want.Year || !got.Asked.Equal(want.Asked) || got.Job != want.Job {
 		t.Errorf("got %+v, %v; want %+v", got, err, want)
+	}
+}
+
+// The CLI asks before downloading a takeout this library does not hold any of
+// yet: one whose list of files was only read is not begun, a download
+// stopped before its first part is.
+func TestFoundIsStartedOnlyWhenBegun(t *testing.T) {
+	lib := t.TempDir()
+	e := takeout.Export{Job: "job", Parts: []takeout.Part{{Filename: "part-001.zip"}}}
+	g := Get{Library: lib}
+	if g.found(e).Started {
+		t.Error("nothing here: started")
+	}
+	work := filepath.Join(lib, library.WorkDir, "job")
+	if err := writeJSON(filepath.Join(work, "state.json"), state{Manifest: "manifest.zip"}); err != nil {
+		t.Fatal(err)
+	}
+	if g.found(e).Started {
+		t.Error("its list of files only read: started")
+	}
+	if err := writeJSON(filepath.Join(work, "state.json"), state{Manifest: "manifest.zip", Profile: "ann"}); err != nil {
+		t.Fatal(err)
+	}
+	if !g.found(e).Started {
+		t.Error("a download stopped before its first part: not started")
 	}
 }

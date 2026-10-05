@@ -73,11 +73,16 @@ func (g Get) Existing(sess *session.Session) (*Found, error) {
 	if err != nil || export == nil {
 		return nil, err
 	}
+	return g.found(*export), nil
+}
+
+// found is the export picked, and whether this library already holds some
+// of it: begun as the list of takeouts says it, not by a folder alone.
+func (g Get) found(export takeout.Export) *Found {
 	return &Found{
-		Takeout: Takeout{Export: *export, ID: ShortID(export.Job), Status: StatusOf(*export), Year: g.Year, Known: g.Takeout == ""},
-		// Begun as the list of takeouts says it: not by a folder alone.
-		Started: localOf(g.Library, *export) != nil,
-	}, nil
+		Takeout: Takeout{Export: export, ID: ShortID(export.Job), Status: StatusOf(export), Year: g.Year, Known: g.Takeout == ""},
+		Started: localOf(g.Library, export) != nil,
+	}
 }
 
 // pick is the export Run downloads, or nil when it has to ask for a new one.
