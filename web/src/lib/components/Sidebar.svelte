@@ -42,7 +42,6 @@
 	// Right-click on an account, a year or an album: open its folder, or copy
 	// where it is.
 	const opener = new Opener<{ path: string; key: string }>();
-	const menu = $derived(opener.menu);
 	function context(e: MouseEvent, key: string, where: { account?: string; year?: string; album?: string; noDate?: boolean }) {
 		if (rail) return;
 		opener.open(e, async () => ({ path: (await folderOf(where)).path, key }));
@@ -88,7 +87,7 @@
 					aria-label={many ? text.showAccount(account.name) : account.name}
 					onclick={() => toggle(account.id)}
 					oncontextmenu={(e) => context(e, 'a:' + account.id, { account: account.id })}
-					class:target={menu?.key === 'a:' + account.id}
+					class:target={opener.menu?.key === 'a:' + account.id}
 				>
 					<span class="lead"><Avatar {account} index={data.accounts.indexOf(account)} /></span>
 					<span class="label">{account.name}</span>
@@ -126,7 +125,7 @@
 					<button
 						class="row"
 						class:selected={is({ kind: 'year', label: year.label })}
-						class:target={menu?.key === 'y:' + year.label}
+						class:target={opener.menu?.key === 'y:' + year.label}
 						onclick={() => go({ kind: 'year', label: year.label })}
 						oncontextmenu={(e) =>
 							context(e, 'y:' + year.label, year.label === text.noDate ? { noDate: true } : { year: year.label })}
@@ -172,7 +171,7 @@
 									class="row"
 									class:indent={!!g.account}
 									class:selected={is({ kind: 'album', account: album.account, name: album.name })}
-									class:target={menu?.key === 'al:' + album.name}
+									class:target={opener.menu?.key === 'al:' + album.name}
 									title={album.name}
 									onclick={() => go({ kind: 'album', account: album.account, name: album.name })}
 									oncontextmenu={(e) => context(e, 'al:' + album.name, { account: album.account, album: album.name })}
@@ -220,7 +219,7 @@
 	</div>
 </nav>
 
-{#if menu}<ContextMenu items={folderItems(menu.path)} anchor={menu.anchor} onclose={opener.close} />{/if}
+{#if opener.menu}<ContextMenu items={folderItems(opener.menu.path)} anchor={opener.menu.anchor} onclose={opener.close} />{/if}
 
 <style>
 	nav {

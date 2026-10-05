@@ -138,6 +138,8 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
  *  a new one; '' when none is. A new account's failure is kept to say. */
 export const signIn = $state({ account: '', failed: '' });
 const NEW = 'new';
+/** Any sign-in is open: none can start. */
+const busy = () => signIn.account !== '';
 
 /** The new account's sign-in, for a screen that offers it: a failure is said
  *  on that screen only, from when it opens to when it goes, with the line
@@ -150,9 +152,8 @@ export function signingHere() {
 		get waiting() {
 			return signIn.account === NEW;
 		},
-		/** Any is: none can start. */
 		get busy() {
-			return signIn.account !== '';
+			return busy();
 		},
 		get failed() {
 			return signIn.failed;
@@ -164,7 +165,8 @@ export function signingHere() {
 }
 
 export async function signInNew() {
-	if (signIn.account) return;
+	// Two clicks quicker than the button greys out reach here both.
+	if (busy()) return;
 	signIn.account = NEW;
 	signIn.failed = '';
 	const from = location.pathname;
@@ -191,14 +193,15 @@ export function signingInAgain(account: () => string) {
 			return signIn.account !== '' && signIn.account === account();
 		},
 		get busy() {
-			return signIn.account !== '';
+			return busy();
 		}
 	};
 }
 
 /** An account signing in again, from whichever place offered it. */
 export async function signInAgain(account: string) {
-	if (signIn.account) return;
+	// Two clicks quicker than the button greys out reach here both.
+	if (busy()) return;
 	signIn.account = account;
 	try {
 		await login(account);

@@ -46,9 +46,6 @@
 	$effect(() => {
 		const a = account;
 		void tries;
-		// Another account, or the list read again: a menu of the rows before
-		// goes with them.
-		menu = null;
 		if (!a) return;
 		// The list seen last shows at once; Google's answer replaces it.
 		list = seen.get(a) ?? null;

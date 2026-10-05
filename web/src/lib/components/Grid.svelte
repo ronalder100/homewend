@@ -36,7 +36,6 @@
 
 	// A photo's menu, at the end of its tile: its folder, its path.
 	const opener = new Opener<{ path: string }>();
-	const menu = $derived(opener.menu);
 	const context = (e: MouseEvent, hash: string) => opener.open(e, () => pathOf(hash));
 
 	const cols = $derived(Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP))));
@@ -127,7 +126,7 @@
 		{/each}
 	</div>
 </div>
-{#if menu}<ContextMenu items={folderItems(menu.path, true)} anchor={menu.anchor} onclose={opener.close} />{/if}
+{#if opener.menu}<ContextMenu items={folderItems(opener.menu.path, true)} anchor={opener.menu.anchor} onclose={opener.close} />{/if}
 
 <style>
 	.scroller {
