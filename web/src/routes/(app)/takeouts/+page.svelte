@@ -12,8 +12,8 @@
 	import { onMount } from 'svelte';
 	import { Archive, Ellipsis, FolderOpen, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { type MenuItem } from '#lib/components/ContextMenu.svelte';
-	import { app, sidebarOf } from '#lib/app.svelte.js';
-	import { ApiError, folderOf, getTakeouts, login, readContents, startGet, type Takeout } from '#lib/api.js';
+	import { app, resigning, sidebarOf, signInAgain } from '#lib/app.svelte.js';
+	import { ApiError, folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -32,16 +32,11 @@
 	let failed = $state('');
 	let signedOut = $state(false);
 	let tries = $state(0);
-	// One sign-in at a time: the browser window is open until it is done.
-	let signingIn = $state(false);
-	async function signInAgain() {
-		signingIn = true;
-		try {
-			await login(account);
-			tries++;
-		} finally {
-			signingIn = false;
-		}
+	// One sign-in at a time, shared with the download's banner.
+	const signingIn = $derived(resigning.account !== '');
+	async function signIn() {
+		await signInAgain(account);
+		tries++;
 	}
 	let reading = $state('');
 	$effect(() => {
@@ -181,7 +176,7 @@
 		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
 			{#if signedOut}
 				<p>{signingIn ? text.signingIn : text.bannerSignedOut(email)}</p>
-				<button class="pill" disabled={signingIn} onclick={signInAgain}>{text.signInAgain}</button>
+				<button class="pill" disabled={signingIn} onclick={signIn}>{text.signInAgain}</button>
 			{:else}
 				<p>{text.takeoutsFailed}</p>
 				<button class="pill" onclick={() => tries++}>{text.retry}</button>

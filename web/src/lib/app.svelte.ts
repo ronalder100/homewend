@@ -172,3 +172,18 @@ export async function signInNew() {
 		signing.waiting = false;
 	}
 }
+
+/** The account signing in again, from whichever place offered it: one at a
+ *  time, so every "Sign in again" waits for the same browser window. */
+export const resigning = $state({ account: '' });
+
+export async function signInAgain(account: string) {
+	if (resigning.account) return;
+	resigning.account = account;
+	try {
+		await login(account);
+		await refresh();
+	} finally {
+		resigning.account = '';
+	}
+}

@@ -6,9 +6,8 @@
 	import Strip from './Strip.svelte';
 	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
-	import { login } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { refresh } from '#lib/app.svelte.js';
+	import { resigning, signInAgain } from '#lib/app.svelte.js';
 	import { text } from '#lib/strings.js';
 
 	import { onMount } from 'svelte';
@@ -35,18 +34,8 @@
 								: ''
 	);
 
-	// One sign-in at a time: while the browser is open the strip says so and
-	// offers nothing to press again.
-	let signingIn = $state(false);
-	async function signInAgain() {
-		signingIn = true;
-		try {
-			await login(account);
-			await refresh();
-		} finally {
-			signingIn = false;
-		}
-	}
+	// While the browser is open the strip says so and offers nothing to press.
+	const signingIn = $derived(resigning.account !== '');
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
 		if (picked) goto('/settings');
@@ -72,7 +61,7 @@
 		kind === 'signed-out'
 			? signingIn
 				? [undefined, undefined]
-				: [text.signInAgain, signInAgain]
+				: [text.signInAgain, () => signInAgain(account)]
 			: kind === 'no-space'
 				? [text.chooseAnotherFolder, chooseFolder]
 				: kind === 'expired'
