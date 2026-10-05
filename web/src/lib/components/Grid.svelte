@@ -35,11 +35,13 @@
 
 	// A photo's menu, at the end of its tile: its folder, its path.
 	let menu = $state<{ path: string; anchor: Element } | null>(null);
+	let opening: Element | null = null;
 	async function context(e: MouseEvent, hash: string) {
 		e.preventDefault();
-		const anchor = e.currentTarget as HTMLElement;
+		const anchor = (opening = e.currentTarget as HTMLElement);
 		const { path } = await pathOf(hash);
-		menu = { path, anchor };
+		// A later right-click answered for: this one is gone.
+		if (opening === anchor) menu = { path, anchor };
 	}
 
 	const cols = $derived(Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP))));

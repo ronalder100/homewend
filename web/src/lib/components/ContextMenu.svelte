@@ -29,8 +29,6 @@
 </script>
 
 <script lang="ts">
-	import { untrack } from 'svelte';
-
 	let {
 		items,
 		anchor,
@@ -44,12 +42,13 @@
 		onclose: () => void;
 	} = $props();
 
-	// Placed once, where its opener is as it opens. Where the window ends, the
-	// bubble opens to the left of the opener instead.
+	// Placed where its opener is as it opens, and again if another opener
+	// takes its place. Where the window ends, the bubble opens to the left of
+	// the opener instead.
 	const WIDTH = 208;
-	const at = untrack(() => anchor.getBoundingClientRect());
-	const x = at.right;
-	const y = at.top + at.height / 2;
+	const at = $derived(anchor.getBoundingClientRect());
+	const x = $derived(at.right);
+	const y = $derived(at.top + at.height / 2);
 	let innerWidth = $state(Infinity);
 	const flip = $derived(x + 7 + WIDTH > innerWidth);
 
