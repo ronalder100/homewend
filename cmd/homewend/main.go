@@ -577,7 +577,7 @@ func takeoutCommand(args []string) int {
 	// seconds: the spinner starts now, not when that is over.
 	if found == nil {
 		out.asked = time.Now()
-		out.now(going{said: text["asking"], bar: -1, since: out.asked})
+		out.now(going{said: text["asking"], bar: -1, since: out.asked, below: text["asking hint"]})
 	} else {
 		out.now(looking)
 	}

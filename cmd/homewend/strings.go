@@ -208,6 +208,7 @@ Examples:
 	// The work.
 	"looking":         "Looking for an export of your %s on Google Takeout",
 	"asking":          "Asking Google for an export",
+	"asking hint":     "Takeout takes two or three minutes to take the request.",
 	"asked":           "Asked Google for an export",
 	"asked at":        " at %s",
 	"preparing":       "Google is preparing the export",

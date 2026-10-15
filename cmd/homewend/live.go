@@ -121,7 +121,7 @@ func (p *printer) event(e progress.Event) {
 			p.asked = t
 		}
 		g := now(text["asking"], "")
-		g.since = p.asked
+		g.since, g.below = p.asked, text["asking hint"]
 		p.now(g)
 	case progress.Waiting:
 		if !p.asked.IsZero() {
