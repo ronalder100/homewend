@@ -6,6 +6,11 @@
 <script>
 // A browser that blocks the popup still gets to sign in, in this window.
 const google = {{.}};
-if (window.open(google, "google", "popup,width=480,height=640")) window.close();
+// Without left and top the popup opens where this window is, at the corner of
+// the screen: these put it in the middle.
+const w = 480, h = 640;
+const x = screen.availLeft + (screen.availWidth - w) / 2;
+const y = screen.availTop + (screen.availHeight - h) / 2;
+if (window.open(google, "google", `popup,width=${w},height=${h},left=${x},top=${y}`)) window.close();
 else location.replace(google);
 </script>
