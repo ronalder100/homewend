@@ -77,7 +77,7 @@ homewend takeout
 
 Good to know:
 
-- Google needs time to prepare your photos: minutes for a year, hours for everything. You do not have to wait: close the terminal, run the same command later, and it picks up where it left off.
+- Google needs time to prepare your photos: minutes for a year, hours for everything. Leave it running and the download starts by itself; if you have to close the terminal, run the same command later and it picks up where it left off.
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, Google asks for your password once more, in a browser window: **type it there**. Only once.
 - You need Chrome, Chromium, Brave or Edge. Windows is not supported yet.

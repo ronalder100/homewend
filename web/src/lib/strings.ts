@@ -46,7 +46,7 @@ export const text = {
 	themeDark: 'Dark',
 
 	chooseTitle: 'What should Homewend bring home?',
-	chooseLead: "Google prepares the takeout: minutes for a year, a few hours for everything. You don't have to wait here.",
+	chooseLead: "Google prepares the takeout: minutes for a year, a few hours for everything. Leave Homewend open and the download starts by itself; if you have to close it, it picks up where it left off.",
 	everything: 'Everything.',
 	everythingDesc: 'All your photos and videos, every album. The first time, this is the one.',
 	oneYear: 'One year.',

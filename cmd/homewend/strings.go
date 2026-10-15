@@ -97,8 +97,9 @@ whether to download it or to ask for a new one. When there is none, it asks
 before asking Google: Google takes minutes to prepare a year, a few hours
 for everything.
 
-Stop it at any time with Ctrl-C, or close the terminal, and run the same
-command again: it resumes where it was, and never asks Google twice.
+Leave it running and it downloads the export as soon as Google has it
+ready. If you have to stop it, with Ctrl-C or by closing the terminal, run
+the same command again: it resumes where it was, and never asks Google twice.
 
 Flags:
   --list          list the exports on Google Takeout
@@ -211,7 +212,7 @@ Examples:
 	"asked":           "Asked Google for an export",
 	"asked at":        " at %s",
 	"preparing":       "Google is preparing the export",
-	"preparing hint":  "Minutes for a year, a few hours for everything. No need to wait: close the terminal, run the same command later, and it picks up where it left off.",
+	"preparing hint":  "Minutes for a year, a few hours for everything. Leave it running and the download starts by itself when the export is ready. If you have to close the terminal, run the same command later: it picks up where it left off.",
 	"found":           "Found export %s",
 	"found details":   " · %d parts · %s",
 	"in library":      " · already in the library",
