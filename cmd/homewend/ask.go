@@ -12,6 +12,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // A question in the flow of a command: ? and the question in bold, a detail
@@ -21,10 +22,11 @@ import (
 // binding, which cannot read "↑/↓ move"; these two questions are small enough
 // to draw here, on bubbletea.
 
-// choose asks question and returns the index of the choice taken. Ctrl-C
-// stops the command, as anywhere else.
-func choose(ctx context.Context, question, detail string, choices []string) (int, error) {
-	m, err := ask(ctx, &chooser{question: question, detail: detail, choices: choices, out: lookFor(os.Stdout)})
+// choose asks question and returns the index of the choice taken. A note,
+// when there is one, is what to know before choosing, under the choices.
+// Ctrl-C stops the command, as anywhere else.
+func choose(ctx context.Context, question, detail, note string, choices []string) (int, error) {
+	m, err := ask(ctx, &chooser{question: question, detail: detail, note: note, choices: choices, out: lookFor(os.Stdout)})
 	if err != nil {
 		return 0, err
 	}
@@ -81,11 +83,11 @@ func (l look) question(said, detail string) string {
 }
 
 type chooser struct {
-	question, detail string
-	choices          []string
-	at               int
-	done, quit       bool
-	out              look
+	question, detail, note string
+	choices                []string
+	at, width              int
+	done, quit             bool
+	out                    look
 }
 
 func (c *chooser) Init() tea.Cmd { return nil }
@@ -93,6 +95,9 @@ func (c *chooser) Init() tea.Cmd { return nil }
 func (c *chooser) stopped() bool { return c.quit }
 
 func (c *chooser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if s, ok := msg.(tea.WindowSizeMsg); ok {
+		c.width = s.Width
+	}
 	if k, ok := msg.(tea.KeyPressMsg); ok {
 		switch k.String() {
 		case "up", "k":
@@ -123,8 +128,24 @@ func (c *chooser) View() tea.View {
 			lines = append(lines, "    "+l.paint(choice, mutedColour, false))
 		}
 	}
+	if c.note != "" {
+		lines = append(lines, "", l.note(c.note, c.width))
+	}
 	lines = append(lines, "", l.keys("↑/↓", text["key move"], "enter", text["key select"], "ctrl+c", text["key quit"]))
 	return tea.NewView(strings.Join(lines, "\n"))
+}
+
+// note draws said in yellow, wrapped to the window between words and indented
+// like the choices: a line wider than the window is cut by the terminal.
+func (l look) note(said string, width int) string {
+	if width <= 0 {
+		width = 80
+	}
+	wrapped := strings.Split(ansi.Wordwrap(said, max(20, width-4), ""), "\n")
+	for i, line := range wrapped {
+		wrapped[i] = "  " + l.paint(line, warnColour, false)
+	}
+	return strings.Join(wrapped, "\n")
 }
 
 type input struct {

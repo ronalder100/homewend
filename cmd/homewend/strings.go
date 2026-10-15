@@ -189,7 +189,8 @@ Examples:
 
 	// Questions.
 	"ask new":          "Ask Google to export your %s?",
-	"ask new meta":     "Google takes minutes for a year, a few hours for everything.\nHave to go? Leave the terminal open, or answer Yes and close it: run the same command later and it picks up where it left off.",
+	"ask new meta":     "Google takes minutes for a year, a few hours for everything.",
+	"ask new note":     "Have to go? Leave the terminal open, or answer Yes and close it: run the same command later and it picks up where it left off.",
 	"yes":              "Yes",
 	"no":               "No",
 	"have one":         "Google already has an export of your %s. What next?",
