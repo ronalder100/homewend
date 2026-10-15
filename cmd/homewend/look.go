@@ -28,6 +28,7 @@ const (
 	signWarning = "!"
 	signAsk     = "?"
 	signCursor  = "›"
+	signNote    = "•"
 )
 
 func (l look) paint(s string, c color.Color, bold bool) string {
