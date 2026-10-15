@@ -74,14 +74,20 @@ bar() {
 		have="$(($(wc -c <"$tmp/homewend")))"
 	fi
 	cells=$((cols > 64 ? 40 : cols - 24))
-	fill=$((total > 0 ? have * cells / total : 0))
+	# No "total > 0 ? have / total : 0": macOS's sh is bash 3.2, which divides
+	# in the branch it does not take, and a length of 0 stops the script.
+	fill=0 pct=0
+	if [ "$total" -gt 0 ]; then
+		fill=$((have * cells / total))
+		pct=$((have * 100 / total))
+	fi
 	full="" rest="" i=0
 	while [ "$i" -lt "$cells" ]; do
 		if [ "$i" -lt "$fill" ]; then full="$full$cell_done"; else rest="$rest$cell_left"; fi
 		i=$((i + 1))
 	done
 	printf '\r%s%s%s%s%s %3d%%  %s / %s MB\033[K' "$blue" "$full" "$dim" "$rest" "$off" \
-		"$((total > 0 ? have * 100 / total : 0))" "$(mb "$have")" "$(mb "$total")" >&2
+		"$pct" "$(mb "$have")" "$(mb "$total")" >&2
 }
 
 echo "downloading $binary"
