@@ -148,8 +148,8 @@ func TestBarIsTwentyCells(t *testing.T) {
 	}
 }
 
-// The line going on carries its time when it is worth counting, and a line
-// under it when there is one.
+// The line going on carries its time when it is worth counting, a line
+// under it when there is one, wrapped to the window, and a note under that.
 func TestTheLineGoingOn(t *testing.T) {
 	s := &liveLine{out: look{}}
 	if s.line(timeZero) != "" {
@@ -160,9 +160,14 @@ func TestTheLineGoingOn(t *testing.T) {
 	if got := s.line(start.Add(63e9)); !strings.HasSuffix(got, "Asking Google to export your 2025 photos · 1m3s") {
 		t.Errorf("got %q", got)
 	}
-	s.now = going{sign: signWaiting, said: text["preparing"], bar: -1, below: text["preparing hint"]}
-	if got := s.line(start); got != "* "+text["preparing"]+"\n  "+text["preparing hint"] {
-		t.Errorf("got %q", got)
+	s.now = going{sign: signWaiting, said: "Waiting", bar: -1, below: "one two three four five six", lead: "Go?", note: "seven eight nine ten eleven"}
+	s.width = 80
+	if got, want := s.line(start), "* Waiting\n  one two three four five six\n\n  ● Go? seven eight nine ten eleven"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	s.width = 28
+	if got, want := s.line(start), "* Waiting\n  one two three four five\n  six\n\n  ● Go? seven eight nine\n    ten eleven"; got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

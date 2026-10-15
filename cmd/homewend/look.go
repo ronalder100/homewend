@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // look draws the lines every screen is made of: one function per kind of
@@ -120,4 +121,23 @@ func pad(s string, n int) string {
 		return s + strings.Repeat(" ", n-w)
 	}
 	return s
+}
+
+// note draws the dot and lead in yellow and said after it in the colour
+// of a detail, wrapped to the window between words: a row wider than the
+// window is cut. The lead is a
+// few words, always on the first line.
+func (l look) note(lead, said string, width int) string {
+	if width <= 0 {
+		width = 80
+	}
+	wrapped := strings.Split(ansi.Wordwrap(lead+" "+said, max(20, width-6), ""), "\n")
+	for i, line := range wrapped {
+		if i == 0 {
+			wrapped[i] = "  " + l.paint(signPulse, warnColour, false) + " " + l.paint(lead, warnColour, false) + l.paint(strings.TrimPrefix(line, lead), mutedColour, false)
+		} else {
+			wrapped[i] = "    " + l.paint(line, mutedColour, false)
+		}
+	}
+	return strings.Join(wrapped, "\n")
 }

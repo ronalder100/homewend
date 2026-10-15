@@ -329,7 +329,7 @@ func pickAccount(ctx context.Context, given string, asJSON bool) (engine.Account
 	for _, a := range signed {
 		names = append(names, a.Email)
 	}
-	at, err := choose(ctx, text["which account"], "", "", "", names)
+	at, err := choose(ctx, text["which account"], "", names)
 	return signed[at], err
 }
 
@@ -361,7 +361,7 @@ func pickProfile(ctx context.Context, given string, asJSON bool) (string, error)
 	case !interactive(asJSON):
 		return "", errWhichProfile
 	}
-	at, err := choose(ctx, text["which profile"], "", "", "", names)
+	at, err := choose(ctx, text["which profile"], "", names)
 	return names[at], err
 }
 
@@ -534,7 +534,7 @@ func takeoutCommand(args []string) int {
 	if interactive(*asJSON) && !*yes && !*fresh && (found == nil || g.Takeout == "" && !found.Started) {
 		out.close()
 		if found == nil {
-			at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), text["ask new meta"], text["ask new lead"], text["ask new note"], []string{text["yes"], text["no"]})
+			at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), "", []string{text["yes"], text["no"]})
 			if err != nil {
 				return newPrinter(*asJSON).fail(err)
 			}
@@ -544,7 +544,7 @@ func takeoutCommand(args []string) int {
 			}
 		} else {
 			detail := fmt.Sprintf(text["have one meta"], found.ID, found.Created.Local().Format("2 Jan 15:04"), size(found.Bytes)) + string(found.Status)
-			at, err := choose(ctx, fmt.Sprintf(text["have one"], out.what), detail, "", "", []string{text["download it"], text["ask for new"]})
+			at, err := choose(ctx, fmt.Sprintf(text["have one"], out.what), detail, []string{text["download it"], text["ask for new"]})
 			if err != nil {
 				return newPrinter(*asJSON).fail(err)
 			}

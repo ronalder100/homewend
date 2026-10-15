@@ -130,7 +130,7 @@ func (p *printer) event(e progress.Event) {
 		}
 		// No time: hours on a counter read as a hang. A dot that breathes
 		// says it is alive.
-		g := going{pulse: true, said: text["preparing"], bar: -1, below: text["preparing hint"]}
+		g := going{pulse: true, said: text["preparing"], bar: -1, below: text["preparing hint"], lead: text["preparing lead"], note: text["preparing note"]}
 		p.now(g)
 	case progress.Ready, progress.InLibrary:
 		if e.Name == p.shown {
@@ -199,7 +199,9 @@ type going struct {
 	details string
 	since   time.Time
 	below   string
-	pulse   bool // a dot breathing in place of the spinner: a wait of hours
+	// A note under below: what to know meanwhile, its lead in yellow.
+	lead, note string
+	pulse      bool // a dot breathing in place of the spinner: a wait of hours
 }
 
 // liveLine draws the step going on at the bottom of a terminal and redraws
@@ -211,6 +213,7 @@ type liveLine struct {
 	now   going
 	frame int
 	drawn int // lines on screen now
+	width int // the window's columns, as of the last draw
 	quit  chan struct{}
 	done  chan struct{}
 }
@@ -304,6 +307,7 @@ func (l *liveLine) draw() {
 	if err != nil || width <= 0 {
 		width = 80
 	}
+	l.width = width
 	rows := strings.Split(text, "\n")
 	for i, r := range rows {
 		rows[i] = ansi.Truncate(r, width-1, "")
@@ -336,7 +340,16 @@ func (s *liveLine) line(t time.Time) string {
 		line = l.paint(spin, accentColour, false) + " " + l.marked(g.said, nil) + l.paint(details, mutedColour, false)
 	}
 	if g.below != "" {
-		line += "\n" + l.cause(g.below)
+		width := s.width
+		if width <= 0 {
+			width = 80
+		}
+		for _, row := range strings.Split(ansi.Wordwrap(g.below, max(20, width-4), ""), "\n") {
+			line += "\n" + l.cause(row)
+		}
+	}
+	if g.note != "" {
+		line += "\n\n" + l.note(g.lead, g.note, s.width)
 	}
 	return line
 }

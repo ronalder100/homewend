@@ -189,9 +189,6 @@ Examples:
 
 	// Questions.
 	"ask new":          "Ask Google to export your %s?",
-	"ask new meta":     "Google takes minutes for a year, a few hours for everything.",
-	"ask new lead":     "Have to go?",
-	"ask new note":     "Leave the terminal open, or answer Yes and close it: run the same command later and it picks up where it left off.",
 	"yes":              "Yes",
 	"no":               "No",
 	"have one":         "Google already has an export of your %s. What next?",
@@ -214,7 +211,9 @@ Examples:
 	"asked":           "Asked Google for an export",
 	"asked at":        " at %s",
 	"preparing":       "Google is preparing the export",
-	"preparing hint":  "Minutes for a year, a few hours for everything. Leave it running and the download starts by itself when the export is ready. If you have to close the terminal, run the same command later: it picks up where it left off.",
+	"preparing hint":  "Minutes for a year, a few hours for everything. The download starts by itself as soon as it is ready.",
+	"preparing lead":  "Have to go?",
+	"preparing note":  "Close the terminal and run the same command later: it picks up where it left off.",
 	"found":           "Found export %s",
 	"found details":   " · %d parts · %s",
 	"in library":      " · already in the library",
