@@ -135,7 +135,7 @@ func (c *chooser) View() tea.View {
 	return tea.NewView(strings.Join(lines, "\n"))
 }
 
-// note draws lead in yellow and said after it, wrapped to the window between
+// note draws lead in yellow and said after it in the colour of a detail, wrapped to the window between
 // words and indented like the choices: a line wider than the window is cut by
 // the terminal. The lead is a few words, always on the first line.
 func (l look) note(lead, said string, width int) string {
@@ -145,7 +145,9 @@ func (l look) note(lead, said string, width int) string {
 	wrapped := strings.Split(ansi.Wordwrap(lead+" "+said, max(20, width-4), ""), "\n")
 	for i, line := range wrapped {
 		if i == 0 {
-			line = l.paint(lead, warnColour, false) + strings.TrimPrefix(line, lead)
+			line = l.paint(lead, warnColour, false) + l.paint(strings.TrimPrefix(line, lead), mutedColour, false)
+		} else {
+			line = l.paint(line, mutedColour, false)
 		}
 		wrapped[i] = "  " + line
 	}
