@@ -177,7 +177,7 @@ Examples:
 	"after login":     "to bring your %d photos home, run: **homewend takeout %d**",
 	"signed out":      "Signed out of Google",
 	"signed out of":   "Signed out of **%s**",
-	"profile is":      "Their profile is **%s**",
+	"profile is":      "Your photos go in the profile **%s**",
 	"which account":   "Which account?",
 	"which profile":   "Whose photos?",
 	"sign-in expired": " · sign-in expired",
