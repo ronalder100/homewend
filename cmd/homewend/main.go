@@ -258,23 +258,13 @@ func login(args []string) int {
 	if already {
 		return exitOK
 	}
-	// Whose photos these are is asked once, when the account is new: the
-	// folder of the library they go in.
-	if fresh && interactive(*asJSON) {
-		out.close()
-		fmt.Println()
-		profile, err := field(ctx, text["ask profile"], text["ask profile meta"], a.Profile)
-		if err != nil {
-			return newPrinter(*asJSON).fail(err)
+	// A new account's photos go in the profile named after its address: a
+	// question here would stand between the user and the first takeout.
+	if fresh {
+		if err := engine.SetProfile(a.ID, a.Profile); err != nil {
+			return out.fail(err)
 		}
-		if profile == "" {
-			profile = a.Profile
-		}
-		if err := engine.SetProfile(a.ID, profile); err != nil {
-			return newPrinter(*asJSON).fail(err)
-		}
-		out = newPrinter(*asJSON)
-		out.say(out.out.done(fmt.Sprintf(text["profile is"], profile), ""))
+		out.say(out.out.done(fmt.Sprintf(text["profile is"], a.Profile), ""))
 	}
 	year := time.Now().Year() - 1
 	out.say("")

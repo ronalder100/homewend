@@ -129,7 +129,7 @@ Homewend/
 └── .homewend/
 ```
 
-- One folder per profile: whose photos they are. Each Google account belongs to one, named after the address the first time and changeable then; two accounts can share one.
+- One folder per profile: whose photos they are. Each Google account belongs to one, named after its address; two accounts can share one.
 - Inside, one folder per year and month. `unknown-month/` when Google knows only the year.
 - Albums link to the same photos: no extra space, where the disk allows links. A photo two profiles both have is stored once.
 - `messaging/` keeps the pictures that came through WhatsApp, Signal or Telegram apart from your photos.
