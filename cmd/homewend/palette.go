@@ -25,7 +25,6 @@ var (
 	errColour    = lipgloss.Color("#F7768E") // red: failed
 	warnColour   = lipgloss.Color("#E0AF68") // yellow: waiting, and warnings
 	accentColour = lipgloss.Color("#7AA2F7") // blue: work going on, and your move
-	noteColour   = lipgloss.Color("#FF9E64") // orange: the sign of a note under a question
 )
 
 // paint colours s when out is a terminal, and leaves it plain anywhere else.
