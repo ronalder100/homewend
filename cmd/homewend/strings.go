@@ -94,10 +94,11 @@ one counted against the list Google puts in the export.
 
 If Google Takeout still has the export homewend asked for last, it asks you
 whether to download it or to ask for a new one. When there is none, it asks
-before asking Google: Google takes hours to prepare an export.
+before asking Google: Google takes minutes to prepare a year, a few hours
+for everything.
 
-Stop it at any time with Ctrl-C and run the same command again: it resumes
-where it was, and never asks Google twice.
+Stop it at any time with Ctrl-C, or close the terminal, and run the same
+command again: it resumes where it was, and never asks Google twice.
 
 Flags:
   --list          list the exports on Google Takeout
@@ -187,7 +188,7 @@ Examples:
 
 	// Questions.
 	"ask new":          "Ask Google to export your %s?",
-	"ask new meta":     "Google takes hours to prepare the export. --yes skips this question.",
+	"ask new meta":     "Google takes minutes for a year, a few hours for everything. --yes skips this question.",
 	"yes":              "Yes",
 	"no":               "No",
 	"have one":         "Google already has an export of your %s. What next?",
@@ -210,7 +211,7 @@ Examples:
 	"asked":           "Asked Google for an export",
 	"asked at":        " at %s",
 	"preparing":       "Google is preparing the export",
-	"preparing hint":  "This takes hours. Ctrl-C is safe: run the same command to resume.",
+	"preparing hint":  "Minutes for a year, a few hours for everything. No need to wait: close the terminal, run the same command later, and it picks up where it left off.",
 	"found":           "Found export %s",
 	"found details":   " · %d parts · %s",
 	"in library":      " · already in the library",
