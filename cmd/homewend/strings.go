@@ -186,6 +186,8 @@ Examples:
 	"was not signed":  "Not signed in: there was nothing to sign out of",
 	"password":        "Waiting for you to enter your password in the Google window",
 	"prepare":         "Setting up the download",
+	"prepare hint":    "The first download of an account: Google may ask for your password, in a small window.",
+	"password hint":   "Google asks once, before the first download. Homewend never sees it.",
 
 	// Questions.
 	"ask new":          "Ask Google to export your %s?",

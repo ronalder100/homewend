@@ -112,9 +112,13 @@ func (p *printer) event(e progress.Event) {
 	case progress.SessionReady:
 		p.now(now(text["session ready"], ""))
 	case progress.Prepare:
-		p.now(now(text["prepare"], ""))
+		g := now(text["prepare"], "")
+		g.below = text["prepare hint"]
+		p.now(g)
 	case progress.FirstDownload:
-		p.now(now(text["password"], ""))
+		g := now(text["password"], "")
+		g.below = text["password hint"]
+		p.now(g)
 	case progress.Request:
 		// Already set when the spinner started before the run did.
 		if p.asked.IsZero() {

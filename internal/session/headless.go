@@ -78,9 +78,26 @@ func (s *Session) Glimpse(ctx context.Context, url string) (*Page, error) {
 // session signed in the day before, the password page came up, was answered,
 // and the download began, with the session still accepted afterwards
 // (Chromium 144, 2026-10-03). The sign-in itself it refuses (see Open).
+//
+// The window is the size of the sign-in popup, in the middle of the screen:
+// a full browser window for one password field read as something gone wrong.
 func (s *Session) Watched(ctx context.Context, host string) (*Page, error) {
-	return s.drive(ctx, nil, hidden(host))
+	return s.drive(ctx, []string{"--window-size=480,640"}, chromedp.Tasks{hidden(host), centred})
 }
+
+// centred moves the window of the tab to the middle of its screen, which only
+// the page knows: the browser opens it where it likes.
+var centred = chromedp.ActionFunc(func(ctx context.Context) error {
+	var at struct{ X, Y float64 }
+	if err := chromedp.Evaluate(`({X: screen.availLeft + (screen.availWidth - outerWidth) / 2, Y: screen.availTop + (screen.availHeight - outerHeight) / 2})`, &at).Do(ctx); err != nil {
+		return err
+	}
+	id, _, err := cdpbrowser.GetWindowForTarget().Do(ctx)
+	if err != nil {
+		return err
+	}
+	return cdpbrowser.SetWindowBounds(id, &cdpbrowser.Bounds{Left: int64(at.X), Top: int64(at.Y)}).Do(ctx)
+})
 
 // hidden keeps every page from host off screen, from the next one the tab
 // opens. A script added this way runs as each document is created, before
@@ -116,6 +133,9 @@ func (s *Session) drive(ctx context.Context, flags []string, open chromedp.Actio
 	// port nobody listens on.
 	portFile := filepath.Join(s.Profile, "DevToolsActivePort")
 	if err := os.Remove(portFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if err := s.forgetTabs(); err != nil {
 		return nil, err
 	}
 
