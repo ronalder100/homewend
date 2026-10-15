@@ -573,6 +573,14 @@ func takeoutCommand(args []string) int {
 	}
 	out.say(out.out.param(text["field library"], tilde(filepath.Join(dir, profile), home), ""))
 	out.say("")
+	// The run reads Takeout's list again before it asks or downloads, for
+	// seconds: the spinner starts now, not when that is over.
+	if found == nil {
+		out.asked = time.Now()
+		out.now(going{said: text["asking"], bar: -1, since: out.asked})
+	} else {
+		out.now(looking)
+	}
 	result, err := g.Run(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)

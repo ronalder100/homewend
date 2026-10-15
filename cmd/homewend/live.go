@@ -116,9 +116,12 @@ func (p *printer) event(e progress.Event) {
 	case progress.FirstDownload:
 		p.now(now(text["password"], ""))
 	case progress.Request:
-		p.asked = t
+		// Already set when the spinner started before the run did.
+		if p.asked.IsZero() {
+			p.asked = t
+		}
 		g := now(text["asking"], "")
-		g.since = t
+		g.since = p.asked
 		p.now(g)
 	case progress.Waiting:
 		if !p.asked.IsZero() {
