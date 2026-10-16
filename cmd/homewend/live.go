@@ -108,7 +108,9 @@ func (p *printer) event(e progress.Event) {
 			p.now(now(text["checking"], ""))
 		}
 	case progress.SignIn:
-		p.now(now(text["sign in"], ""))
+		g := now(text["sign in"], "")
+		g.yours = true
+		p.now(g)
 	case progress.SessionReady:
 		p.now(now(text["session ready"], ""))
 	case progress.Prepare:
@@ -117,7 +119,7 @@ func (p *printer) event(e progress.Event) {
 		p.now(g)
 	case progress.FirstDownload:
 		g := now(text["password"], "")
-		g.below = text["password hint"]
+		g.below, g.yours = text["password hint"], true
 		p.now(g)
 	case progress.Request:
 		// Already set when the spinner started before the run did.
@@ -205,7 +207,9 @@ type going struct {
 	below   string
 	// A note under below: what to know meanwhile, its lead in yellow.
 	lead, note string
-	pulse      bool // a dot breathing in place of the spinner: a wait of hours
+	pulse      bool
+	// The wait is on the user, who is told what to do: no "please wait".
+	yours bool // a dot breathing in place of the spinner: a wait of hours
 }
 
 // liveLine draws the step going on at the bottom of a terminal and redraws
@@ -329,6 +333,10 @@ func (s *liveLine) line(t time.Time) string {
 	l := s.out
 	spin := frames[s.frame%len(frames)]
 	details := g.details
+	// A wait on Google or on us, with nothing to show for it: say so.
+	if g.bar < 0 && g.sign == "" && !g.yours {
+		details = text["please wait"] + details
+	}
 	if !g.since.IsZero() {
 		details += fmt.Sprintf(text["elapsed"], t.Sub(g.since).Round(time.Second))
 	}

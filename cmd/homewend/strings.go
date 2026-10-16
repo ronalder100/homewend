@@ -244,6 +244,7 @@ Examples:
 	"stopped":         "Stopped",
 	"resume":          "to resume, run: **%s**",
 	"elapsed":         " · %s",
+	"please wait":     " · please wait…",
 
 	// takeout --list.
 	"list title":     "Exports on Google Takeout for **%s**",

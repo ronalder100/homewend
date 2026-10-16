@@ -157,7 +157,7 @@ func TestTheLineGoingOn(t *testing.T) {
 	}
 	start := timeZero.Add(1)
 	s.now = going{said: "Asking Google to export your 2025 photos", bar: -1, since: start}
-	if got := s.line(start.Add(63e9)); !strings.HasSuffix(got, "Asking Google to export your 2025 photos · 1m3s") {
+	if got := s.line(start.Add(63e9)); !strings.HasSuffix(got, "Asking Google to export your 2025 photos"+text["please wait"]+" · 1m3s") {
 		t.Errorf("got %q", got)
 	}
 	s.now = going{sign: signWaiting, said: "Waiting", bar: -1, below: "one two three four five six", lead: "Go?", note: "seven eight nine ten eleven"}
@@ -307,7 +307,7 @@ func TestTheWaitCountsNoTime(t *testing.T) {
 	captured(t, func() { p.event(progress.Event{Stage: progress.Waiting, Name: "job"}) })
 	p.live = nil
 	got := l.line(timeZero.Add(3 * 3600e9))
-	if !strings.HasPrefix(got, signPulse+" "+text["preparing"]+"\n") || strings.Contains(got, "·") {
+	if !strings.HasPrefix(got, signPulse+" "+text["preparing"]+text["please wait"]+"\n") || strings.Contains(got, "3h") {
 		t.Errorf("got %q", got)
 	}
 }
