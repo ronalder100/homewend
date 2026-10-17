@@ -55,7 +55,10 @@ Install Homewend. On macOS or Linux:
 curl -fsSL https://raw.githubusercontent.com/ronalder100/homewend/main/install.sh | sh
 ```
 
-On Windows, in PowerShell:
+On Windows, download `homewend_windows_amd64.exe` from the
+[latest release](https://github.com/ronalder100/homewend/releases/latest) and
+double-click it: it asks which year, and the first time where, and does the rest. Or, in
+PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/ronalder100/homewend/main/install.ps1 | iex

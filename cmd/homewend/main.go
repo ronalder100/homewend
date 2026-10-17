@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -56,6 +57,12 @@ var commands = map[string]func(args []string) int{
 
 func main() {
 	if len(os.Args) < 2 {
+		// On Windows, no arguments at a terminal is a double-click on the
+		// .exe: ask instead of showing help in a window about to close.
+		// Elsewhere the binary is run from a shell, and gets the help.
+		if runtime.GOOS == "windows" && term.IsTerminal(int(os.Stdin.Fd())) {
+			os.Exit(guided())
+		}
 		cleanScreen(nil)
 		showHelp(os.Stdout, text["usage"])
 		os.Exit(exitOK)

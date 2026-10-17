@@ -11,6 +11,7 @@ var text = map[string]string{
 Start here:
   homewend login
   homewend takeout 2025
+On Windows, a double-click on homewend.exe asks, then does the same.
 
 Commands:
   login     sign in to Google in a window of its own
@@ -198,6 +199,10 @@ Examples:
 	"ask for new":      "Ask for a new export",
 	"ask library":      "Where should your photos go?",
 	"ask library meta": "Asked once and remembered. --library DIR overrides it for one run.",
+	"guided year":      "Which photos?",
+	"guided year meta": "One year to try it, like 2025, or leave it empty for all of them.",
+	"guided bad year":  "Not a year: type one like 2025, or leave it empty for all of them.",
+	"guided done":      "Press Enter to close.",
 	"key move":         "move",
 	"key select":       "select",
 	"key accept":       "accept",
