@@ -49,13 +49,19 @@ Google Photos to your disk in one click: no zips to babysit, no download to rest
 
 ## ⚡ Quick start
 
-Install Homewend (macOS or Linux):
+Install Homewend. On macOS or Linux:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ronalder100/homewend/main/install.sh | sh
 ```
 
-Read it first if you like: [install.sh](install.sh) downloads the binary from the [latest release](https://github.com/ronalder100/homewend/releases/latest) and checks it against the release's checksums before installing. Or download the binary yourself and check its signature as [SECURITY.md](SECURITY.md#checking-a-release) shows.
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/ronalder100/homewend/main/install.ps1 | iex
+```
+
+Read it first if you like: [install.sh](install.sh) and [install.ps1](install.ps1) download the binary from the [latest release](https://github.com/ronalder100/homewend/releases/latest) and check it against the release's checksums before installing. Or download the binary yourself and check its signature as [SECURITY.md](SECURITY.md#checking-a-release) shows.
 
 Sign in to Google. A small window opens; you sign in there, once:
 
@@ -80,9 +86,10 @@ Good to know:
 - Google needs time to prepare your photos: minutes for a year, hours for everything. You do not have to wait: close the terminal, run the same command later, and it picks up where it left off.
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, Google asks for your password once more, in a browser window: **type it there**. Only once.
-- You need Chrome, Chromium, Brave or Edge. Windows is not supported yet.
+- You need Chrome, Chromium, Brave or Edge. On Windows, close the browser window once you have signed in.
+- On Windows, SmartScreen may warn about an unsigned download: "More info", then "Run anyway". Signing costs more than this project has.
 - You need room for your library plus one zip. Homewend checks before it starts.
-- The installer checks the download and puts `homewend` in `~/.local/bin`. No root needed.
+- The installer checks the download and puts `homewend` in `~/.local/bin`, or in `%LOCALAPPDATA%\Programs\homewend` on Windows. No root or administrator needed.
 - From source: `go build ./cmd/homewend` (Go 1.25+).
 
 ## Homewend vs. Takeout by hand

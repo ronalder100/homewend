@@ -1,9 +1,9 @@
 # homewend — Copyright (C) 2026 Ron Alder
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Bare binaries with fixed names, so install.sh can fetch
-# releases/latest/download/homewend_<os>_<arch> without knowing the version.
-# No Windows build until the session can read Windows' encrypted cookies.
+# Bare binaries with fixed names, so the install scripts can fetch
+# releases/latest/download/homewend_<os>_<arch> without knowing the version
+# (goreleaser adds .exe on Windows).
 version: 2
 project_name: homewend
 
@@ -12,7 +12,7 @@ builds:
     binary: homewend
     env:
       - CGO_ENABLED=0
-    goos: [linux, darwin]
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     flags:
       - -trimpath
