@@ -25,6 +25,26 @@ The first time it opens, Homewend adds itself to your desktop's application
 menu. If you move the file, open it once from its new place and the menu
 follows.
 
+## Install it (Mac)
+
+For a Mac with Apple silicon (M1 or later).
+
+1. Download `Homewend-<version>-arm64.dmg` from the
+   [latest release](https://github.com/ronalder100/homewend/releases/latest).
+2. Open it and drag **Homewend** into **Applications**.
+3. Open Homewend. The app is not notarized by Apple, so the first time macOS
+   refuses to open it. Choose **Apple menu > System Settings > Privacy &
+   Security**, scroll down to **Security**, click **Open Anyway**, and
+   confirm with your password. The button is there for about an hour after
+   you tried to open the app; from then on Homewend opens like any other app.
+
+If macOS says instead that Homewend "is damaged and can't be opened", take
+away the mark it put on the downloaded app, then open it again:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Homewend.app
+```
+
 ## Install it (Windows)
 
 1. Download `Homewend-Setup-<version>.exe` from the
@@ -33,8 +53,8 @@ follows.
 2. The installer is not signed yet, so Windows may stop it with "Windows
    protected your PC". Click **More info**, then **Run anyway**.
 
-Sign-in needs Chrome, Chromium, Brave or Edge installed: Google's sign-in
-opens in a window of its own, never inside the app.
+On every system, sign-in needs Chrome, Chromium, Brave or Edge installed:
+Google's sign-in opens in a window of its own, never inside the app.
 
 ## The first time
 
@@ -86,3 +106,7 @@ on your disk:
 When a new version is out, Homewend says so in a strip under its title bar and
 with a notification. Nothing is downloaded until you press **Update** or click
 the notification; then it installs the new version and opens again.
+
+On the Mac it does not say so or update itself yet: download the new `.dmg`
+from the [latest release](https://github.com/ronalder100/homewend/releases/latest)
+and replace the app in **Applications**.
