@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 )
 
 // Window is a browser the user drives, open on our profile.
@@ -121,17 +120,3 @@ func (w *Window) Exited() <-chan struct{} { return w.exited }
 // Close closes the browser once it has served its purpose, and waits for it
 // to go.
 func (w *Window) Close() { shutDown(w.cmd, w.exited) }
-
-// shutDown stops a browser we launched and waits until exited is closed.
-// SIGTERM, not a kill: Chrome takes it as a request to shut down
-// (chrome/browser/chrome_browser_main_posix.cc). It does not wait for the
-// cookies of the last seconds: four times in six they were lost, the write
-// left half done (Chromium 144, 2026-10-02). Whoever needs them on disk sees
-// them there before closing. Where there is no SIGTERM, on Windows, it is
-// killed.
-func shutDown(cmd *exec.Cmd, exited <-chan struct{}) {
-	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		cmd.Process.Kill()
-	}
-	<-exited
-}

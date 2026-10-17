@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -16,6 +17,9 @@ import (
 // A stand-in browser that, like Chrome, shuts down when asked with SIGTERM
 // and writes down that it was asked.
 func TestCloseAsksTheBrowserToShutDown(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in browser is a shell script")
+	}
 	dir := t.TempDir()
 	asked := filepath.Join(dir, "asked")
 	ready := filepath.Join(dir, "ready")
