@@ -87,6 +87,7 @@ Good to know:
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, Google asks for your password once more, in a browser window: **type it there**. Only once.
 - You need Chrome, Chromium, Brave or Edge. On Windows, close the browser window once you have signed in.
+- Windows support is new: the parts that do not need a Google account are tested on every build, a full run on Windows is not yet confirmed.
 - On Windows, SmartScreen may warn about an unsigned download: "More info", then "Run anyway". Signing costs more than this project has.
 - You need room for your library plus one zip. Homewend checks before it starts.
 - The installer checks the download and puts `homewend` in `~/.local/bin`, or in `%LOCALAPPDATA%\Programs\homewend` on Windows. No root or administrator needed.
