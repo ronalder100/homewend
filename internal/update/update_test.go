@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -23,7 +22,7 @@ import (
 func github(t *testing.T, version string, binary []byte, declared string) *int {
 	t.Helper()
 	asked := 0
-	name := "homewend_" + runtime.GOOS + "_" + runtime.GOARCH
+	name := asset()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/releases/latest", func(w http.ResponseWriter, r *http.Request) {
 		asked++

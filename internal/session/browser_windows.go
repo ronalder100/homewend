@@ -13,7 +13,7 @@ import (
 // On Windows a browser is not on PATH: it is in the registry, where its
 // installer leaves an open command under Software\Clients\StartMenuInternet,
 // per user or per machine. Chrome and Edge were measured there on Windows
-// Server 2025 (docs/architecture.md, "Windows"). The default browser is the
+// Server 2025, 2026-10-01. The default browser is the
 // ProgId Windows keeps for https, whose own open command names the
 // executable.
 

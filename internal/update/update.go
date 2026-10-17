@@ -79,7 +79,7 @@ func kept() (string, error) {
 // one rename: target is either the old program or the new one, never half of
 // each.
 func Install(ctx context.Context, target string, emit progress.Func) error {
-	name := "homewend_" + runtime.GOOS + "_" + runtime.GOARCH
+	name := asset()
 	want, err := checksum(ctx, name)
 	if err != nil {
 		return err
@@ -112,6 +112,17 @@ func Install(ctx context.Context, target string, emit progress.Func) error {
 		return err
 	}
 	return os.Rename(file.Name(), target)
+}
+
+// asset is the release's file for this machine. goreleaser uploads a bare
+// binary under the archive's name plus the binary's own extension, .exe on
+// Windows (internal/pipe/archive/archive.go, skip: name + binary.Ext()).
+func asset() string {
+	name := "homewend_" + runtime.GOOS + "_" + runtime.GOARCH
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return name
 }
 
 // Program is the homewend that is running, as a file: the one Install
