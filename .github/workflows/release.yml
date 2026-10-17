@@ -71,15 +71,60 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: electron/dist/*.AppImage
-      # The provenance goes beside the binaries, is checked as SECURITY.md
-      # says, and only then is the release published.
+      # The provenance goes beside the binaries and is checked as SECURITY.md
+      # says; the release is published once the Mac app is in it too.
       - run: |
           cp "$BUNDLE" homewend_provenance.intoto.jsonl
           binary="$(find dist -type f -name homewend -path '*linux_amd64*' | head -n 1)"
           gh attestation verify "$binary" --repo "$GITHUB_REPOSITORY" --bundle homewend_provenance.intoto.jsonl
           gh release upload "$TAG" homewend_provenance.intoto.jsonl
-          gh release edit "$TAG" --draft=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
           BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+
+  # The desktop app for the Mac, built on an Apple silicon Mac, into the draft
+  # release the job above made. Signed ad hoc (build.mac.identity), not with
+  # a Developer ID, so no latest-mac.yml: on the Mac, updates need one.
+  desktop-mac:
+    needs: goreleaser
+    if: vars.RELEASE_DESKTOP == 'true'
+    runs-on: macos-15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: |
+          (cd web && npm ci)
+          cd electron && npm ci && npm run dist -- --publish never
+          gh release upload "$TAG" dist/*.dmg
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: electron/dist/*.dmg
+
+  # Published once everything is in it: a Mac build that fails leaves the
+  # release a draft; one skipped, with the app not released, does not.
+  publish:
+    needs: [goreleaser, desktop-mac]
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
