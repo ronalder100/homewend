@@ -15,8 +15,6 @@
 package session
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/pbkdf2"
 	"crypto/sha1"
 	"database/sql"
@@ -26,8 +24,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	// The pure-Go SQLite driver: no cgo, so the app still cross-compiles to the
@@ -46,7 +44,13 @@ type Session struct {
 	Profile string
 
 	client *http.Client
-	key    []byte
+
+	// The key that decrypts the cookie values, loaded once on first use: on
+	// Windows it is read from the profile, which does not exist until the
+	// browser has run (see loadCookieKey).
+	keyOnce sync.Once
+	key     []byte
+	keyErr  error
 }
 
 // New prepares a session over profileDir, creating it if needed. No browser is
@@ -57,7 +61,6 @@ func New(profileDir string) (*Session, error) {
 	}
 	return &Session{
 		Profile: profileDir,
-		key:     derivedKey(),
 		client: &http.Client{
 			// No limit on the whole request: it ended a slow 2 GB transfer
 			// every 30 minutes (measured 2026-09-28). A server that never
@@ -84,17 +87,9 @@ func transport() *http.Transport {
 	return t
 }
 
-// Chrome encrypts each cookie value with AES-128-CBC, under a key derived from
-// a password it normally keeps in the system keyring. The browser is launched
-// so that the password is a fixed one instead (see Open): otherwise the key
-// differs on every machine, and on a Mac reading it means a Keychain prompt.
-//
-// On macOS, --use-mock-keychain makes Chrome use its fake keychain, whose
-// password is "mock_password", derived with 1003 iterations: Chromium's
-// crypto/apple/fake_keychain_v2.mm and
-// components/os_crypt/async/browser/keychain_key_provider.mm, read 2026-09-26.
-func derivedKey() []byte { return keyFor(runtime.GOOS) }
-
+// keyFor is the fixed cookie key of a Linux or macOS profile (see
+// loadCookieKey in cookie_unix.go). It is here, not there, so that its test
+// runs on every system.
 func keyFor(system string) []byte {
 	password, iterations := "peanuts", 1
 	if system == "darwin" {
@@ -109,36 +104,22 @@ func keyFor(system string) []byte {
 	return key
 }
 
-func (s *Session) decrypt(raw []byte) string {
-	if len(raw) < 3 {
-		return ""
-	}
-	switch string(raw[:3]) {
-	case "v10", "v11":
-	default:
-		return string(raw) // stored in the clear
-	}
-	body := raw[3:]
-	if len(body)%aes.BlockSize != 0 || len(body) == 0 {
-		return ""
-	}
-	block, err := aes.NewCipher(s.key)
-	if err != nil {
-		return ""
-	}
-	out := make([]byte, len(body))
-	cipher.NewCBCDecrypter(block, []byte("                ")).CryptBlocks(out, body)
+// cookieKey is the key that decrypts the profile's cookie values, read once
+// and kept. How it is found differs by system (see loadCookieKey in
+// cookie_unix.go and cookie_windows.go), so the decryption does too.
+func (s *Session) cookieKey() ([]byte, error) {
+	s.keyOnce.Do(func() { s.key, s.keyErr = s.loadCookieKey() })
+	return s.key, s.keyErr
+}
 
-	if pad := int(out[len(out)-1]); pad > 0 && pad <= aes.BlockSize && pad <= len(out) {
-		out = out[:len(out)-pad]
-	}
-	// Chrome 130+ puts 32 bytes of domain hash in front of the value. Nothing
-	// announces it; it shows up as unprintable bytes, and a cookie value never
-	// is.
+// stripDomainHash drops the 32-byte domain hash Chrome 130+ puts in front of a
+// cookie value. Nothing announces it; it shows up as unprintable bytes, and a
+// cookie value never is.
+func stripDomainHash(out []byte) []byte {
 	if len(out) > 32 && !printable(out[:32]) {
-		out = out[32:]
+		return out[32:]
 	}
-	return string(out)
+	return out
 }
 
 func printable(b []byte) bool {

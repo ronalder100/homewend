@@ -49,7 +49,7 @@ func (s *Session) launch(open ...string) (*Window, error) {
 	args := []string{
 		"--user-data-dir=" + s.Profile,
 		// A fixed password for the cookie key, so that we can read the cookies
-		// back (see derivedKey): the first on Linux, the second on macOS. Each
+		// back (see loadCookieKey): the first on Linux, the second on macOS. Each
 		// browser ignores the one that is not for its system.
 		"--password-store=basic",
 		"--use-mock-keychain",
@@ -71,7 +71,7 @@ func (s *Session) launch(open ...string) (*Window, error) {
 }
 
 // neverSavePasswords tells the browser not to offer to save a password in
-// this profile. The profile's cookie key is a fixed one (see derivedKey), and
+// this profile. The profile's cookie key is a fixed one (see loadCookieKey), and
 // so is the key of anything else it stores: a password saved here would be as
 // good as written in the clear. It also takes one bubble off the sign-in.
 //
