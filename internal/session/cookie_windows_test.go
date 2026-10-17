@@ -17,8 +17,7 @@ func TestDecryptV10(t *testing.T) {
 	for i := range key {
 		key[i] = byte(i)
 	}
-	sess := &Session{}
-	sess.keyOnce.Do(func() { sess.key = key })
+	sess := &Session{key: key}
 
 	hash := make([]byte, 32) // zero bytes: unprintable, as a domain hash is
 	plain := append(hash, []byte("SID=a-session-value")...)

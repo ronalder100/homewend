@@ -150,7 +150,7 @@ func readsBack(path string, want uint32) error {
 // safeJoin refuses any path that would land outside root — the zip-slip check
 // — and makes each component a name the disk will take (see fileName).
 func safeJoin(root, name string) (string, error) {
-	parts := strings.Split(path.Clean("/"+name), "/")
+	parts := strings.Split(strings.TrimPrefix(path.Clean("/"+name), "/"), "/")
 	for i, part := range parts {
 		parts[i] = fileName(part)
 	}

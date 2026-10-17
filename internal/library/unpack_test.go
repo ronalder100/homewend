@@ -89,3 +89,29 @@ func TestAFileIsReadBackAgainstItsChecksum(t *testing.T) {
 		t.Errorf("changed file: got %v, want ErrNotWritten", err)
 	}
 }
+
+// A zip's entries land under the destination at their own path, with nothing
+// added in front: the root of the archive is the destination.
+func TestAZipUnpacksAtItsOwnPaths(t *testing.T) {
+	dir := t.TempDir()
+	part := filepath.Join(dir, "takeout-001.zip")
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	f, err := w.Create("Takeout/Google Photos/Album/IMG_0001.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Write([]byte("jpeg"))
+	w.Close()
+	if err := os.WriteFile(part, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "out")
+	if n, err := UnpackPart(part, out); err != nil || n != 1 {
+		t.Fatalf("UnpackPart: %d, %v", n, err)
+	}
+	want := filepath.Join(out, "Takeout", "Google Photos", "Album", "IMG_0001.jpg")
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("%s not written: %v", want, err)
+	}
+}

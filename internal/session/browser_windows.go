@@ -22,9 +22,12 @@ func matches(c chromium, def string) bool {
 	return strings.EqualFold(filepath.Base(def), c.exe)
 }
 
+// installed prefers the default browser's own executable: Chrome and Chromium
+// are both chrome.exe, and a Chromium default must not launch a Chrome that
+// happens to be registered first.
 func installed(c chromium) string {
-	for _, path := range registeredBrowsers() {
-		if strings.EqualFold(filepath.Base(path), c.exe) {
+	for _, path := range append([]string{defaultBrowser()}, registeredBrowsers()...) {
+		if path != "" && strings.EqualFold(filepath.Base(path), c.exe) {
 			return path
 		}
 	}
