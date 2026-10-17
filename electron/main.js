@@ -92,7 +92,10 @@ function overlay() {
 
 function startEngine() {
 	return new Promise((resolve, reject) => {
-		child = spawn(engine, ['ui'], { stdio: ['pipe', 'pipe', 'inherit'] });
+		// windowsHide: the engine is a console program, and started from a
+		// window it would get a console window of its own on Windows (Node's
+		// child_process.spawn).
+		child = spawn(engine, ['ui'], { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true });
 		child.once('error', reject);
 		child.once('exit', (code) => reject(new Error(`homewend ui exited with ${code}`)));
 		// The first line is the address; nothing else is read from it.
