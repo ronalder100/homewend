@@ -8,14 +8,27 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
+
+// The test binary stands in for a homewend that is running, until its input
+// is closed.
+func TestMain(m *testing.M) {
+	if os.Getenv("HOMEWEND_TEST_RUNNING") == "1" {
+		io.Copy(io.Discard, os.Stdin)
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
 
 // github stands in for GitHub: the redirect that names the latest release,
 // its binary for this machine and its checksums. It counts what it is asked.
@@ -65,7 +78,8 @@ func TestInstallReplacesTheProgram(t *testing.T) {
 	}
 	got, _ := os.ReadFile(target)
 	info, _ := os.Stat(target)
-	if string(got) != string(binary) || info.Mode().Perm() != 0o755 {
+	// Windows has no mode to run a file by: Go reports 0o666 whatever was set.
+	if string(got) != string(binary) || (info.Mode().Perm() != 0o755 && runtime.GOOS != "windows") {
 		t.Errorf("installed %q, mode %v", got, info.Mode())
 	}
 	if last.Stage != progress.Update || last.Done != int64(len(binary)) {
@@ -73,6 +87,50 @@ func TestInstallReplacesTheProgram(t *testing.T) {
 	}
 	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(target), ".homewend-*")); len(left) != 0 {
 		t.Errorf("left behind: %v", left)
+	}
+}
+
+// The program replaced is the one running, which Windows does not let be
+// written over.
+func TestInstallReplacesTheProgramWhileItRuns(t *testing.T) {
+	binary := []byte("the new homewend")
+	github(t, "0.1.3", binary, sum(binary))
+	name := "homewend"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	target := filepath.Join(t.TempDir(), name)
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, err := os.ReadFile(self)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, program, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	running := exec.Command(target)
+	running.Env = append(os.Environ(), "HOMEWEND_TEST_RUNNING=1")
+	stdin, err := running.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := running.Start(); err != nil {
+		t.Fatal(err)
+	}
+	// Before the folder goes: Windows cannot delete a program that runs.
+	t.Cleanup(func() {
+		stdin.Close()
+		running.Wait()
+	})
+
+	if err := Install(context.Background(), target, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(target); string(got) != string(binary) {
+		t.Errorf("installed %.40q", got)
 	}
 }
 
@@ -94,12 +152,15 @@ func TestInstallRefusesADamagedDownload(t *testing.T) {
 	}
 }
 
-// cache points the user's cache directory at a temporary one.
+// cache points the user's cache directory at a temporary one:
+// os.UserCacheDir reads XDG_CACHE_HOME on Linux, HOME on macOS and
+// LocalAppData on Windows.
 func cache(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", dir)
 	t.Setenv("HOME", dir)
+	t.Setenv("LocalAppData", dir)
 	got, err := os.UserCacheDir()
 	if err != nil {
 		t.Fatal(err)
