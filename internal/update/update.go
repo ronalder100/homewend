@@ -76,7 +76,7 @@ func kept() (string, error) {
 // Install downloads the latest release for this machine and puts it in place
 // of target, the homewend that is running. The download is checked against the
 // release's checksums first, and lands beside target so that replacing it is
-// one rename: target is either the old program or the new one, never half of
+// a rename: target is either the old program or the new one, never half of
 // each.
 func Install(ctx context.Context, target string, emit progress.Func) error {
 	name := asset()
@@ -111,7 +111,29 @@ func Install(ctx context.Context, target string, emit progress.Func) error {
 	if err := file.Close(); err != nil {
 		return err
 	}
-	return os.Rename(file.Name(), target)
+	return replace(file.Name(), target)
+}
+
+// replace puts the new program in place of target. Windows does not let a
+// program that is running be renamed over ("Access is denied",
+// windows-latest, 2026-10-18), but lets it be renamed: there the old one is
+// moved aside first, to target+".old", where it stays until the next update,
+// since a running program cannot be deleted either. Should the new one not go
+// in, the old one is put back.
+func replace(file, target string) error {
+	if runtime.GOOS != "windows" {
+		return os.Rename(file, target)
+	}
+	old := target + ".old"
+	os.Remove(old)
+	if err := os.Rename(target, old); err != nil {
+		return err
+	}
+	if err := os.Rename(file, target); err != nil {
+		os.Rename(old, target)
+		return err
+	}
+	return nil
 }
 
 // asset is the release's file for this machine. goreleaser uploads a bare
