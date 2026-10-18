@@ -25,6 +25,14 @@ The first time it opens, Homewend adds itself to your desktop's application
 menu. If you move the file, open it once from its new place and the menu
 follows.
 
+## Install it (Windows)
+
+1. Download `Homewend-Setup-<version>.exe` from the
+   [latest release](https://github.com/ronalder100/homewend/releases/latest)
+   and open it.
+2. The installer is not signed yet, so Windows may stop it with "Windows
+   protected your PC". Click **More info**, then **Run anyway**.
+
 Sign-in needs Chrome, Chromium, Brave or Edge installed: Google's sign-in
 opens in a window of its own, never inside the app.
 
