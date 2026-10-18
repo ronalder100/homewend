@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/session/sessiontest"
 	"github.com/ronalder100/homewend/internal/takeout"
@@ -102,6 +103,22 @@ func TestLoginAtTakeoutOpensTakeout(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(string(got)), "\n")
 	if lines[len(lines)-1] != takeout.PhotosURL {
 		t.Errorf("browser started with %q", lines)
+	}
+}
+
+// The session reaches the profile a moment after the browser exits, and on
+// Windows only then can it be read: a window closed by the user is looked at
+// until it is there.
+func TestAWindowClosedWaitsForTheSession(t *testing.T) {
+	sessiontest.Use(t, sessiontest.Browser{})
+	sess, err := session.New(filepath.Join(t.TempDir(), "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	looks := 0
+	done := func() bool { looks++; return looks == 3 }
+	if err := inWindow(context.Background(), sess, "about:blank", progress.Event{}, done, nil); err != nil {
+		t.Errorf("got %v, want the session found", err)
 	}
 }
 

@@ -42,8 +42,10 @@ func inWindow(ctx context.Context, sess *session.Session, url string, opened pro
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-w.Exited():
-			// Closing the browser writes the profile out: look one last time.
-			if done() {
+			// Closing the browser writes the profile out, a moment after it
+			// exits. On Windows this is the only look that can succeed: the
+			// cookie file is locked while the browser runs.
+			if landed(done) {
 				return nil
 			}
 			return errWindowClosed

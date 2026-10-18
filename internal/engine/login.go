@@ -88,7 +88,7 @@ func Login(ctx context.Context, sess *session.Session, emit progress.Func) (acco
 	if ctx.Err() != nil {
 		return "", false, ctx.Err()
 	}
-	if !cookiesLanded(sess) {
+	if !landed(func() bool { return onDisk(sess) }) {
 		return "", false, ErrSessionNotWritten
 	}
 	account, err = openTakeout(ctx, sess, emit)
@@ -250,13 +250,13 @@ func openTakeout(ctx context.Context, sess *session.Session, emit progress.Func)
 	return account, nil
 }
 
-// cookiesLanded waits for the session cookies to reach the profile after the
-// browser has shut down. Its main process can exit before they are on disk:
-// on 2026-10-01 a read right after the exit found none, and the file was
-// written 170 ms later.
-func cookiesLanded(sess *session.Session) bool {
+// landed waits for check to find the session in the profile after the
+// browser has shut down. Its main process can exit before the cookies are on
+// disk: on 2026-10-01 a read right after the exit found none, and the file
+// was written 170 ms later.
+func landed(check func() bool) bool {
 	for range 50 {
-		if onDisk(sess) {
+		if check() {
 			return true
 		}
 		time.Sleep(100 * time.Millisecond)
