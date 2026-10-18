@@ -7,8 +7,7 @@ import "testing"
 
 // The library folder chosen once is there the next time, and none is "".
 func TestDefaultLibraryIsKept(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("HOME", t.TempDir())
+	config(t)
 	if dir, err := DefaultLibrary(); err != nil || dir != "" {
 		t.Fatalf("before: %q %v", dir, err)
 	}

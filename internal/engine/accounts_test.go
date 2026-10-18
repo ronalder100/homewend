@@ -11,12 +11,14 @@ import (
 )
 
 // config makes a config directory of its own for the test, and returns
-// homewend's folder in it.
+// homewend's folder in it. os.UserConfigDir reads XDG_CONFIG_HOME on Linux,
+// HOME on macOS and AppData on Windows: each is pointed away from the user's.
 func config(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", root)
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AppData", root)
 	dir, err := configDir()
 	if err != nil {
 		t.Fatal(err)
