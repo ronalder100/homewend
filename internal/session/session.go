@@ -107,7 +107,7 @@ func keyFor(system string) []byte {
 // read. A failed read is not kept: on Windows the browser rewrites Local
 // State while it runs, and a file caught mid-rename is there the next time.
 // How the key is found differs by system (see loadCookieKey in cookie_unix.go
-// and cookie_windows.go), so the decryption does too.
+// and cookie_windows.go), and so does what it opens.
 func (s *Session) cookieKey() ([]byte, error) {
 	s.keyMu.Lock()
 	defer s.keyMu.Unlock()
@@ -119,6 +119,26 @@ func (s *Session) cookieKey() ([]byte, error) {
 		s.key = key
 	}
 	return s.key, nil
+}
+
+// decrypt reads one cookie value from the profile: in the clear, or after a
+// v10 or v11 prefix encrypted under the profile's key, which each system
+// opens its own way (see open in cookie_unix.go and cookie_windows.go). A
+// value that does not decrypt is "", as if it were not there.
+func (s *Session) decrypt(raw []byte) string {
+	if len(raw) < 3 {
+		return ""
+	}
+	switch string(raw[:3]) {
+	case "v10", "v11":
+	default:
+		return string(raw) // stored in the clear
+	}
+	key, err := s.cookieKey()
+	if err != nil {
+		return ""
+	}
+	return string(stripDomainHash(open(key, raw[3:])))
 }
 
 // stripDomainHash drops the 32-byte domain hash Chrome 130+ puts in front of a

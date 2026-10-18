@@ -67,35 +67,23 @@ func unprotect(blob []byte) ([]byte, error) {
 	return append([]byte(nil), unsafe.Slice(out.Data, out.Size)...), nil
 }
 
-func (s *Session) decrypt(raw []byte) string {
-	if len(raw) < 3 {
-		return ""
-	}
-	switch string(raw[:3]) {
-	case "v10", "v11":
-	default:
-		return string(raw) // stored in the clear
-	}
-	key, err := s.cookieKey()
-	if err != nil {
-		return ""
-	}
+// open decrypts a cookie value's body, after its v10 prefix: a nonce, the
+// ciphertext, then the GCM tag.
+func open(key, body []byte) []byte {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return ""
+		return nil
 	}
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return ""
+		return nil
 	}
-	// After the v10 prefix: a nonce, the ciphertext, then the GCM tag.
-	body := raw[3:]
 	if len(body) < gcm.NonceSize() {
-		return ""
+		return nil
 	}
 	out, err := gcm.Open(nil, body[:gcm.NonceSize()], body[gcm.NonceSize():], nil)
 	if err != nil {
-		return ""
+		return nil
 	}
-	return string(stripDomainHash(out))
+	return out
 }
