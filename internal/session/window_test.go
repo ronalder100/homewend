@@ -12,25 +12,27 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ronalder100/homewend/internal/session/sessiontest"
 )
+
+func TestMain(m *testing.M) {
+	sessiontest.Main()
+	os.Exit(m.Run())
+}
 
 // A stand-in browser that, like Chrome, shuts down when asked with SIGTERM
 // and writes down that it was asked.
 func TestCloseAsksTheBrowserToShutDown(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("the stand-in browser is a shell script")
+		t.Skip("taskkill asks the browser's windows to close, and the stand-in has none")
 	}
 	dir := t.TempDir()
 	asked := filepath.Join(dir, "asked")
 	ready := filepath.Join(dir, "ready")
-	browser := filepath.Join(dir, "browser")
-	// Touch ready right after the trap is installed, so the test can wait
-	// for the trap instead of guessing how long that takes.
-	script := "#!/bin/sh\ntrap 'touch " + asked + "; exit 0' TERM\ntouch " + ready + "\nwhile :; do sleep 0.05; done\n"
-	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("BROWSER_BIN", browser)
+	// Ready is written once the stand-in listens for SIGTERM, so the test can
+	// wait for that instead of guessing how long it takes.
+	sessiontest.Use(t, sessiontest.Browser{Asked: asked, Ready: ready, Stay: time.Minute})
 
 	sess, err := New(filepath.Join(dir, "profile"))
 	if err != nil {
@@ -57,12 +59,7 @@ func TestCloseAsksTheBrowserToShutDown(t *testing.T) {
 // The browser is told not to offer to save passwords before it starts, in a
 // new profile and in one that has preferences already, whose others are kept.
 func TestOpenNeverOffersToSavePasswords(t *testing.T) {
-	dir := t.TempDir()
-	browser := filepath.Join(dir, "browser")
-	if err := os.WriteFile(browser, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("BROWSER_BIN", browser)
+	sessiontest.Use(t, sessiontest.Browser{})
 
 	for _, before := range []string{"", `{"credentials_enable_service":true,"other":7}`} {
 		sess, err := New(filepath.Join(t.TempDir(), "profile"))
@@ -111,17 +108,9 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) {
 
 // OpenSignIn lets the page open its popup, and opens the address last.
 func TestOpenSignInAllowsThePopup(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the stand-in browser is a shell script")
-	}
 	dir := t.TempDir()
 	args := filepath.Join(dir, "args")
-	browser := filepath.Join(dir, "browser")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + args + ".tmp && mv " + args + ".tmp " + args + "\n"
-	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("BROWSER_BIN", browser)
+	sessiontest.Use(t, sessiontest.Browser{Args: args})
 
 	sess, err := New(filepath.Join(dir, "profile"))
 	if err != nil {

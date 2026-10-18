@@ -8,26 +8,28 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/session"
+	"github.com/ronalder100/homewend/internal/session/sessiontest"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
-// standIn opens a stand-in browser that runs for the given seconds and
-// writes down whether it was asked to stop before that.
-func standIn(t *testing.T, seconds string) (sess *session.Session, w *session.Window, asked string) {
+func TestMain(m *testing.M) {
+	sessiontest.Main()
+	os.Exit(m.Run())
+}
+
+// standIn opens a stand-in browser that runs for stay and writes down whether
+// it was asked to stop before that.
+func standIn(t *testing.T, stay time.Duration) (sess *session.Session, w *session.Window, asked string) {
 	t.Helper()
 	dir := t.TempDir()
 	asked = filepath.Join(dir, "asked")
-	browser := filepath.Join(dir, "browser")
-	script := "#!/bin/sh\ntrap 'touch " + asked + "; exit 0' TERM\nsleep " + seconds + " &\nwait $!\n"
-	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("BROWSER_BIN", browser)
+	sessiontest.Use(t, sessiontest.Browser{Asked: asked, Stay: stay})
 	sess, err := session.New(filepath.Join(dir, "profile"))
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +43,7 @@ func standIn(t *testing.T, seconds string) (sess *session.Session, w *session.Wi
 // A browser that goes by itself is left to: stopping it is what loses the
 // session.
 func TestLeaveLetsTheBrowserGoByItself(t *testing.T) {
-	sess, w, asked := standIn(t, "0.3")
+	sess, w, asked := standIn(t, 300*time.Millisecond)
 	leave(context.Background(), sess, w, 30*time.Second)
 	select {
 	case <-w.Exited():
@@ -55,13 +57,15 @@ func TestLeaveLetsTheBrowserGoByItself(t *testing.T) {
 
 // One that stays is stopped when its time is up.
 func TestLeaveStopsABrowserThatStays(t *testing.T) {
-	sess, w, asked := standIn(t, "30")
+	sess, w, asked := standIn(t, 30*time.Second)
 	start := time.Now()
 	leave(context.Background(), sess, w, 300*time.Millisecond)
 	if time.Since(start) > 10*time.Second {
 		t.Error("leave waited for the browser to end by itself")
 	}
-	if _, err := os.Stat(asked); err != nil {
+	// On Windows the ask is a close message to the browser's windows, and the
+	// stand-in has none: it is killed instead (session/shutdown_windows.go).
+	if _, err := os.Stat(asked); err != nil && runtime.GOOS != "windows" {
 		t.Error("the browser was not asked to stop")
 	}
 }
@@ -84,12 +88,7 @@ func TestAccountIsTheOneKeptAtSignIn(t *testing.T) {
 func TestLoginAtTakeoutOpensTakeout(t *testing.T) {
 	dir := t.TempDir()
 	args := filepath.Join(dir, "args")
-	browser := filepath.Join(dir, "browser")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + args + "\n"
-	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("BROWSER_BIN", browser)
+	sessiontest.Use(t, sessiontest.Browser{Args: args})
 
 	sess, err := session.New(filepath.Join(dir, "profile"))
 	if err != nil {
