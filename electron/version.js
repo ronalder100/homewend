@@ -13,4 +13,4 @@ const described = ref.startsWith('v')
 	: execSync('git describe --tags --match "v*"', { cwd: __dirname }).toString().trim();
 const [, release, ahead, commit] = described.match(/^v(\d+\.\d+\.\d+)(?:-(\d+)-(g[0-9a-f]+))?$/) ?? [];
 if (!release) throw new Error(`not a version: ${described}`);
-process.stdout.write(ahead ? `${release}-dev.${ahead}.${commit}` : release);
+module.exports = ahead ? `${release}-dev.${ahead}.${commit}` : release;
