@@ -17,7 +17,16 @@ import (
 // 154 and Edge 153 on Windows Server 2025, 2026-10-01).
 // A browser that does not go — no window to close, or one that will not —
 // is killed after a while rather than waited on forever.
+//
+// taskkill names the process by its number, which Windows gives to the next
+// process once this one is gone: a browser that has already exited, as one
+// closed through DevTools has, is not looked for again.
 func shutDown(cmd *exec.Cmd, exited <-chan struct{}) {
+	select {
+	case <-exited:
+		return
+	default:
+	}
 	if err := exec.Command("taskkill", "/PID", strconv.Itoa(cmd.Process.Pid)).Run(); err != nil {
 		cmd.Process.Kill()
 	}
