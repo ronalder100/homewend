@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -38,7 +39,16 @@ func homewend(t *testing.T, args ...string) (string, int) {
 func homewendIn(t *testing.T, config string, args ...string) (string, int) {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], args...)
-	cmd.Env = append(os.Environ(), "HOMEWEND_TEST_MAIN=1", "XDG_CONFIG_HOME="+config, "HOME="+t.TempDir())
+	// os.UserConfigDir reads XDG_CONFIG_HOME on Linux, AppData on Windows and
+	// HOME/Library/Application Support on macOS: config is each of them.
+	home := t.TempDir()
+	if runtime.GOOS == "darwin" {
+		os.Mkdir(filepath.Join(home, "Library"), 0o700)
+		if err := os.Symlink(config, filepath.Join(home, "Library", "Application Support")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd.Env = append(os.Environ(), "HOMEWEND_TEST_MAIN=1", "XDG_CONFIG_HOME="+config, "AppData="+config, "HOME="+home)
 	out, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok {
 		return string(out), exit.ExitCode()
