@@ -101,7 +101,8 @@ jobs:
       - uses: ./.github/actions/desktop
       - shell: bash
         working-directory: electron
-        run: gh release upload "$TAG" $FILES
+        # --clobber: a re-run of one failed leg uploads its files again.
+        run: gh release upload --clobber "$TAG" $FILES
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
