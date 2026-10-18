@@ -51,28 +51,8 @@ jobs:
         id: provenance
         with:
           subject-checksums: dist/homewend_checksums.txt
-      # The desktop app goes in the same release as the CLI, with the file
-      # its updater reads (latest-linux.yml): the CLI's update and the app's
-      # both look at releases/latest. Off until the repository variable
-      # RELEASE_DESKTOP is "true": the app is not released yet.
-      - if: vars.RELEASE_DESKTOP == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - if: vars.RELEASE_DESKTOP == 'true'
-        run: |
-          (cd web && npm ci)
-          cd electron && npm ci && npm run dist -- --publish never
-          gh release upload "$TAG" dist/*.AppImage dist/latest-linux.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-      - if: vars.RELEASE_DESKTOP == 'true'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: electron/dist/*.AppImage
       # The provenance goes beside the binaries and is checked as SECURITY.md
-      # says; the release is published once the Mac app is in it too.
+      # says; the release is published once the desktop app is in it too.
       - run: |
           cp "$BUNDLE" homewend_provenance.intoto.jsonl
           binary="$(find dist -type f -name homewend -path '*linux_amd64*' | head -n 1)"
@@ -83,13 +63,33 @@ jobs:
           TAG: ${{ github.ref_name }}
           BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
 
-  # The desktop app for the Mac, built on an Apple silicon Mac, into the draft
-  # release the job above made. Signed ad hoc (build.mac.identity), not with
-  # a Developer ID, so no latest-mac.yml: on the Mac, updates need one.
-  desktop-mac:
+  # The desktop app goes in the same release as the CLI, built on each
+  # system, with the file its updater reads: the CLI's update and the app's
+  # both look at releases/latest. Off until the repository variable
+  # RELEASE_DESKTOP is "true": the app is not released yet.
+  #
+  # The Mac app is built on Apple silicon and signed ad hoc
+  # (build.mac.identity), not with a Developer ID, so no latest-mac.yml: on
+  # the Mac, updates need one. The Windows installer is unsigned, and its
+  # latest.yml checks no publisher (no publisherName); its name has no
+  # spaces, so the name latest.yml gives is the name GitHub keeps.
+  desktop:
     needs: goreleaser
     if: vars.RELEASE_DESKTOP == 'true'
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            files: dist/*.AppImage dist/latest-linux.yml
+            installer: electron/dist/*.AppImage
+          - os: macos-15
+            files: dist/*.dmg
+            installer: electron/dist/*.dmg
+          - os: windows-latest
+            files: dist/*.exe dist/*.exe.blockmap dist/latest.yml
+            installer: electron/dist/*.exe
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
       id-token: write
@@ -98,66 +98,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - run: |
-          (cd web && npm ci)
-          cd electron && npm ci && npm run dist -- --publish never
-          gh release upload "$TAG" dist/*.dmg
+      - uses: ./.github/actions/desktop
+      - shell: bash
+        working-directory: electron
+        run: gh release upload "$TAG" $FILES
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
+          FILES: ${{ matrix.files }}
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: electron/dist/*.dmg
+          subject-path: ${{ matrix.installer }}
 
-  # The desktop app for Windows, an unsigned installer, with latest.yml for
-  # its updater: unsigned, it checks no publisher (no publisherName). The
-  # installer's name has no spaces, so the name latest.yml gives is the name
-  # GitHub keeps.
-  desktop-windows:
-    needs: goreleaser
-    if: vars.RELEASE_DESKTOP == 'true'
-    runs-on: windows-latest
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - run: |
-          (cd web && npm ci)
-          cd electron && npm ci && npm run dist -- --publish never
-          gh release upload "$TAG" dist/*.exe dist/*.exe.blockmap dist/latest.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-          # npm runs scripts with cmd.exe on Windows; ours use $(...).
-          npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: electron/dist/*.exe
-
-  # Published once everything is in it: a Mac or Windows build that fails
-  # leaves the release a draft; one skipped, with the app not released, does
+  # Published once everything is in it: a desktop build that fails leaves
+  # the release a draft; the builds skipped, with the app not released, do
   # not.
   publish:
-    needs: [goreleaser, desktop-mac, desktop-windows]
+    needs: [goreleaser, desktop]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:

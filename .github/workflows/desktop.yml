@@ -20,25 +20,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      # npm runs scripts with cmd.exe on Windows; ours use $(...).
-      - if: runner.os == 'Windows'
-        run: echo 'npm_config_script_shell=C:\Program Files\Git\bin\bash.exe' >> "$GITHUB_ENV"
-      - run: |
-          (cd web && npm ci)
-          cd electron && npm ci && npm run dist -- --publish never
+      - uses: ./.github/actions/desktop
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: homewend-${{ runner.os }}

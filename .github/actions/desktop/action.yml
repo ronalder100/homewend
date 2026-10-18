@@ -1,0 +1,22 @@
+# homewend — Copyright (C) 2026 Ron Alder
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The desktop app for the system it runs on, into electron/dist: the same
+# build for a branch (desktop.yml) and for a release (release.yml). The
+# repository must be checked out first, with its tags: the version comes from
+# them (electron/version.js).
+name: desktop
+description: Build the desktop app for this system.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: go.mod
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 22
+    - shell: bash
+      run: |
+        (cd web && npm ci)
+        cd electron && npm ci && npm run dist
