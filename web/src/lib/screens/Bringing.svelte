@@ -176,15 +176,17 @@
 </div>
 
 <style>
+	/* In a narrow window the card goes under the text rather than squeeze it. */
 	.page {
 		height: 100%;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 40px;
 		padding: 64px 40px 40px;
 		align-items: flex-start;
 	}
 	.left {
-		flex: 1;
+		flex: 1 1 360px;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
@@ -262,7 +264,8 @@
 	}
 	.numbers {
 		display: flex;
-		gap: 40px;
+		flex-wrap: wrap;
+		gap: 16px 40px;
 	}
 	.numbers b {
 		display: block;
@@ -313,7 +316,7 @@
 		border-radius: 6px;
 	}
 	.card {
-		width: 380px;
+		width: min(380px, 100%);
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
@@ -368,7 +371,7 @@
 		color: var(--accent);
 	}
 	.years {
-		width: 380px;
+		width: min(380px, 100%);
 		flex-shrink: 0;
 		max-height: 100%;
 		overflow-y: auto;
