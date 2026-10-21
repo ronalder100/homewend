@@ -153,7 +153,7 @@
 					<span>{text.findingYearsWhy}</span>
 				</div>
 			{:else}
-			<span class="chips">
+			<span class="chips" class:counted>
 				{#each years as y (y)}
 					<span
 						role="button"
@@ -166,6 +166,7 @@
 							year = y;
 						}}
 						onkeydown={(e) => e.key === 'Enter' && ((kind = 'year'), (year = y))}
+						class:two={itemsOf(y) !== undefined}
 						>{y}{#if itemsOf(y) !== undefined}<small>{(itemsOf(y) ?? 0).toLocaleString('en')}</small>{/if}</span
 					>
 				{/each}
@@ -218,7 +219,9 @@
 			<PrimaryButton onclick={start}>
 				{kind === 'year' ? text.startYear(year) : kind === 'asked' ? text.seeTakeouts : text.startEverything}
 			</PrimaryButton>
-			{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint">{text.notifyWhenReady}</span>{/if}
+			{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint"
+					>{kind === 'year' && itemsOf(year) !== undefined ? `${text.itemsCount(itemsOf(year) ?? 0)}. ` : ''}{text.notifyWhenReady}</span
+				>{/if}
 		{/if}
 	</div>
 </div>
@@ -344,10 +347,28 @@
 		background: transparent;
 		cursor: default;
 	}
+	/* Counted, a year shows how many it holds, under it. */
+	.chips.counted .chip {
+		height: 44px;
+		padding: 0 10px;
+		border-radius: 10px;
+	}
+	.chip.two {
+		flex-direction: column;
+		align-items: flex-start;
+		justify-content: center;
+		font-weight: 600;
+		color: var(--fg);
+	}
+	.chip.two.on {
+		border: 2px solid var(--accent);
+		padding: 0 9px;
+		color: var(--accent);
+	}
 	.chip small {
-		margin-left: 6px;
 		font-size: var(--text-footnote);
-		color: var(--faint);
+		font-weight: normal;
+		color: var(--muted);
 	}
 	.finding {
 		width: 100%;

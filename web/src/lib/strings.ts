@@ -53,7 +53,7 @@ export const text = {
 	everythingDesc: 'All your photos and videos, every album. The first time, this is the one.',
 	oneYear: 'One year.',
 	olderYear: 'More',
-	oneYearDesc: 'Smaller and faster. A good way to try Homewend first.',
+	oneYearDesc: 'A quick way to download just part of your photos.',
 	oneAsked: 'One you asked for.',
 	oneAskedDesc: 'Already made a takeout yourself on Google? Pick it from the list and Homewend downloads it.',
 	seeTakeouts: 'See your takeouts',
