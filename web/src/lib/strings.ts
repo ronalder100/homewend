@@ -234,10 +234,13 @@ export const text = {
 	sevenDays: '7 days',
 	minAgo: (n: number) => (n < 1 ? 'just now' : `${n} min ago`),
 	// On the Mac the closed window leaves the app running; elsewhere closing it quits.
-	canClose: /Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close the window.' : 'Keep Homewend open.',
+	canClose: /Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close this window now.' : 'Keep Homewend open.',
 	canCloseDesc: /Mac/.test(globalThis.navigator?.platform ?? '')
-		? 'Homewend keeps working with the window closed, and the Dock brings it back. Quitting Homewend stops it: start the same download again and it picks up where it was, without asking Google twice.'
+		? 'Homewend carries on in the background, and tells you with a notification when your photos are home. To see this page again, click Homewend in the Dock.'
 		: 'Closing it stops the download: start the same download again and it picks up where it was, without asking Google twice.',
+	// Only where closing the window does not quit.
+	quitStops: 'Quitting Homewend (⌘Q) stops it. Start the same download again and it picks up where it was.',
+	closeWindow: 'Close window',
 	stepAsks: 'Homewend asks Google for the takeout',
 	stepPrepares: 'Google prepares the takeout',
 	askingSteps: [

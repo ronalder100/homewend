@@ -3,7 +3,7 @@
 <!-- A3, A4, A5: Google preparing, the parts arriving, or paused. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass, Circle } from '@lucide/svelte';
+	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass, Circle, X, TriangleAlert } from '@lucide/svelte';
 	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
@@ -16,6 +16,8 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 
 	const shown = $derived(shownJob());
+	// On the Mac the closed window leaves the app running: the page can close it.
+	const mac = /Mac/.test(navigator.platform) && !!window.shell;
 	// No download to show, once that is known: the page to start one.
 	$effect(() => {
 		if (jobsKnown() && !shown) goto('/choose', { replaceState: true });
@@ -129,7 +131,7 @@
 	{:else}
 		<div class="left">
 			<span class="pill" class:err={job.error && !notOffered} class:warn={notOffered} class:live={job.running}
-				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {text.pleaseWait} {elapsed}{:else}<i></i>{headline(job)}{/if}</span
+				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {elapsed}{:else}<i></i>{headline(job)}{/if}</span
 			>
 			<h1>{title}</h1>
 			<p class="lead">{job.error ? failure(job) : lead}</p>
@@ -196,6 +198,10 @@
 			<section class="card">
 				<h2>{text.canClose}</h2>
 				<p>{text.canCloseDesc}</p>
+				{#if mac}
+					<div class="close"><SecondaryButton onclick={() => window.shell?.closeWindow()}><X size={16} />{text.closeWindow}</SecondaryButton></div>
+					<p class="quit"><TriangleAlert size={16} />{text.quitStops}</p>
+				{/if}
 				<ol>
 					{#if asking}<li class="now"><span class="spin"><Loader size={16} /></span>{text.stepAsks}</li>{/if}
 					<li class:now={waiting}>{#if waiting}<span class="spin"><Loader size={16} /></span>{:else}<Hourglass size={16} />{/if}{text.stepPrepares}</li>
@@ -456,6 +462,15 @@
 		font-size: var(--text-callout);
 		line-height: 1.5;
 		color: var(--muted);
+	}
+	.card .quit {
+		display: flex;
+		gap: 8px;
+	}
+	.quit :global(svg) {
+		flex: none;
+		margin-top: 2px;
+		color: var(--warn);
 	}
 	.card ol {
 		list-style: none;

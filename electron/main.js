@@ -183,6 +183,8 @@ async function open() {
 			win.hide();
 		}
 	});
+	// The page offers to close it while the download goes on.
+	ipcMain.on('close-window', () => win.close());
 	// A pinch enlarges the page in a browser; an app's interface keeps its size.
 	win.webContents.setVisualZoomLevelLimits(1, 1);
 	// The person's choice in Settings, or the system's when they chose none.

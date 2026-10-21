@@ -22,7 +22,7 @@
 <span class="icon" class:err={job.error && job.problem !== 'not-offered'} class:warn={job.problem === 'not-offered'} class:live={job.running && !busy(job)} class:spin={busy(job)}>
 	{#if job.error}<CircleAlert size={16} />{:else if busy(job)}<Loader size={16} />{:else}<Download size={16} />{/if}
 </span>
-<span class="what">{headline(job)}{busy(job) ? ` · ${text.pleaseWait}` : ''}</span>
+<span class="what">{headline(job)}</span>
 {#if email}<span class="who"><Avatar account={{ id: account, name: email, email, shown: true }} />{email}</span>{/if}
 {#if job.total > 0}
 	<span class="track"><b style:width="{fraction(job) * 100}%"></b></span>
