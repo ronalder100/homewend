@@ -5,13 +5,13 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { app, sidebarOf, startFailure, startJob } from '#lib/app.svelte.js';
-	import { getLibrary } from '#lib/api.js';
+	import { getLibrary, getTakeouts, type Takeout } from '#lib/api.js';
 	import { Years } from '#lib/years.svelte.js';
 	import { chooseUrl } from '#lib/places.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
-	import { ArrowLeft, Folder, Loader } from '@lucide/svelte';
+	import { ArrowLeft, Folder, Loader, CircleCheck, CalendarX, CloudDownload } from '@lucide/svelte';
 
 	// The account the address names; one that is gone, the first.
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
@@ -35,6 +35,38 @@
 		if (years.counted && !years.counted.some((c) => c.year === year)) year = 0;
 	});
 	const running = $derived(app.jobs[account]?.running ?? false);
+
+	// The years already asked of Google, each as its last takeout stands: so
+	// that one is not asked twice without knowing it.
+	type Asked = { state: keyof typeof text.askedYear; day: string };
+	let takeouts = $state<Takeout[]>([]);
+	$effect(() => {
+		const a = account;
+		takeouts = [];
+		if (a) getTakeouts(a).then((l) => a === account && (takeouts = l), () => {});
+	});
+	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+	const asked = $derived.by(() => {
+		const by = new Map<number, Asked>();
+		// Newest first, as Google lists them: the first of a year is its last.
+		for (const t of takeouts) {
+			if (!t.known || !t.year || by.has(t.year)) continue;
+			const l = t.local;
+			const state =
+				l && l.of > 0 && l.parts >= l.of
+					? 'downloaded'
+					: t.status === 'preparing'
+						? 'preparing'
+						: t.status === 'expired'
+							? 'expired'
+							: l && l.parts > 0
+								? 'partly'
+								: 'ready';
+			const d = new Date(t.Created);
+			by.set(t.year, { state, day: `${d.getDate()} ${months[d.getMonth()]}` });
+		}
+		return by;
+	});
 
 	// The year picked is in view, the one an address named included.
 	function reveal(node: HTMLElement, on: boolean) {
@@ -78,6 +110,13 @@
 						<span class="radio"></span>
 						<span class="folder"><Folder size={18} fill="currentColor" /></span>
 						<span class="name">{y.year}</span>
+						{#if asked.get(y.year)}
+							{@const a = asked.get(y.year)!}
+							<span class="asked {a.state}">
+								{#if a.state === 'downloaded'}<CircleCheck size={12} />{:else if a.state === 'expired'}<CalendarX size={12} />{:else if a.state === 'preparing'}<Loader size={12} />{:else}<CloudDownload size={12} />{/if}
+								{text.askedYear[a.state]} · {text.askedOn(a.day)}
+							</span>
+						{/if}
 						<span class="videos">{y.videos > 0 ? text.videosCount(y.videos) : ''}</span>
 						<span class="count">{y.items >= 0 ? y.items.toLocaleString('en') : ''}</span>
 					</button>
@@ -227,6 +266,26 @@
 	.on .count {
 		font-weight: 700;
 		color: var(--accent);
+	}
+	.asked {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 3px 8px;
+		border-radius: 999px;
+		font-size: var(--text-footnote);
+		font-weight: 600;
+		white-space: nowrap;
+		color: var(--accent);
+		background: var(--accent-soft);
+	}
+	.asked.downloaded {
+		color: var(--ok);
+		background: var(--ok-soft);
+	}
+	.asked.expired {
+		color: var(--muted);
+		background: var(--soft);
 	}
 	.videos {
 		width: 100px;

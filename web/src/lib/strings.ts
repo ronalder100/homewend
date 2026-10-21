@@ -125,6 +125,15 @@ export const text = {
 	whichYearLeadUnknown: 'Homewend asks Google for the year you pick, and only that.',
 	yearsHead: 'Year',
 	yearsLegend: 'photos and videos on Google',
+	// A year already asked of Google, as its last takeout stands.
+	askedYear: {
+		preparing: 'Google is preparing it',
+		ready: 'Ready on Google',
+		partly: 'Partly downloaded',
+		downloaded: 'Downloaded',
+		expired: 'Expired on Google'
+	},
+	askedOn: (day: string) => `asked ${day}`,
 	videosCount: (n: number) => `${n.toLocaleString('en')} ${n === 1 ? 'video' : 'videos'}`,
 	chooseOnceHere: 'You can choose once the years are here.',
 	back: 'Back',
