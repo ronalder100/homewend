@@ -101,7 +101,7 @@ export const text = {
 	askingTitle: (y: number) => (y ? `Asking Google for\nyour photos of ${y}.` : 'Asking Google for\nall your photos.'),
 	elapsed: (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
 	pleaseWait: 'please wait…',
-	askingLead: 'Google takes two or three minutes to take the request.',
+	askingLead: 'Google takes two or three minutes to take the request. Nothing to do here: the next step starts by itself.',
 	prepareLead: 'The first download of an account: Google may ask for your password, in a small window.',
 	sorting: 'Sorting what arrived',
 	gbOf: (done: string, total: string) => `${done} of ${total}`,
@@ -222,7 +222,13 @@ export const text = {
 	canClose: 'You can close Homewend.',
 	canCloseDesc:
 		'It keeps going in the background and picks up where it was after a restart. It never asks Google twice.',
+	stepAsks: 'Homewend asks Google for the takeout',
 	stepPrepares: 'Google prepares the takeout',
+	askingFor: 'asking for',
+	usuallyTakes: 'it usually takes',
+	twoThreeMin: '2–3 min',
+	askingCardDesc:
+		'Asking takes a few minutes. Then Google prepares the takeout, which can take hours; Homewend waits for it and downloads it by itself.',
 	stepDownloads: 'Homewend downloads it, part by part',
 	stepLands: 'Your photos land in your folder, counted',
 	stepNotify: 'You get a notification',

@@ -3,7 +3,7 @@
 <!-- A3, A4, A5: Google preparing, the parts arriving, or paused. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Folder, CircleCheck, ArrowRight, Loader } from '@lucide/svelte';
+	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass } from '@lucide/svelte';
 	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
@@ -22,6 +22,8 @@
 	});
 	const job = $derived(shown?.job);
 	const waiting = $derived(job?.stage === 'waiting');
+	// Before Google has the request: signing in checked, the export asked for.
+	const asking = $derived(!!job?.running && ['checking', 'session-ready', 'prepare', 'request'].includes(job.stage ?? ''));
 	const paused = $derived(job && !job.running && !job.finished && !job.error && job.stage);
 	// Google's password page is open in the browser: closing the window is
 	// not what to do now.
@@ -109,6 +111,7 @@
 		const t = setInterval(() => (now = Date.now()), 30000);
 		return () => clearInterval(t);
 	});
+	const elapsed = $derived(text.elapsed(Math.max(0, Math.floor((tick - stageSince) / 1000))));
 	const sameDay = (d: Date) => new Date(now).toDateString() === d.toDateString();
 
 	const left = $derived(
@@ -122,12 +125,24 @@
 	{:else}
 		<div class="left">
 			<span class="pill" class:err={job.error} class:live={job.running}
-				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {text.pleaseWait} {text.elapsed(Math.max(0, Math.floor((tick - stageSince) / 1000)))}{:else}<i></i>{headline(job)}{/if}</span
+				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {text.pleaseWait} {elapsed}{:else}<i></i>{headline(job)}{/if}</span
 			>
 			<h1>{title}</h1>
 			<p class="lead">{job.error ? failure(job) : lead}</p>
 			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
-			{#if waiting}
+			{#if notOffered && job.offered?.length}
+				<div class="chips">
+					{#each [...job.offered].sort((a, b) => b - a) as y (y)}
+						<button class="chip" onclick={() => goto(chooseUrl(shown.account, y))}>{y}</button>
+					{/each}
+				</div>
+			{/if}
+			{#if asking}
+				<div class="numbers">
+					<div><b>{elapsed}</b><span>{text.askingFor}</span></div>
+					<div><b>{text.twoThreeMin}</b><span>{text.usuallyTakes}</span></div>
+				</div>
+			{:else if waiting}
 				<div class="numbers">
 					{#if takeout}
 						{@const asked = new Date(takeout.Created)}
@@ -168,20 +183,21 @@
 				</div>
 			{/if}
 		</div>
-		{#if waiting}
+		{#if waiting || asking}
 			<section class="card">
 				<h2>{text.canClose}</h2>
-				<p>{text.canCloseDesc}</p>
+				<p>{asking ? text.askingCardDesc : text.canCloseDesc}</p>
 				<ol>
-					<li class="now"><Loader size={16} />{text.stepPrepares}</li>
+					{#if asking}<li class="now"><span class="spin"><Loader size={16} /></span>{text.stepAsks}</li>{/if}
+					<li class:now={waiting}>{#if waiting}<span class="spin"><Loader size={16} /></span>{:else}<Hourglass size={16} />{/if}{text.stepPrepares}</li>
 					<li><Folder size={16} />{text.stepDownloads}</li>
 					<li><CircleCheck size={16} />{text.stepLands}</li>
 					<li><CircleCheck size={16} />{text.stepNotify}</li>
 				</ol>
-				<a class="link" href="https://takeout.google.com/manage" target="_blank" rel="noreferrer">{text.seeOnTakeout}<ArrowRight size={14} /></a>
+				{#if waiting}<a class="link" href="https://takeout.google.com/manage" target="_blank" rel="noreferrer">{text.seeOnTakeout}<ArrowRight size={14} /></a>{/if}
 			</section>
 		{/if}
-		{#if !waiting && (job.years.length > 0 || job.unassigned > 0)}
+		{#if !waiting && !asking && (job.years.length > 0 || job.unassigned > 0)}
 			<section class="years">
 				<header><h2>{text.byYear}</h2><span>{text.byYearLegend}</span></header>
 				{#each job.years as y (y.year)}
@@ -303,6 +319,22 @@
 		height: 100%;
 		border-radius: 999px;
 		background: var(--accent);
+	}
+	.chips {
+		display: flex;
+		gap: 8px;
+	}
+	.chip {
+		height: 32px;
+		padding: 0 12px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		font-size: var(--text-callout);
+		color: var(--text);
+	}
+	.chip:hover {
+		border-color: var(--accent);
+		color: var(--accent);
 	}
 	.numbers {
 		display: flex;
