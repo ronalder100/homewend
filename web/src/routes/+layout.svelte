@@ -15,6 +15,8 @@
 			app.update = v;
 			window.shell?.announceUpdate(v, text.updateAvailable(v), text.updateAvailableBody);
 		});
+		// An update that did not install is offered again.
+		window.shell?.onUpdateFailed(() => (app.updating = false));
 	});
 </script>
 

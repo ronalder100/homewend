@@ -17,6 +17,7 @@ declare global {
 			onToggleSidebar(fn: () => void): void;
 			notify(title: string, body: string): void;
 			onUpdate(fn: (version: string) => void): void;
+			onUpdateFailed(fn: () => void): void;
 			announceUpdate(version: string, title: string, body: string): void;
 			installUpdate(): void;
 		};
