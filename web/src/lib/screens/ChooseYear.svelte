@@ -244,7 +244,10 @@
 		color: var(--muted);
 		font-size: var(--text-callout);
 	}
+	/* Under the list's left edge, where the hint beside it cannot move it. */
 	.go {
+		width: 640px;
+		max-width: 100%;
 		display: flex;
 		align-items: center;
 		gap: 16px;

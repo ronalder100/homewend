@@ -275,7 +275,9 @@
 		white-space: nowrap;
 		user-select: text;
 	}
+	/* At the left edge, where the hint beside it cannot move it. */
 	.go {
+		align-self: stretch;
 		display: flex;
 		align-items: center;
 		gap: 16px;
