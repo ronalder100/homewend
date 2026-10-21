@@ -8,7 +8,7 @@
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
 	import { bytes, roughly } from '#lib/format.js';
-	import { fraction, headline } from '#lib/job.js';
+	import { failure, fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
@@ -68,7 +68,7 @@
 		<div class="left">
 			<span class="pill" class:err={job.error} class:live={job.running}><i></i>{headline(job)}</span>
 			<h1>{title}</h1>
-			<p class="lead">{job.error || lead}</p>
+			<p class="lead">{job.error ? failure(job) : lead}</p>
 			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
 			{#if waiting}
 				<div class="numbers">

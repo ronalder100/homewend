@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { app, startJob } from '#lib/app.svelte.js';
+	import { app, startFailure, startJob } from '#lib/app.svelte.js';
 	import { getLibrary, putLibrary } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
@@ -32,6 +32,8 @@
 		if (!account && accounts.length > 0) account = accounts[0].id;
 	});
 
+	const running = $derived(app.jobs[account]?.running ?? false);
+
 	onMount(async () => ({ dir, free } = await getLibrary()));
 
 	async function change() {
@@ -44,13 +46,15 @@
 
 	async function start() {
 		failed = '';
-		if (kind === 'asked') return goto('/takeouts');
+		// A takeout from the list needs the folder too, and the list has no
+		// place to choose it.
 		if (!dir) return (failed = text.noLibraryYet);
+		if (kind === 'asked') return goto('/takeouts');
 		try {
 			await startJob({ account, year: kind === 'year' ? year : 0 });
 			goto('/bringing');
 		} catch (e) {
-			failed = String(e);
+			failed = startFailure(e);
 		}
 	}
 </script>
@@ -123,10 +127,17 @@
 	</div>
 
 	<div class="go">
-		<PrimaryButton onclick={start}>
-			{kind === 'year' ? text.startYear(year) : kind === 'asked' ? text.seeTakeouts : text.startEverything}
-		</PrimaryButton>
-		{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint">{text.notifyWhenReady}</span>{/if}
+		<!-- One download at a time for each account: the one running is shown
+		     instead of a start the engine would refuse. -->
+		{#if running}
+			<PrimaryButton onclick={() => goto('/bringing')}>{text.seeDownload}</PrimaryButton>
+			<span class="hint">{text.alreadyBringing}</span>
+		{:else}
+			<PrimaryButton onclick={start}>
+				{kind === 'year' ? text.startYear(year) : kind === 'asked' ? text.seeTakeouts : text.startEverything}
+			</PrimaryButton>
+			{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint">{text.notifyWhenReady}</span>{/if}
+		{/if}
 	</div>
 </div>
 

@@ -12,7 +12,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { Archive, Ellipsis, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { folderItems, type MenuItem } from '#lib/components/ContextMenu.svelte';
-	import { app, signIn, sidebarOf, signInAgain, signingInAgain, startJob } from '#lib/app.svelte.js';
+	import { app, signIn, sidebarOf, signInAgain, signingInAgain, startFailure, startJob } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, readContents, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
@@ -51,6 +51,7 @@
 		list = seen.get(a) ?? null;
 		failed = '';
 		signedOut = false;
+		refused = '';
 		getTakeouts(a).then(
 			async (l) => {
 				seen.set(a, l);
@@ -115,9 +116,16 @@
 		return { status: text.statusReady, detail: until, tone: 'ok', act: 'download' };
 	}
 
+	// Why the last download asked for did not start, said above the list.
+	let refused = $state('');
 	async function bring(o: Parameters<typeof startJob>[0]) {
-		await startJob(o);
-		goto('/bringing');
+		refused = '';
+		try {
+			await startJob(o);
+			goto('/bringing');
+		} catch (e) {
+			refused = startFailure(e);
+		}
 	}
 	const download = (t: Takeout, again = false) => bring({ account, export: t.id, again });
 	// An expired takeout is asked of Google once more, as it was asked.
@@ -190,6 +198,7 @@
 	{:else if list.length === 0}
 		<p class="muted">{text.noTakeouts}</p>
 	{:else}
+		{#if refused}<p class="refused">{refused}</p>{/if}
 		<table>
 			<thead>
 				<tr><th>{text.takeoutCol}</th><th>{text.askedCol}</th><th>{text.sizeCol}</th><th>{text.statusCol}</th><th></th></tr>
@@ -401,6 +410,9 @@
 	}
 	.muted {
 		color: var(--muted);
+	}
+	.refused {
+		color: var(--err);
 	}
 	.failed .pill {
 		width: auto;

@@ -6,6 +6,7 @@
 import { goto } from '$app/navigation';
 import { onDestroy } from 'svelte';
 import {
+	ApiError,
 	getJob,
 	getOverview,
 	getSettings,
@@ -79,6 +80,18 @@ export function watchJobs(): () => void {
  *  download and sends the person back to Choose. */
 export async function startJob(o: Parameters<typeof startGet>[0]) {
 	app.jobs[o.account] = await startGet(o);
+}
+
+/** What a person is told when a download does not start: what they can do,
+ *  never the engine's own words. */
+export function startFailure(e: unknown): string {
+	switch (e instanceof ApiError && e.status) {
+		case 404:
+			return text.noLibraryYet;
+		case 409:
+			return text.alreadyBringing;
+	}
+	return text.startFailed;
 }
 
 /** Carries on with a download that stopped: the same takeout, not a new one
@@ -192,7 +205,8 @@ export async function signInNew() {
 		if (!app.settings.profiles?.[a.id]) goto(`/profile?account=${encodeURIComponent(a.id)}`);
 		else if (location.pathname === from) goto('/choose');
 	} catch (e) {
-		signIn.failed = String(e);
+		// No browser to sign in with is the one failure a person can mend.
+		signIn.failed = e instanceof ApiError && e.status === 424 ? text.noBrowser : text.signInFailed;
 	} finally {
 		signIn.account = '';
 	}

@@ -6,7 +6,7 @@
 	import type { JobState } from '#lib/api.js';
 	import { stopJob } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { headline, fraction } from '#lib/job.js';
+	import { failure, headline, fraction } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 
 	import Avatar from './Avatar.svelte';
@@ -31,7 +31,7 @@
 	>
 {/if}
 {#if job.retry}<span class="note">{text.retrying(job.retry)}</span>{/if}
-{#if job.error}<span class="note err" title={job.error}>{job.error}</span>{/if}
+{#if job.error}<span class="note err" title={failure(job)}>{failure(job)}</span>{/if}
 {#if job.running && !job.retry}<span class="note sleep">{text.pickUpAfterSleep}</span>{/if}
 <span class="spacer"></span>
 <button class="details" onclick={ondetails}>{text.details}<ChevronUp size={14} /></button>
