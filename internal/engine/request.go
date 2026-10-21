@@ -20,8 +20,8 @@ var ErrNotRequested = errors.New("Google did not list a new export")
 
 // requestExport asks Google for an export of the Google Photos of one year,
 // or of all of them when year is 0, and returns its job id once /manage lists it. The form is filled in a
-// browser of our own, out of sight (see session.Headless); Google takes a
-// minute or two before it lets a year be chosen (see takeout.PickerWait).
+// browser of our own, out of sight (see session.Headless); Google takes
+// minutes before it lets a year be chosen, as long as it takes (see takeout.choose).
 func requestExport(ctx context.Context, sess *session.Session, year int, emit progress.Func) (string, error) {
 	before, err := takeout.Exports(sess)
 	if err != nil {
