@@ -195,7 +195,7 @@
 		{#if waiting || asking}
 			<section class="card">
 				<h2>{text.canClose}</h2>
-				<p>{asking ? text.askingCardDesc : text.canCloseDesc}</p>
+				<p>{text.canCloseDesc}</p>
 				<ol>
 					{#if asking}<li class="now"><span class="spin"><Loader size={16} /></span>{text.stepAsks}</li>{/if}
 					<li class:now={waiting}>{#if waiting}<span class="spin"><Loader size={16} /></span>{:else}<Hourglass size={16} />{/if}{text.stepPrepares}</li>

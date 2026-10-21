@@ -78,7 +78,7 @@ export const text = {
 	bringHome: 'Bring your photos home',
 
 	bringingTitle: 'Bringing your photos home.',
-	bringingLead: 'You can close this window. Homewend keeps the computer awake while it downloads; if it sleeps anyway, with the lid closed, it picks up at the same byte.',
+	bringingLead: (/Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close this window, not quit Homewend. ' : 'Keep Homewend open: closing it stops the download. ') + 'Homewend keeps the computer awake while it downloads; if it sleeps anyway, with the lid closed, it picks up at the same byte.',
 	preparingTitle: (y: number) => (y ? `Google is preparing\nyour photos of ${y}.` : 'Google is preparing\nall your photos.'),
 	preparingLead: "A few minutes for a year with few photos, about an hour for an entire library. The download starts by itself as soon as it's ready, and Google also sends you an email.",
 	pausedTitle: 'Paused.',
@@ -219,9 +219,11 @@ export const text = {
 	keepsOnceReady: 'Google keeps it, once ready',
 	sevenDays: '7 days',
 	minAgo: (n: number) => (n < 1 ? 'just now' : `${n} min ago`),
-	canClose: 'You can close Homewend.',
-	canCloseDesc:
-		'It keeps going in the background and picks up where it was after a restart. It never asks Google twice.',
+	// On the Mac the closed window leaves the app running; elsewhere closing it quits.
+	canClose: /Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close the window.' : 'Keep Homewend open.',
+	canCloseDesc: /Mac/.test(globalThis.navigator?.platform ?? '')
+		? 'Homewend keeps working with the window closed, and the Dock brings it back. Quitting Homewend stops it: start the same download again and it picks up where it was, without asking Google twice.'
+		: 'Closing it stops the download: start the same download again and it picks up where it was, without asking Google twice.',
 	stepAsks: 'Homewend asks Google for the takeout',
 	stepPrepares: 'Google prepares the takeout',
 	askingSteps: [
@@ -229,8 +231,6 @@ export const text = {
 		{ now: 'Setting up the download', done: 'Download set up' },
 		{ now: 'Request sent to Google, waiting for it to be accepted', done: 'Request accepted' }
 	],
-	askingCardDesc:
-		'Once Google accepts the request it prepares the takeout; Homewend waits for it and downloads it by itself.',
 	stepDownloads: 'Homewend downloads it, part by part',
 	stepLands: 'Your photos land in your folder, counted',
 	stepNotify: 'You get a notification',
