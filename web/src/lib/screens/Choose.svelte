@@ -53,6 +53,9 @@
 	});
 
 	const running = $derived(app.jobs[account]?.running ?? false);
+	// The years are not known yet: none is offered, rather than ones the
+	// account may not have.
+	const finding = $derived(!counts || counts.counting);
 
 	// The account's count: read, asked for once if there is none, and looked
 	// at every two seconds while it runs (about a minute).
@@ -76,8 +79,9 @@
 				}
 				if (c.counting && !countSince) countSince = Date.now();
 				counts = c;
-			} catch {
+			} catch (e) {
 				// No count: every year is offered.
+				if (!stop) counts = { counting: false, error: String(e) };
 			}
 		};
 		look();
@@ -111,6 +115,7 @@
 		// place to choose it.
 		if (!dir) return (failed = text.noLibraryYet);
 		if (kind === 'asked') return goto('/takeouts');
+		if (kind === 'year' && finding) return (failed = text.waitForYears);
 		try {
 			await startJob({ account, year: kind === 'year' ? year : 0 });
 			goto('/bringing');
@@ -138,6 +143,16 @@
 		<div role="radio" tabindex="0" aria-checked={kind === 'year'} class="card" class:on={kind === 'year'} onclick={() => (kind = 'year')} onkeydown={(e) => e.key === 'Enter' && (kind = 'year')}>
 			<span class="title"><span class="radio"></span><h2>{text.oneYear}</h2></span>
 			<p>{text.oneYearDesc}</p>
+			{#if finding}
+				<div class="finding">
+					<span class="row"
+						><span class="spin"><Loader size={16} /></span><b>{text.findingYears}</b><time
+							>{text.elapsed(Math.max(0, Math.floor((tick - countSince) / 1000)))}</time
+						></span
+					>
+					<span>{text.findingYearsWhy}</span>
+				</div>
+			{:else}
 			<span class="chips">
 				{#each years as y (y)}
 					<span
@@ -170,13 +185,7 @@
 						>{/each}
 				</select>
 			</span>
-			{#if counts?.counting}
-				<span class="counting"
-					><span class="spin"><Loader size={14} /></span>{text.countingPhotos} · {text.pleaseWait}
-					{text.elapsed(Math.max(0, Math.floor((tick - countSince) / 1000)))}</span
-				>
-			{:else if counts?.error}
-				<span class="counting">{text.countFailed}</span>
+			{#if counts?.error}<span class="counting">{text.countFailed}</span>{/if}
 			{/if}
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'everything'} class="card" class:on={kind === 'everything'} onclick={() => (kind = 'everything')} onkeydown={(e) => e.key === 'Enter' && (kind = 'everything')}>
@@ -339,6 +348,34 @@
 		margin-left: 6px;
 		font-size: var(--text-footnote);
 		color: var(--faint);
+	}
+	.finding {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin-top: 4px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: var(--accent-soft);
+		font-size: var(--text-footnote);
+		line-height: 1.4;
+		color: var(--muted);
+	}
+	.finding .row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: var(--text-callout);
+		color: var(--fg);
+	}
+	.finding .row :global(svg) {
+		color: var(--accent);
+	}
+	.finding time {
+		margin-left: auto;
+		font-family: var(--font-mono);
+		color: var(--muted);
 	}
 	.counting {
 		display: inline-flex;
