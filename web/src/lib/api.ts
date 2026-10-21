@@ -100,6 +100,20 @@ const q = (o: Record<string, string | number | undefined>) =>
 		Object.entries(o).filter(([, v]) => v !== undefined && v !== '') as [string, string][]
 	).toString();
 
+/** How many photos and videos an account has on Google, by year, newest first. */
+export interface YearCount {
+	year: number;
+	items: number;
+	videos: number;
+}
+export interface YearCounts {
+	counted?: string;
+	years?: YearCount[];
+	counting: boolean;
+	error?: string;
+}
+export const getYears = (account: string) => call<YearCounts>('GET', `/api/years?${q({ account })}`);
+export const countYears = (account: string) => call<Record<string, never>>('POST', `/api/years?${q({ account })}`);
 export const getLibrary = () => call<{ dir: string; free: number }>('GET', '/api/library');
 export const putLibrary = (dir: string) => call<{ dir: string }>('PUT', '/api/library', { dir });
 export const startGet = (o: { account: string; year?: number; export?: string; fresh?: boolean; again?: boolean }) =>

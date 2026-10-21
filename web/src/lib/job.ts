@@ -15,6 +15,8 @@ export function headline(j: JobState): string {
 	switch (j.stage) {
 		case 'first-download':
 			return text.waitingForPassword;
+		case 'counting':
+			return text.countingPhotos;
 		case 'checking':
 			return text.checking;
 		case 'session-ready':

@@ -8,6 +8,7 @@ package progress
 
 // The stages an event can come from.
 const (
+	Counting      = "counting"       // the account's photos are being counted on Google; the job waits for it
 	Checking      = "checking"       // Google is being asked whether it accepts the session
 	SignIn        = "sign-in"        // the browser is open, waiting for the user to sign in
 	SessionReady  = "session-ready"  // signed in; Takeout is opened out of sight, once, for its own cookies

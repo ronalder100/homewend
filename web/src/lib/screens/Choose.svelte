@@ -6,11 +6,11 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { app, startFailure, startJob } from '#lib/app.svelte.js';
-	import { getLibrary, putLibrary } from '#lib/api.js';
+	import { countYears, getLibrary, getYears, putLibrary, type YearCounts } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
-	import { Plus, Folder, ChevronDown, ArrowRight } from '@lucide/svelte';
+	import { Plus, Folder, ChevronDown, ArrowRight, Loader } from '@lucide/svelte';
 	import { bytes } from '#lib/format.js';
 	import { sidebarOf } from '#lib/app.svelte.js';
 
@@ -18,10 +18,21 @@
 	let kind = $state<Kind>('everything');
 	// The last four years, newest first: what most people want to try.
 	const thisYear = new Date().getFullYear();
-	// Oldest first, as the design reads them; the current year is still filling.
-	const years = [3, 2, 1].map((n) => thisYear - n);
-	// Any older year from a list: Google says which it has only when asked.
-	const older = [thisYear, ...Array.from({ length: thisYear - 4 - 1990 + 1 }, (_, n) => thisYear - 4 - n)];
+	// The years the account has on Google, once counted; until then, or if
+	// the count failed, every year is offered.
+	let counts = $state<YearCounts | null>(null);
+	const counted = $derived(counts?.years?.length ? counts.years : null);
+	const itemsOf = (y: number) => counted?.find((c) => c.year === y)?.items;
+	// Oldest first, as the design reads them: the three newest years.
+	const years = $derived(
+		counted ? counted.slice(0, 3).map((c) => c.year).reverse() : [3, 2, 1].map((n) => thisYear - n)
+	);
+	// Any other year from a list.
+	const older = $derived(
+		counted
+			? counted.slice(3).map((c) => c.year)
+			: [thisYear, ...Array.from({ length: thisYear - 4 - 1990 + 1 }, (_, n) => thisYear - 4 - n)]
+	);
 	let year = $state(thisYear - 1);
 	let dir = $state('');
 	let free = $state(0);
@@ -42,6 +53,47 @@
 	});
 
 	const running = $derived(app.jobs[account]?.running ?? false);
+
+	// The account's count: read, asked for once if there is none, and looked
+	// at every two seconds while it runs (about a minute).
+	let countSince = $state(0);
+	let tick = $state(Date.now());
+	$effect(() => {
+		const a = account;
+		if (!a) return;
+		counts = null;
+		let asked = false;
+		let stop = false;
+		const look = async () => {
+			try {
+				const c = await getYears(a);
+				if (stop) return;
+				if (!c.years && !c.counting && !c.error && !asked) {
+					asked = true;
+					await countYears(a).catch(() => {});
+					countSince = Date.now();
+					return look();
+				}
+				if (c.counting && !countSince) countSince = Date.now();
+				counts = c;
+			} catch {
+				// No count: every year is offered.
+			}
+		};
+		look();
+		const t = setInterval(() => {
+			tick = Date.now();
+			if (counts?.counting) look();
+		}, 2000);
+		return () => {
+			stop = true;
+			clearInterval(t);
+		};
+	});
+	// A year the account does not have is not offered.
+	$effect(() => {
+		if (counted && !counted.some((c) => c.year === year)) year = counted[0].year;
+	});
 
 	onMount(async () => ({ dir, free } = await getLibrary()));
 
@@ -98,7 +150,8 @@
 							kind = 'year';
 							year = y;
 						}}
-						onkeydown={(e) => e.key === 'Enter' && ((kind = 'year'), (year = y))}>{y}</span
+						onkeydown={(e) => e.key === 'Enter' && ((kind = 'year'), (year = y))}
+						>{y}{#if itemsOf(y) !== undefined}<small>{(itemsOf(y) ?? 0).toLocaleString('en')}</small>{/if}</span
 					>
 				{/each}
 				<select
@@ -112,13 +165,24 @@
 					}}
 				>
 					<option value="" selected={years.includes(year)} disabled>{text.olderYear}</option>
-					{#each older as y (y)}<option value={y} selected={year === y}>{y}</option>{/each}
+					{#each older as y (y)}<option value={y} selected={year === y}
+							>{itemsOf(y) !== undefined ? text.yearWithCount(y, itemsOf(y) ?? 0) : y}</option
+						>{/each}
 				</select>
 			</span>
+			{#if counts?.counting}
+				<span class="counting"
+					><span class="spin"><Loader size={14} /></span>{text.countingPhotos} · {text.pleaseWait}
+					{text.elapsed(Math.max(0, Math.floor((tick - countSince) / 1000)))}</span
+				>
+			{:else if counts?.error}
+				<span class="counting">{text.countFailed}</span>
+			{/if}
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'everything'} class="card" class:on={kind === 'everything'} onclick={() => (kind = 'everything')} onkeydown={(e) => e.key === 'Enter' && (kind = 'everything')}>
 			<span class="title"><span class="radio"></span><h2>{text.everything}</h2></span>
 			<p>{text.everythingDesc}</p>
+			{#if counted}<span class="total">{text.itemsCount(counted.reduce((n, c) => n + c.items, 0))}</span>{/if}
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'asked'} class="card" class:on={kind === 'asked'} onclick={() => (kind = 'asked')} onkeydown={(e) => e.key === 'Enter' && (kind = 'asked')}>
 			<span class="title"><span class="radio"></span><h2>{text.oneAsked}</h2></span>
@@ -270,6 +334,32 @@
 		font-size: var(--text-callout);
 		background: transparent;
 		cursor: default;
+	}
+	.chip small {
+		margin-left: 6px;
+		font-size: var(--text-footnote);
+		color: var(--faint);
+	}
+	.counting {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: var(--text-footnote);
+		color: var(--muted);
+	}
+	.spin {
+		display: inline-flex;
+		animation: spin 1s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.total {
+		font-size: var(--text-callout);
+		font-weight: 600;
+		color: var(--fg);
 	}
 	.chip.on {
 		border-color: var(--accent);

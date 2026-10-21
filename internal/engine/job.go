@@ -20,6 +20,15 @@ import (
 type Jobs struct {
 	mu   sync.Mutex
 	jobs map[string]*job
+	// counts are the accounts' photos being counted on Google (see Count).
+	counts map[string]*counting
+}
+
+// counting is one account's count, running or ended.
+type counting struct {
+	cancel context.CancelFunc
+	done   chan struct{} // closed once it has let go of the browser profile
+	err    error
 }
 
 type job struct {
@@ -116,13 +125,34 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 	// never waited for, and the page must still tell which one runs.
 	jb := &job{cancel: cancel, done: make(chan struct{}), state: JobState{Running: true, Year: g.Year, Export: g.Takeout, Years: []YearProgress{}}}
 	j.jobs[account] = jb
+	// A count holds the account's browser profile, which one browser at a
+	// time may open: the job begins once it has let go.
+	var counted <-chan struct{} = ended
+	if c := j.counts[account]; c != nil {
+		counted = c.done
+		select {
+		case <-counted:
+		default:
+			jb.state.Stage = progress.Counting
+		}
+	}
 	go func() {
 		defer close(jb.done)
-		err := run(ctx, func(e progress.Event) {
-			j.mu.Lock()
-			jb.record(e)
-			j.mu.Unlock()
-		})
+		select {
+		case <-counted:
+		case <-ctx.Done():
+		}
+		// Paused before the count let go: the job never ran.
+		err := context.Canceled
+		select {
+		case <-counted:
+			err = run(ctx, func(e progress.Event) {
+				j.mu.Lock()
+				jb.record(e)
+				j.mu.Unlock()
+			})
+		default:
+		}
 		j.mu.Lock()
 		jb.state.Running = false
 		switch {
@@ -144,11 +174,30 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 func (j *Jobs) Stop(account string) <-chan struct{} {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	// A count of the account is stopped too: it holds the same profile.
+	var waits []chan struct{}
 	if jb := j.jobs[account]; jb != nil {
 		jb.cancel()
-		return jb.done
+		waits = append(waits, jb.done)
 	}
-	return ended
+	if c := j.counts[account]; c != nil {
+		c.cancel()
+		waits = append(waits, c.done)
+	}
+	switch len(waits) {
+	case 0:
+		return ended
+	case 1:
+		return waits[0]
+	}
+	all := make(chan struct{})
+	go func() {
+		for _, w := range waits {
+			<-w
+		}
+		close(all)
+	}()
+	return all
 }
 
 // ended is the end of a job that never ran.
@@ -168,9 +217,72 @@ func (j *Jobs) StopAll() {
 		jb.cancel()
 		done = append(done, jb.done)
 	}
+	for _, c := range j.counts {
+		c.cancel()
+		done = append(done, c.done)
+	}
 	j.mu.Unlock()
 	for _, d := range done {
 		<-d
+	}
+}
+
+// Count counts the account's photos and videos on Google, by year, in the
+// background, and keeps the count (LoadYearCounts). A count already running
+// goes on; an account bringing photos home is not counted, its browser
+// profile being in use.
+func (j *Jobs) Count(account string) error {
+	sess, err := AccountSession(account)
+	if err != nil {
+		return err
+	}
+	return j.count(account, func(ctx context.Context) error { return countYears(ctx, sess) })
+}
+
+func (j *Jobs) count(account string, run func(context.Context) error) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if jb := j.jobs[account]; jb != nil && jb.state.Running {
+		return ErrJobRunning
+	}
+	if c := j.counts[account]; c != nil {
+		select {
+		case <-c.done:
+		default:
+			return nil
+		}
+	}
+	if j.counts == nil {
+		j.counts = map[string]*counting{}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c := &counting{cancel: cancel, done: make(chan struct{})}
+	j.counts[account] = c
+	go func() {
+		err := run(ctx)
+		j.mu.Lock()
+		c.err = err
+		j.mu.Unlock()
+		cancel()
+		close(c.done)
+	}()
+	return nil
+}
+
+// Counting says whether the account is being counted, and why the last count
+// failed, if it did.
+func (j *Jobs) Counting(account string) (running bool, err error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	c := j.counts[account]
+	if c == nil {
+		return false, nil
+	}
+	select {
+	case <-c.done:
+		return false, c.err
+	default:
+		return true, nil
 	}
 }
 

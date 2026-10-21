@@ -192,6 +192,29 @@ func apiRoutes(jobs *engine.Jobs) http.Handler {
 		jobs.Stop(account)
 		reply(w, jobs.State(account), nil)
 	})
+	// How many photos and videos the account has on Google, by year, as last
+	// counted; and whether a count runs, or why the last one failed.
+	mux.HandleFunc("GET /api/years", func(w http.ResponseWriter, r *http.Request) {
+		account := r.URL.Query().Get("account")
+		counts, err := engine.LoadYearCounts(account)
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		running, failed := jobs.Counting(account)
+		out := struct {
+			*engine.YearCounts
+			Counting bool   `json:"counting"`
+			Error    string `json:"error,omitempty"`
+		}{YearCounts: counts, Counting: running}
+		if failed != nil {
+			out.Error = failed.Error()
+		}
+		reply(w, out, nil)
+	})
+	mux.HandleFunc("POST /api/years", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, map[string]string{}, jobs.Count(r.URL.Query().Get("account")))
+	})
 	// Signing out deletes the account's browser profile: its Google cookies
 	// go, its photos stay.
 	mux.HandleFunc("POST /api/logout", func(w http.ResponseWriter, r *http.Request) {

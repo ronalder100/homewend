@@ -132,3 +132,47 @@ func TestStopAllWaitsForEveryJob(t *testing.T) {
 		t.Fatalf("StopAll returned before every job ended: %v", ended)
 	}
 }
+
+func TestAJobWaitsForTheCountToLetGoOfTheProfile(t *testing.T) {
+	var j Jobs
+	release := make(chan struct{})
+	if err := j.count("a", func(context.Context) error { <-release; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	// A second count while one runs is the same count.
+	if err := j.count("a", func(context.Context) error { t.Error("a second count ran"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	ran := make(chan struct{})
+	if err := j.start("a", Get{}, func(context.Context, progress.Func) error { close(ran); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if s := j.State("a"); s.Stage != progress.Counting {
+		t.Errorf("stage %q while the count runs; want %q", s.Stage, progress.Counting)
+	}
+	select {
+	case <-ran:
+		t.Fatal("the job ran while the count held the profile")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if running, _ := j.Counting("a"); !running {
+		t.Error("Counting says no count while one runs")
+	}
+	close(release)
+	<-ran
+	if running, err := j.Counting("a"); running || err != nil {
+		t.Errorf("Counting = %v, %v after it ended", running, err)
+	}
+}
+
+func TestAnAccountBringingPhotosHomeIsNotCounted(t *testing.T) {
+	var j Jobs
+	var ended bool
+	if err := j.start("a", Get{}, slow(&ended)); err != nil {
+		t.Fatal(err)
+	}
+	defer j.StopAll()
+	if err := j.count("a", func(context.Context) error { return nil }); !errors.Is(err, ErrJobRunning) {
+		t.Fatalf("got %v; want ErrJobRunning", err)
+	}
+}
