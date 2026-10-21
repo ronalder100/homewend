@@ -4,7 +4,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { app, startFailure, startJob } from '#lib/app.svelte.js';
+	import { app, sidebarOf, startFailure, startJob } from '#lib/app.svelte.js';
 	import { getLibrary } from '#lib/api.js';
 	import { Years } from '#lib/years.svelte.js';
 	import { chooseUrl } from '#lib/places.js';
@@ -13,7 +13,12 @@
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 	import { ArrowLeft, Folder, Loader } from '@lucide/svelte';
 
-	const account = $derived(page.url.searchParams.get('account') ?? '');
+	// The account the address names; one that is gone, the first.
+	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
+	const account = $derived.by(() => {
+		const a = page.url.searchParams.get('account') ?? '';
+		return accounts.some((x) => x.id === a) ? a : (accounts[0]?.id ?? '');
+	});
 	const email = $derived(app.overview?.accounts.find((a) => a.id === account)?.email ?? '');
 	const years = new Years(() => account);
 	let year = $state(Number(page.url.searchParams.get('year')) || 0);
