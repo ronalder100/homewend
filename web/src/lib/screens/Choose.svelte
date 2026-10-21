@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { app, startFailure, startJob } from '#lib/app.svelte.js';
 	import { getLibrary, putLibrary } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
@@ -28,8 +29,16 @@
 
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 	let account = $state('');
+	// The account and year the address names: an account just added, a
+	// takeout to ask for again. Without one, or once it is gone, the first.
 	$effect(() => {
-		if (!account && accounts.length > 0) account = accounts[0].id;
+		const q = page.url.searchParams;
+		const [a, y] = [q.get('account'), Number(q.get('year'))];
+		if (a) account = a;
+		if (y) [kind, year] = ['year', y];
+	});
+	$effect(() => {
+		if (accounts.length > 0 && !accounts.some((a) => a.id === account)) account = accounts[0].id;
 	});
 
 	const running = $derived(app.jobs[account]?.running ?? false);

@@ -18,6 +18,7 @@ import {
 	type Settings
 } from './api.js';
 import type { Sidebar } from './library.js';
+import { chooseUrl } from './places.js';
 import { text } from './strings.js';
 
 export const app = $state<{
@@ -207,7 +208,7 @@ export async function signInNew() {
 		// person went meanwhile: nothing else asks it. One already asked
 		// goes on to Choose, unless the person went elsewhere.
 		if (!app.settings.profiles?.[a.id]) goto(`/profile?account=${encodeURIComponent(a.id)}`);
-		else if (location.pathname === from) goto('/choose');
+		else if (location.pathname === from) goto(chooseUrl(a.id));
 	} catch (e) {
 		// No browser to sign in with is the one failure a person can mend.
 		signIn.failed = e instanceof ApiError && e.status === 424 ? text.noBrowser : text.signInFailed;

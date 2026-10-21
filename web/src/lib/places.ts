@@ -21,6 +21,10 @@ export function urlOf(p: Place): string {
 	}
 }
 
+/** Choose, on the account (and the year) it was opened for. */
+export const chooseUrl = (account: string, year?: number) =>
+	`/choose?account=${encodeURIComponent(account)}${year ? `&year=${year}` : ''}`;
+
 export function placeOf(url: { pathname: string; searchParams: { has(k: string): boolean; get(k: string): string | null } }): Place {
 	const q = url.searchParams;
 	if (url.pathname.startsWith('/settings')) return { kind: 'settings' };

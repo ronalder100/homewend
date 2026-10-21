@@ -8,6 +8,7 @@
 	import type { JobState } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { resumeJob, signInAgain, signingInAgain } from '#lib/app.svelte.js';
+	import { chooseUrl } from '#lib/places.js';
 	import { text } from '#lib/strings.js';
 
 	import { onMount } from 'svelte';
@@ -75,7 +76,7 @@
 			: kind === 'no-space'
 				? [text.chooseAnotherFolder, chooseFolder]
 				: kind === 'expired'
-					? [text.newTakeoutAction, () => goto('/choose')]
+					? [text.newTakeoutAction, () => goto(chooseUrl(account, job.year))]
 					: kind === 'finished'
 						? [text.openLibrary, () => ((dismissed = kind), goto('/library'))]
 						: [undefined, undefined]}
