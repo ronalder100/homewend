@@ -65,6 +65,18 @@ func Listen() (*Server, error) {
 	return s, nil
 }
 
+// KeepJobs keeps the downloads under way where the next run finds them, and
+// starts again those the last run left: quitting the app does not end them.
+func (s *Server) KeepJobs() error {
+	f, err := engine.JobsFile()
+	if err != nil {
+		return err
+	}
+	s.jobs.File = f
+	s.jobs.Resume()
+	return nil
+}
+
 // Serve answers until Shutdown.
 func (s *Server) Serve() error {
 	if err := s.srv.Serve(s.ln); !errors.Is(err, http.ErrServerClosed) {

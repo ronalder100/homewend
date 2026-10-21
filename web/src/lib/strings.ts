@@ -77,7 +77,7 @@ export const text = {
 	bringHome: 'Bring your photos home',
 
 	bringingTitle: 'Bringing your photos home.',
-	bringingLead: (/Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close this window, not quit Homewend. ' : 'Keep Homewend open: closing it stops the download. ') + 'Homewend keeps the computer awake while it downloads; if it sleeps anyway, with the lid closed, it picks up at the same byte.',
+	bringingLead: (/Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close this window, or quit Homewend: the download carries on by itself when you open it again. ' : 'You can close Homewend: the download carries on by itself when you open it again. ') + 'Homewend keeps the computer awake while it downloads; if it sleeps anyway, with the lid closed, it picks up at the same byte.',
 	preparingTitle: (y: number) => (y ? `Google is preparing\nyour photos of ${y}.` : 'Google is preparing\nall your photos.'),
 	preparingLead: "A few minutes for a year with few photos, about an hour for an entire library. The download starts by itself as soon as it's ready, and Google also sends you an email.",
 	pausedTitle: 'Paused.',
@@ -245,12 +245,11 @@ export const text = {
 	sevenDays: '7 days',
 	minAgo: (n: number) => (n < 1 ? 'just now' : `${n} min ago`),
 	// On the Mac the closed window leaves the app running; elsewhere closing it quits.
-	canClose: /Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close this window now.' : 'Keep Homewend open.',
+	canClose: /Mac/.test(globalThis.navigator?.platform ?? '') ? 'You can close this window now.' : 'You can close Homewend now.',
 	canCloseDesc: /Mac/.test(globalThis.navigator?.platform ?? '')
 		? 'Homewend carries on in the background, and tells you with a notification when your photos are home. To see this page again, click Homewend in the Dock.'
-		: 'Closing it stops the download: start the same download again and it picks up where it was, without asking Google twice.',
-	// Only where closing the window does not quit.
-	quitStops: 'Quitting Homewend (⌘Q) stops it. Start the same download again and it picks up where it was.',
+		: 'Open it again whenever you like: the download carries on by itself, where it was, without asking Google twice.',
+	quitStops: 'You can also quit Homewend. Open it again whenever you like: the download carries on by itself, where it was.',
 	closeWindow: 'Close window',
 	stepAsks: 'Homewend asks Google for the takeout',
 	stepPrepares: 'Google prepares the takeout',

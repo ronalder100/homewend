@@ -5,7 +5,10 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -22,6 +25,62 @@ type Jobs struct {
 	jobs map[string]*job
 	// counts are the accounts' photos being counted on Google (see Count).
 	counts map[string]*counting
+	// File, when set, keeps the downloads under way, for Resume to start
+	// again when the program next runs: quitting it stops them, and a person
+	// told the download carries on expects it to. A pause, an end or a
+	// failure takes one out.
+	File  string
+	saved map[string]Get
+}
+
+// JobsFile is where the app keeps the downloads under way.
+func JobsFile() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "homewend", "jobs.json"), nil
+}
+
+// Resume starts again the downloads under way when the program last quit.
+func (j *Jobs) Resume() {
+	if j.File == "" {
+		return
+	}
+	var saved map[string]Get
+	data, err := os.ReadFile(j.File)
+	if err != nil || json.Unmarshal(data, &saved) != nil {
+		return
+	}
+	for account, g := range saved {
+		// An account gone, or signed out, says so as any download does;
+		// one that cannot even start is forgotten.
+		if j.Start(account, g) != nil {
+			j.mu.Lock()
+			j.forget(account)
+			j.mu.Unlock()
+		}
+	}
+}
+
+// keep and forget change the downloads under way; the caller holds mu.
+func (j *Jobs) keep(account string, g Get) {
+	if j.File == "" {
+		return
+	}
+	if j.saved == nil {
+		j.saved = map[string]Get{}
+	}
+	j.saved[account] = g
+	writeJSON(j.File, j.saved)
+}
+
+func (j *Jobs) forget(account string) {
+	if _, ok := j.saved[account]; !ok {
+		return
+	}
+	delete(j.saved, account)
+	writeJSON(j.File, j.saved)
 }
 
 // counting is one account's count, running or ended.
@@ -125,6 +184,7 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 	// never waited for, and the page must still tell which one runs.
 	jb := &job{cancel: cancel, done: make(chan struct{}), state: JobState{Running: true, Year: g.Year, Export: g.Takeout, Years: []YearProgress{}}}
 	j.jobs[account] = jb
+	j.keep(account, g)
 	// A count holds the account's browser profile, which one browser at a
 	// time may open: the job begins once it has let go.
 	var counted <-chan struct{} = ended
@@ -155,6 +215,10 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		}
 		j.mu.Lock()
 		jb.state.Running = false
+		// Stopped, it is kept or forgotten by whoever stopped it.
+		if !errors.Is(err, context.Canceled) {
+			j.forget(account)
+		}
 		switch {
 		case errors.Is(err, context.Canceled):
 		case err != nil:
@@ -176,6 +240,8 @@ func (j *Jobs) Stop(account string) <-chan struct{} {
 	defer j.mu.Unlock()
 	// A count of the account is stopped too: it holds the same profile.
 	var waits []chan struct{}
+	// Paused by the person: not started again next time.
+	j.forget(account)
 	if jb := j.jobs[account]; jb != nil {
 		jb.cancel()
 		waits = append(waits, jb.done)

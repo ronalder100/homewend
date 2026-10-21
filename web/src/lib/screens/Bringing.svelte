@@ -3,7 +3,7 @@
 <!-- A3, A4, A5: Google preparing, the parts arriving, or paused. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass, Circle, X, TriangleAlert } from '@lucide/svelte';
+	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass, Circle, X, RotateCcw } from '@lucide/svelte';
 	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
@@ -205,7 +205,7 @@
 				<p>{text.canCloseDesc}</p>
 				{#if mac}
 					<div class="close"><SecondaryButton onclick={() => window.shell?.closeWindow()}><X size={16} />{text.closeWindow}</SecondaryButton></div>
-					<p class="quit"><TriangleAlert size={16} />{text.quitStops}</p>
+					<p class="quit"><RotateCcw size={16} />{text.quitStops}</p>
 				{/if}
 				<ol>
 					{#if asking}<li class="now"><span class="spin"><Loader size={16} /></span>{text.stepAsks}</li>{/if}
@@ -475,7 +475,7 @@
 	.quit :global(svg) {
 		flex: none;
 		margin-top: 2px;
-		color: var(--warn);
+		color: var(--ok);
 	}
 	.card ol {
 		list-style: none;

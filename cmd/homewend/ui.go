@@ -27,6 +27,7 @@ func ui(args []string) int {
 		return exitError
 	}
 	fmt.Println(srv.URL)
+	srv.KeepJobs()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

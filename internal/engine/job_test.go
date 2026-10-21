@@ -5,7 +5,10 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -175,4 +178,39 @@ func TestAnAccountBringingPhotosHomeIsNotCounted(t *testing.T) {
 	if err := j.count("a", func(context.Context) error { return nil }); !errors.Is(err, ErrJobRunning) {
 		t.Fatalf("got %v; want ErrJobRunning", err)
 	}
+}
+
+// A download quitting stopped is kept for the next run; one paused, ended or
+// failed is not.
+func TestDownloadsUnderWayAreKeptAcrossQuitting(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "jobs.json")
+	j := &Jobs{File: file}
+	kept := func() map[string]Get {
+		var saved map[string]Get
+		data, _ := os.ReadFile(file)
+		json.Unmarshal(data, &saved)
+		return saved
+	}
+	block := func(ctx context.Context, _ progress.Func) error { <-ctx.Done(); return ctx.Err() }
+	j.start("a", Get{Year: 2019}, block)
+	j.start("b", Get{Year: 2020}, block)
+	j.StopAll()
+	if got := kept(); got["a"].Year != 2019 || got["b"].Year != 2020 {
+		t.Fatalf("after quitting: %v", got)
+	}
+	j.start("a", Get{Year: 2019}, block)
+	<-j.Stop("a")
+	if _, ok := kept()["a"]; ok {
+		t.Fatal("a paused download is kept")
+	}
+	end := make(chan struct{})
+	j.start("b", Get{Year: 2020}, func(context.Context, progress.Func) error { close(end); return errors.New("failed") })
+	<-end
+	for range 100 {
+		if _, ok := kept()["b"]; !ok {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("a failed download is kept")
 }
