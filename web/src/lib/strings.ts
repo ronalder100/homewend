@@ -189,7 +189,6 @@ export const text = {
 	importTitle: 'Import a folder',
 	importDesc:
 		'Photos already on a disk or an old backup go into this same library, by date and album. Homewend tells you which ones were already here.',
-	close: 'Close',
 	copyFolderPath: 'Copy folder path',
 	pickUpAfterSleep: 'Picks up by itself after sleep',
 	taken: (d: string) => `Taken ${d}`,
