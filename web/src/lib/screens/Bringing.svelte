@@ -48,12 +48,19 @@
 	const email = $derived(app.overview?.accounts.find((a) => a.id === shown?.account)?.email ?? '');
 
 	// The takeout as Google lists it: when it was asked, until when it is kept.
+	// Asked once for each takeout, answered or not: the job changes every
+	// second, and the list is a page of Google's.
 	let takeout = $state<Takeout | null>(null);
+	let askedFor = '';
 	$effect(() => {
 		const id = job?.export;
 		const account = shown?.account;
-		if (!id || !account || takeout?.id && id.startsWith(takeout.id)) return;
-		getTakeouts(account).then((l) => (takeout = l.find((t) => id.startsWith(t.id)) ?? null));
+		if (!id || !account || askedFor === `${account} ${id}`) return;
+		askedFor = `${account} ${id}`;
+		getTakeouts(account).then(
+			(l) => (takeout = l.find((t) => id.startsWith(t.id)) ?? null),
+			() => {}
+		);
 	});
 
 	// The photos that arrived last, refreshed while they arrive.

@@ -58,14 +58,29 @@ function measure(account: string, j: JobState) {
 	else delete app.left[account];
 }
 
+/** How many times each account's download state was written by a start: an
+ *  ask sent before a start and answered after it is older, and dropped. */
+const writes: Record<string, number> = {};
+
 /** Asks every second where each account's download stands. */
 export function watchJobs(): () => void {
 	let wasRunning = false;
 	const tick = async () => {
-		for (const a of app.overview?.accounts ?? []) {
+		const accounts = app.overview?.accounts ?? [];
+		// An account signed out has no download left to ask about or show.
+		for (const id of Object.keys(app.jobs)) {
+			if (accounts.some((a) => a.id === id)) continue;
+			delete app.jobs[id];
+			delete app.left[id];
+			delete samples[id];
+		}
+		for (const a of accounts) {
+			const w = writes[a.id];
 			try {
-				app.jobs[a.id] = await getJob(a.id);
-				measure(a.id, app.jobs[a.id]);
+				const j = await getJob(a.id);
+				if (writes[a.id] !== w) continue;
+				app.jobs[a.id] = j;
+				measure(a.id, j);
 			} catch {
 				// The engine went away: the window says so elsewhere.
 			}
@@ -84,7 +99,12 @@ export function watchJobs(): () => void {
  *  that shows it must not wait a second for the next ask, or it sees no
  *  download and sends the person back to Choose. */
 export async function startJob(o: Parameters<typeof startGet>[0]) {
-	app.jobs[o.account] = await startGet(o);
+	// Counted as it is sent and as it is answered: an ask in flight across
+	// either is older than this.
+	writes[o.account] = (writes[o.account] ?? 0) + 1;
+	const j = await startGet(o);
+	writes[o.account]++;
+	app.jobs[o.account] = j;
 }
 
 /** What a person is told when a download does not start: what they can do,
