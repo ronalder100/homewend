@@ -118,6 +118,8 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		if err := st.save(work); err != nil {
 			return Result{}, err
 		}
+	} else {
+		emit.Emit(already(f.Export.Manifest, 1, of))
 	}
 	manifest, err := library.ParseManifestZip(filepath.Join(work, st.Manifest))
 	if err != nil {
@@ -200,7 +202,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 				return Result{}, err
 			}
 			if err := unpackOrAgain(path, unpack, get, func() {
-				emit.Emit(progress.Event{Stage: progress.Damaged, N: i + 2, Of: of, Name: part.Filename})
+				emit.Emit(progress.Event{Stage: progress.Damaged, N: i + 2, Of: of, Name: part.Filename, Total: part.Size})
 			}); err != nil {
 				return Result{}, err
 			}
@@ -214,6 +216,8 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			if err := place(false); err != nil {
 				return Result{}, err
 			}
+		} else {
+			emit.Emit(already(part, i+2, of))
 		}
 		// Deleted only once it is recorded as unpacked, and again on every
 		// run, in case the last one stopped in between.
@@ -236,6 +240,12 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		return Result{}, err
 	}
 	return Result{Organized: organized, Verification: verification}, nil
+}
+
+// already says that a part a run before brought is here: whoever watches a
+// run that carries on is told where it starts, not part 1 again.
+func already(part takeout.Part, n, of int) progress.Event {
+	return progress.Event{Stage: progress.Already, N: n, Of: of, Name: part.Filename, Done: part.Size, Total: part.Size}
 }
 
 // years follows how much of each year of an export has arrived, for whoever

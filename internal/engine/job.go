@@ -102,7 +102,9 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		return ErrJobRunning
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	jb := &job{cancel: cancel, done: make(chan struct{}), state: JobState{Running: true, Year: g.Year, Years: []YearProgress{}}}
+	// The takeout asked for is named from the start: one already ready is
+	// never waited for, and the page must still tell which one runs.
+	jb := &job{cancel: cancel, done: make(chan struct{}), state: JobState{Running: true, Year: g.Year, Export: g.Takeout, Years: []YearProgress{}}}
 	j.jobs[account] = jb
 	go func() {
 		defer close(jb.done)
@@ -181,7 +183,7 @@ func (jb *job) record(e progress.Event) {
 		s.Retry = e.Note
 		return
 	case progress.Ready:
-		s.Of, s.Total = e.Of, e.Total
+		s.Export, s.Of, s.Total = e.Name, e.Of, e.Total
 	case progress.Waiting:
 		s.Export = e.Name
 		s.LastLooked = time.Now()
@@ -189,9 +191,17 @@ func (jb *job) record(e progress.Event) {
 		s.Unassigned = e.N
 	case progress.Receiving, progress.Download:
 		s.Done = jb.partsBytes + e.Done
-	case progress.Downloaded:
+	// A part already here from a run before counts as one just downloaded,
+	// so a job that carries on starts where the last one stopped.
+	case progress.Downloaded, progress.Already:
 		s.Parts++
-		jb.partsBytes = s.Done
+		jb.partsBytes += e.Total
+		s.Done = jb.partsBytes
+	// The damaged part was counted when it arrived; it comes again.
+	case progress.Damaged:
+		s.Parts--
+		jb.partsBytes -= e.Total
+		s.Done = jb.partsBytes
 	case progress.Year:
 		jb.year(e)
 	}

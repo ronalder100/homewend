@@ -18,7 +18,7 @@ func TestJobRecordsWhereItStands(t *testing.T) {
 	for _, e := range []progress.Event{
 		{Stage: progress.Ready, Of: 3, Total: 300},
 		{Stage: progress.Receiving, Done: 60, Total: 100},
-		{Stage: progress.Downloaded},
+		{Stage: progress.Downloaded, Done: 100, Total: 100},
 		{Stage: progress.Receiving, Done: 40, Total: 100},
 		{Stage: progress.Year, Name: "2019", N: 5, Of: 10},
 		{Stage: progress.Year, Name: "2024", N: 1, Of: 2},
@@ -28,7 +28,7 @@ func TestJobRecordsWhereItStands(t *testing.T) {
 		jb.record(e)
 	}
 	s := jb.state
-	if s.Of != 3 || s.Total != 300 || s.Parts != 1 || s.Done != 100 {
+	if s.Of != 3 || s.Total != 300 || s.Parts != 1 || s.Done != 140 {
 		t.Fatalf("parts and bytes: %+v", s)
 	}
 	if len(s.Years) != 2 || s.Years[0].Year != "2024" || s.Years[1].Arrived != 7 {
@@ -55,6 +55,25 @@ func TestProblemNamesWhatAPersonCanFix(t *testing.T) {
 	}
 }
 
+// A job that carries on is told of the parts a run before brought, and starts
+// from them; a part found damaged is taken off the count until it comes again.
+func TestJobCountsThePartsAlreadyHere(t *testing.T) {
+	jb := &job{state: JobState{Years: []YearProgress{}}}
+	for _, e := range []progress.Event{
+		{Stage: progress.Ready, Name: "job", Of: 3, Total: 300},
+		{Stage: progress.Already, N: 1, Of: 3, Done: 10, Total: 10},
+		{Stage: progress.Already, N: 2, Of: 3, Done: 100, Total: 100},
+		{Stage: progress.Downloaded, N: 3, Of: 3, Done: 200, Total: 200},
+		{Stage: progress.Damaged, N: 3, Of: 3, Total: 200},
+		{Stage: progress.Receiving, N: 3, Of: 3, Done: 50, Total: 200},
+	} {
+		jb.record(e)
+	}
+	if s := jb.state; s.Export != "job" || s.Parts != 2 || s.Done != 160 {
+		t.Fatalf("%+v, want job, 2 parts and 160 bytes", s)
+	}
+}
+
 // slow is a job that takes a while to let go once stopped, as one closing
 // its browser does; ended says when it has.
 func slow(ended *bool) func(context.Context, progress.Func) error {
@@ -69,8 +88,11 @@ func slow(ended *bool) func(context.Context, progress.Func) error {
 func TestStopWaitsForTheJobToEnd(t *testing.T) {
 	var j Jobs
 	var ended bool
-	if err := j.start("a", Get{}, slow(&ended)); err != nil {
+	if err := j.start("a", Get{Takeout: "abc"}, slow(&ended)); err != nil {
 		t.Fatal(err)
+	}
+	if s := j.State("a"); s.Export != "abc" {
+		t.Errorf("export %q, want the takeout asked for from the start", s.Export)
 	}
 	<-j.Stop("a")
 	if !ended {

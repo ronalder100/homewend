@@ -20,9 +20,10 @@ const (
 	Download      = "download"       // a part starts or resumes; Done and Total are bytes
 	Receiving     = "receiving"      // bytes of a part are arriving, at most once a second; Done and Total are bytes
 	Downloaded    = "downloaded"     // a part is complete on disk
+	Already       = "already"        // a part a run before brought, counted and not downloaded again; N, Of and Total as for downloaded
 	Short         = "short"          // a transfer stopped early; the bytes on disk are kept
 	Retry         = "retry"          // the network did not answer and will be tried again; N counts, Note says why
-	Damaged       = "damaged"        // a part failed its check on unpacking and is downloaded again
+	Damaged       = "damaged"        // a part failed its check on unpacking and is downloaded again; Total is its size
 	Unpack        = "unpack"         // a part is being opened
 	Place         = "place"          // a photo is being placed in the library
 	Unassigned    = "unassigned"     // photos that have arrived and wait for their date, shown in the library's unassigned folder: N of them
