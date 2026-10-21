@@ -17,7 +17,7 @@ import {
 	type Overview,
 	type Settings
 } from './api.js';
-import type { Sidebar } from './library.js';
+import type { Sidebar, YearState } from './library.js';
 import { chooseUrl } from './places.js';
 import { text } from './strings.js';
 
@@ -176,14 +176,13 @@ export function sidebarOf(o: Overview): Sidebar {
 	};
 }
 
-/** A year is complete when the download that brought it says every photo
- *  arrived, arriving while it still counts; otherwise nothing is said. */
-function yearState(year: string): 'complete' | 'arriving' | 'none' {
+/** A year is arriving while a running download still brings photos of it.
+ *  Nothing else is said: the library holds photos from anywhere, and one
+ *  download's last count says nothing about the year as a whole. */
+function yearState(year: string): YearState {
 	for (const j of Object.values(app.jobs)) {
 		const y = j.years.find((x) => x.year === year);
-		if (!y) continue;
-		if (y.of > 0 && y.arrived >= y.of) return 'complete';
-		return j.running ? 'arriving' : 'none';
+		if (y && j.running && !(y.of > 0 && y.arrived >= y.of)) return 'arriving';
 	}
 	return 'none';
 }

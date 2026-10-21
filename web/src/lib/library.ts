@@ -13,8 +13,8 @@ export interface Account {
 	photos?: number;
 }
 
-/** "complete": every file the takeouts list is here; "arriving": parts still coming. */
-export type YearState = 'complete' | 'arriving' | 'none';
+/** "arriving": a running download still brings photos of the year. */
+export type YearState = 'arriving' | 'none';
 
 export interface Year {
 	/** A year, or a bucket the engine names ("Still sorting", "No date"). */

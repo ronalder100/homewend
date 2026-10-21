@@ -5,7 +5,6 @@
 		Images,
 		Archive,
 		Settings as SettingsIcon,
-		CircleCheck,
 		Loader,
 		Check,
 		ChevronDown,
@@ -132,9 +131,7 @@
 					>
 						<span class="label">{year.label}</span>
 						<span class="count">{year.count.toLocaleString('en')}</span>
-						{#if year.state === 'complete'}
-							<span class="state ok"><CircleCheck size={16} /></span>
-						{:else if year.state === 'arriving'}
+						{#if year.state === 'arriving'}
 							<span class="state arriving"><Loader size={16} /></span>
 						{/if}
 					</button>
@@ -332,9 +329,6 @@
 	}
 	.state {
 		display: grid;
-	}
-	.ok {
-		color: var(--ok);
 	}
 	.arriving {
 		color: var(--accent);

@@ -11,9 +11,9 @@ export const twoAccounts: Sidebar = {
 	],
 	total: 38584,
 	years: [
-		{ label: '2025', count: 2031, state: 'complete' },
+		{ label: '2025', count: 2031, state: 'none' },
 		{ label: '2024', count: 1610, state: 'arriving' },
-		{ label: '2023', count: 2950, state: 'complete' },
+		{ label: '2023', count: 2950, state: 'none' },
 		{ label: '2022', count: 812, state: 'arriving' },
 		{ label: 'Still sorting', count: 1240, state: 'arriving' },
 		{ label: 'No date', count: 37, state: 'none' }
