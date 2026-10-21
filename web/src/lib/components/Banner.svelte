@@ -60,7 +60,7 @@
 		kind === 'password'
 			? [text.bannerPassword(email), text.bannerPasswordDesc]
 			: kind === 'signed-out'
-				? [text.bannerSignedOut(email), again.here ? text.signingIn : text.bannerSignedOutDesc(job.parts + 1)]
+				? [text.bannerSignedOut(email), again.here ? text.signingIn : again.failed ? text.signInFailed : text.bannerSignedOutDesc(job.parts + 1)]
 				: kind === 'no-space'
 					? [text.bannerNoSpace, text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))]
 					: kind === 'expired'

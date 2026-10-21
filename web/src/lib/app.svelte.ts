@@ -191,7 +191,7 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
 /** The sign-in open in the system browser, one at a time as the engine
  *  allows, wherever it was started: the account signing in again, or NEW for
  *  a new one; '' when none is. A new account's failure is kept to say. */
-export const signIn = $state({ account: '', failed: '' });
+export const signIn = $state({ account: '', failed: '', failedAgain: '' });
 const NEW = 'new';
 /** Any sign-in is open: none can start. */
 const busy = () => signIn.account !== '';
@@ -250,6 +250,10 @@ export function signingInAgain(account: () => string) {
 		},
 		get busy() {
 			return busy();
+		},
+		/** This account's last sign-in again did not finish. */
+		get failed() {
+			return signIn.failedAgain !== '' && signIn.failedAgain === account();
 		}
 	};
 }
@@ -259,6 +263,7 @@ export async function signInAgain(account: string) {
 	// Two clicks quicker than the button greys out reach here both.
 	if (busy()) return;
 	signIn.account = account;
+	signIn.failedAgain = '';
 	try {
 		await login(account);
 		await refresh();
@@ -267,8 +272,9 @@ export async function signInAgain(account: string) {
 		const j = app.jobs[account];
 		if (j?.problem === 'signed-out') await resumeJob(account, j);
 	} catch {
-		// Not signed in after all: the strip that offered it still says so,
-		// and offers it again.
+		// Not signed in after all: the strip that offered it says that it did
+		// not finish, and offers it again. Unsaid, the click looks ignored.
+		signIn.failedAgain = account;
 	} finally {
 		signIn.account = '';
 	}
