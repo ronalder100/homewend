@@ -271,7 +271,12 @@ function updates() {
 	// Asked from the notification and the strip alike: fetched once.
 	let installing = false;
 	const install = () => {
-		if (process.platform === 'darwin') return shell.openExternal(releasePage(tag));
+		if (process.platform === 'darwin') {
+			shell.openExternal(releasePage(tag));
+			// Nothing installs here: the strip offers its button again.
+			win?.webContents.send('update-failed');
+			return;
+		}
 		if (installing) return;
 		installing = true;
 		autoUpdater.downloadUpdate().catch((err) => {
