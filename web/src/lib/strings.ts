@@ -48,7 +48,7 @@ export const text = {
 	themeDark: 'Dark',
 
 	chooseTitle: 'What should Homewend bring home?',
-	chooseLead: "Google prepares the takeout: minutes for a year, a few hours for everything. Leave Homewend open and the download starts by itself; if you have to close it, it picks up where it left off.",
+	chooseLead: "Google prepares the takeout: a few minutes for a year with few photos, about an hour for an entire library. Leave Homewend open and the download starts by itself; if you have to close it, it picks up where it left off.",
 	everything: 'Everything.',
 	everythingDesc: 'All your photos and videos, every album. The first time, this is the one.',
 	oneYear: 'One year.',
@@ -80,7 +80,7 @@ export const text = {
 	bringingTitle: 'Bringing your photos home.',
 	bringingLead: 'You can close this window. Homewend keeps the computer awake while it downloads; if it sleeps anyway, with the lid closed, it picks up at the same byte.',
 	preparingTitle: (y: number) => (y ? `Google is preparing\nyour photos of ${y}.` : 'Google is preparing\nall your photos.'),
-	preparingLead: "Minutes for a year, a few hours for everything. The download starts by itself as soon as it's ready, and Google also sends you an email.",
+	preparingLead: "A few minutes for a year with few photos, about an hour for an entire library. The download starts by itself as soon as it's ready, and Google also sends you an email.",
 	pausedTitle: 'Paused.',
 	pausedLead: 'Nothing is lost: Homewend picks up at the same byte when you resume.',
 	finishedTitle: 'Your photos are home.',
