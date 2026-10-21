@@ -118,6 +118,11 @@
 		return () => clearInterval(t);
 	});
 	const elapsed = $derived(text.elapsed(Math.max(0, Math.floor((tick - stageSince) / 1000))));
+	// While Google prepares it, the wait is counted from when Google got the
+	// request, as its own list says; until that is read, from when this began.
+	const waited = $derived(
+		text.elapsed(Math.max(0, Math.floor((tick - (takeout ? new Date(takeout.Created).getTime() : stageSince)) / 1000)))
+	);
 	const sameDay = (d: Date) => new Date(now).toDateString() === d.toDateString();
 
 	const left = $derived(
@@ -131,7 +136,7 @@
 	{:else}
 		<div class="left">
 			<span class="pill" class:err={job.error && !notOffered} class:warn={notOffered} class:live={job.running}
-				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {elapsed}{:else}<i></i>{headline(job)}{/if}</span
+				>{#if busy(job) || (waiting && job.running)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {waiting ? waited : elapsed}{:else}<i></i>{headline(job)}{/if}</span
 			>
 			<h1>{title}</h1>
 			<p class="lead">{job.error ? failure(job) : lead}</p>
@@ -157,7 +162,7 @@
 				<div class="numbers">
 					{#if takeout}
 						{@const asked = new Date(takeout.Created)}
-						<div><b>{sameDay(asked) ? clock.format(asked) : dayOf(asked)}</b><span>{sameDay(asked) ? text.askedToday : text.asked}</span></div>
+						<div><b>{waited}</b><span>{sameDay(asked) ? text.waitingAskedAt(clock.format(asked)) : text.waitingAskedOn(dayOf(asked))}</span></div>
 					{/if}
 					{#if job.lastLooked}
 						<div><b>{text.minAgo(Math.floor((now - new Date(job.lastLooked).getTime()) / 60000))}</b><span>{text.lastLooked}</span></div>

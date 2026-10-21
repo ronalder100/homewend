@@ -98,7 +98,10 @@ export const text = {
 	settingUp: 'Setting up the download',
 	asking: 'Asking Google for a takeout',
 	askingTitle: (y: number) => (y ? `Asking Google for\nyour photos of ${y}.` : 'Asking Google for\nall your photos.'),
-	elapsed: (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
+	elapsed: (s: number) => {
+		const ss = String(s % 60).padStart(2, '0');
+		return s < 3600 ? `${Math.floor(s / 60)}:${ss}` : `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${ss}`;
+	},
 	pleaseWait: 'please wait…',
 	askingLead: 'Homewend is sending the request to Google and waits for it to be accepted. Nothing to do here: the next step starts by itself.',
 	prepareLead: 'The first download of an account: Google may ask for your password, in a small window.',
@@ -226,8 +229,8 @@ export const text = {
 	notifyReadyBody: (who: string) => `${who}'s photos are coming down now.`,
 	notifyPassword: 'Google asks for your password',
 
-	askedToday: 'asked today',
-	asked: 'asked',
+	waitingAskedAt: (when: string) => `waiting, asked at ${when}`,
+	waitingAskedOn: (day: string) => `waiting, asked on ${day}`,
 	lastLooked: 'last looked',
 	keepsOnceReady: 'Google keeps it, once ready',
 	sevenDays: '7 days',
