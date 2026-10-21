@@ -12,8 +12,8 @@
 	import { onMount, untrack } from 'svelte';
 	import { Archive, Ellipsis, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { folderItems, type MenuItem } from '#lib/components/ContextMenu.svelte';
-	import { app, signIn, sidebarOf, signInAgain, signingInAgain } from '#lib/app.svelte.js';
-	import { ApiError, folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
+	import { app, signIn, sidebarOf, signInAgain, signingInAgain, startJob } from '#lib/app.svelte.js';
+	import { ApiError, folderOf, getTakeouts, readContents, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -115,8 +115,8 @@
 		return { status: text.statusReady, detail: until, tone: 'ok', act: 'download' };
 	}
 
-	async function bring(o: Parameters<typeof startGet>[0]) {
-		await startGet(o);
+	async function bring(o: Parameters<typeof startJob>[0]) {
+		await startJob(o);
 		goto('/bringing');
 	}
 	const download = (t: Takeout, again = false) => bring({ account, export: t.id, again });

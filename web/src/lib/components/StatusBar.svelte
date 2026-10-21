@@ -4,13 +4,13 @@
 <script lang="ts">
 	import { Download, ChevronUp, Pause, Play, CircleAlert } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
-	import { stopJob, startGet } from '#lib/api.js';
+	import { stopJob } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { headline, fraction } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 
 	import Avatar from './Avatar.svelte';
-	import { app } from '#lib/app.svelte.js';
+	import { app, startJob } from '#lib/app.svelte.js';
 	import { roughly } from '#lib/format.js';
 
 	let { account, job, ondetails }: { account: string; job: JobState; ondetails?: () => void } =
@@ -38,7 +38,7 @@
 {#if job.running}
 	<button class="ctl" aria-label={text.pause} onclick={() => stopJob(account)}><Pause size={16} /></button>
 {:else if !job.finished}
-	<button class="ctl" aria-label={text.resume} onclick={() => startGet({ account, year: job.year })}
+	<button class="ctl" aria-label={text.resume} onclick={() => startJob({ account, year: job.year })}
 		><Play size={16} /></button
 	>
 {/if}

@@ -11,6 +11,7 @@ import {
 	getSettings,
 	login,
 	putSettings,
+	startGet,
 	type JobState,
 	type Overview,
 	type Settings
@@ -71,6 +72,13 @@ export function watchJobs(): () => void {
 	tick();
 	const t = setInterval(tick, 1000);
 	return () => clearInterval(t);
+}
+
+/** Starts an account's download and keeps the state it starts in: the page
+ *  that shows it must not wait a second for the next ask, or it sees no
+ *  download and sends the person back to Choose. */
+export async function startJob(o: Parameters<typeof startGet>[0]) {
+	app.jobs[o.account] = await startGet(o);
 }
 
 /** Every account's download has been asked about at least once. */

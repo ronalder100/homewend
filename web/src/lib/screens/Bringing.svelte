@@ -4,8 +4,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Folder, CircleCheck, ArrowRight, Loader } from '@lucide/svelte';
-	import { app, jobsKnown, shownJob } from '#lib/app.svelte.js';
-	import { getLatest, getTakeouts, startGet, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
+	import { app, jobsKnown, shownJob, startJob } from '#lib/app.svelte.js';
+	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
 	import { bytes, roughly } from '#lib/format.js';
 	import { fraction, headline } from '#lib/job.js';
@@ -94,7 +94,7 @@
 				{#if job.running}
 					<SecondaryButton onclick={() => stopJob(shown.account)}>{text.pause}</SecondaryButton>
 				{:else if !job.finished}
-					<PrimaryButton onclick={() => startGet({ account: shown.account, year: job.year })}>{text.resume}</PrimaryButton>
+					<PrimaryButton onclick={() => startJob({ account: shown.account, year: job.year })}>{text.resume}</PrimaryButton>
 				{/if}
 			</div>
 			{#if !waiting && latest.length > 0}

@@ -4,8 +4,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { app } from '#lib/app.svelte.js';
-	import { getLibrary, putLibrary, startGet } from '#lib/api.js';
+	import { app, startJob } from '#lib/app.svelte.js';
+	import { getLibrary, putLibrary } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -47,7 +47,7 @@
 		if (kind === 'asked') return goto('/takeouts');
 		if (!dir) return (failed = text.noLibraryYet);
 		try {
-			await startGet({ account, year: kind === 'year' ? year : 0 });
+			await startJob({ account, year: kind === 'year' ? year : 0 });
 			goto('/bringing');
 		} catch (e) {
 			failed = String(e);
