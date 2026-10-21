@@ -4,7 +4,7 @@
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
 // and stops it when the app quits.
-const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeImage, nativeTheme, powerSaveBlocker, screen, shell } = require('electron');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -192,6 +192,16 @@ async function open() {
 	// D2: the system's own notification, for what happens while nobody looks.
 	ipcMain.on('notify', (_event, title, body) => {
 		if (Notification.isSupported() && !win.isFocused()) notify(title, body, () => win.show());
+	});
+	// Awake while a download runs: asleep, the computer downloads nothing. The
+	// screen may still go dark.
+	let awake = -1;
+	ipcMain.on('keep-awake', (_event, on) => {
+		if (on && awake < 0) awake = powerSaveBlocker.start('prevent-app-suspension');
+		else if (!on && awake >= 0) {
+			powerSaveBlocker.stop(awake);
+			awake = -1;
+		}
 	});
 	ipcMain.on('open-folder', (_event, dir) => {
 		if (typeof dir === 'string' && path.isAbsolute(dir)) shell.openPath(dir);

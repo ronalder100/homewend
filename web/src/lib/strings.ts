@@ -78,7 +78,7 @@ export const text = {
 	bringHome: 'Bring your photos home',
 
 	bringingTitle: 'Bringing your photos home.',
-	bringingLead: 'You can close this window. If the computer sleeps, Homewend picks up at the same byte.',
+	bringingLead: 'You can close this window. Homewend keeps the computer awake while it downloads; if it sleeps anyway, with the lid closed, it picks up at the same byte.',
 	preparingTitle: (y: number) => (y ? `Google is preparing\nyour photos of ${y}.` : 'Google is preparing\nall your photos.'),
 	preparingLead: "Minutes for a year, a few hours for everything. The download starts by itself as soon as it's ready, and Google also sends you an email.",
 	pausedTitle: 'Paused.',

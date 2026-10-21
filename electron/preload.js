@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('shell', {
 	openFolder: (path) => ipcRenderer.send('open-folder', path),
 	onToggleSidebar: (fn) => ipcRenderer.on('toggle-sidebar', () => fn()),
 	notify: (title, body) => ipcRenderer.send('notify', title, body),
+	keepAwake: (on) => ipcRenderer.send('keep-awake', on),
 	onUpdate: (fn) => {
 		ipcRenderer.on('update-available', (_event, version) => fn(version));
 		ipcRenderer.send('update-listen');

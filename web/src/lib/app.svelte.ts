@@ -88,6 +88,8 @@ export function watchJobs(): () => void {
 		// Photos arrive while a job runs: the counts follow them.
 		const running = Object.values(app.jobs).some((j) => j.running);
 		if (running || wasRunning) app.overview = await getOverview();
+		// A computer asleep downloads nothing: awake while photos come home.
+		if (running !== wasRunning) window.shell?.keepAwake(running);
 		wasRunning = running;
 	};
 	tick();
