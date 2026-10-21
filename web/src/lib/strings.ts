@@ -224,7 +224,11 @@ export const text = {
 		'It keeps going in the background and picks up where it was after a restart. It never asks Google twice.',
 	stepAsks: 'Homewend asks Google for the takeout',
 	stepPrepares: 'Google prepares the takeout',
-	askingFor: 'asking for',
+	askingSteps: [
+		{ now: 'Checking your Google sign-in', done: 'Google sign-in checked' },
+		{ now: 'Setting up the download', done: 'Download set up' },
+		{ now: 'Request sent to Google, waiting for it to be accepted', done: 'Request accepted' }
+	],
 	askingCardDesc:
 		'Once Google accepts the request it prepares the takeout; Homewend waits for it and downloads it by itself.',
 	stepDownloads: 'Homewend downloads it, part by part',

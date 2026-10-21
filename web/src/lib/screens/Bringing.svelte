@@ -3,7 +3,7 @@
 <!-- A3, A4, A5: Google preparing, the parts arriving, or paused. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass } from '@lucide/svelte';
+	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass, Circle } from '@lucide/svelte';
 	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
@@ -23,6 +23,10 @@
 	const job = $derived(shown?.job);
 	const waiting = $derived(job?.stage === 'waiting');
 	// Before Google has the request: signing in checked, the export asked for.
+	// Which of the steps before Google's answer is going on: sign-in, set up, request.
+	const askingStep = $derived(
+		({ checking: 0, 'session-ready': 1, prepare: 1, request: 2 } as Record<string, number>)[job?.stage ?? ''] ?? -1
+	);
 	const asking = $derived(!!job?.running && ['checking', 'session-ready', 'prepare', 'request'].includes(job.stage ?? ''));
 	const paused = $derived(job && !job.running && !job.finished && !job.error && job.stage);
 	// Google's password page is open in the browser: closing the window is
@@ -138,9 +142,15 @@
 				</div>
 			{/if}
 			{#if asking}
-				<div class="numbers">
-					<div><b>{elapsed}</b><span>{text.askingFor}</span></div>
-				</div>
+				<ol class="steps">
+					{#each text.askingSteps as st, i (i)}
+						<li class:now={i === askingStep} class:done={i < askingStep}>
+							{#if i < askingStep}<CircleCheck size={20} />{:else if i === askingStep}<span class="spin"><Loader size={20} /></span>{:else}<Circle size={20} />{/if}
+							{i < askingStep ? st.done : st.now}
+							{#if i === askingStep}<time>{elapsed}</time>{/if}
+						</li>
+					{/each}
+				</ol>
 			{:else if waiting}
 				<div class="numbers">
 					{#if takeout}
@@ -318,6 +328,39 @@
 		height: 100%;
 		border-radius: 999px;
 		background: var(--accent);
+	}
+	.steps {
+		list-style: none;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		padding-top: 16px;
+		font-size: var(--text-title-3);
+		color: var(--faint);
+	}
+	.steps li {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.steps li.done {
+		color: var(--muted);
+	}
+	.steps li.done :global(svg) {
+		color: var(--ok);
+	}
+	.steps li.now {
+		color: var(--fg);
+		font-weight: 600;
+	}
+	.steps li.now :global(svg) {
+		color: var(--accent);
+	}
+	.steps time {
+		font-family: var(--font-mono);
+		font-weight: normal;
+		color: var(--muted);
 	}
 	.chips {
 		display: flex;
