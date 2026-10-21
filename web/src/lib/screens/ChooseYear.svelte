@@ -307,6 +307,7 @@
 	.go {
 		width: 640px;
 		max-width: 100%;
+		text-align: left;
 		display: flex;
 		align-items: center;
 		gap: 16px;
