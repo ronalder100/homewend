@@ -88,7 +88,9 @@ export interface JobState {
 	lastLooked?: string;
 	unassigned: number;
 	error?: string;
-	problem?: 'signed-out' | 'no-space' | 'expired';
+	problem?: 'signed-out' | 'no-space' | 'expired' | 'not-offered';
+	/** With not-offered: the years Google has photos of. */
+	offered?: number[];
 	need?: number;
 	free?: number;
 }

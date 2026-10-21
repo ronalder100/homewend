@@ -43,6 +43,8 @@ export function failure(j: JobState): string {
 			return text.bannerNoSpaceDesc(bytes(j.need ?? 0), bytes(j.free ?? 0));
 		case 'expired':
 			return text.bannerExpiredDesc;
+		case 'not-offered':
+			return text.notOfferedLead([...(j.offered ?? [])].sort((a, b) => b - a));
 	}
 	return text.failedLead;
 }

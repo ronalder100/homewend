@@ -11,6 +11,7 @@
 	import { arrived, busy, failure, fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
+	import { chooseUrl } from '#lib/places.js';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 
@@ -25,16 +26,22 @@
 	// Google's password page is open in the browser: closing the window is
 	// not what to do now.
 	const password = $derived(job?.stage === 'first-download' && job.running);
+	// Google has no photos of the year asked: nothing to resume, another to choose.
+	const notOffered = $derived(job?.problem === 'not-offered');
 	const title = $derived(
-		job?.finished
-			? text.finishedTitle
-			: paused
-				? text.pausedTitle
-				: waiting
-					? text.preparingTitle(job?.year ?? 0)
-					: job?.stage === 'request'
-						? text.askingTitle(job.year ?? 0)
-						: text.bringingTitle
+		notOffered
+			? text.notOfferedTitle(job?.year ?? 0)
+			: job?.error
+				? text.bringingTitle
+				: job?.finished
+					? text.finishedTitle
+					: paused
+						? text.pausedTitle
+						: waiting
+							? text.preparingTitle(job?.year ?? 0)
+							: job?.stage === 'request'
+								? text.askingTitle(job.year ?? 0)
+								: text.bringingTitle
 	);
 	const lead = $derived(
 		job?.finished
@@ -143,6 +150,8 @@
 			<div class="actions">
 				{#if job.running}
 					<SecondaryButton onclick={() => stopJob(shown.account)}>{text.pause}</SecondaryButton>
+				{:else if notOffered}
+					<PrimaryButton onclick={() => goto(chooseUrl(shown.account))}>{text.chooseAnother}</PrimaryButton>
 				{:else if !job.finished}
 					<PrimaryButton onclick={() => resumeJob(shown.account, job)}>{text.resume}</PrimaryButton>
 				{/if}

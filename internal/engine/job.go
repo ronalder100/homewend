@@ -51,8 +51,10 @@ type JobState struct {
 	Finished   bool   `json:"finished,omitempty"`
 	Error      string `json:"error,omitempty"`
 	// Problem names what stopped the job when a person can act on it:
-	// "signed-out", "no-space" (Need and Free say how much), "expired".
+	// "signed-out", "no-space" (Need and Free say how much), "expired",
+	// "not-offered" (Google has no photos of the year; Offered, the years it has).
 	Problem string `json:"problem,omitempty"`
+	Offered []int  `json:"offered,omitempty"`
 	Need    int64  `json:"need,omitempty"`
 	Free    int64  `json:"free,omitempty"`
 }
@@ -60,7 +62,15 @@ type JobState struct {
 // problem names an error a person can act on.
 func problem(err error, s *JobState) {
 	var space NoSpaceError
+	var notOffered *takeout.NotOfferedError
 	switch {
+	case errors.As(err, &notOffered):
+		s.Problem = "not-offered"
+		for _, e := range notOffered.Offered {
+			if y, ok := takeout.YearOf(e.ID); ok {
+				s.Offered = append(s.Offered, y)
+			}
+		}
 	case errors.As(err, &space):
 		s.Problem, s.Need, s.Free = "no-space", space.Need, space.Free
 	case errors.Is(err, ErrNotSignedIn), errors.Is(err, takeout.ErrSignedOut):

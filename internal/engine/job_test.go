@@ -41,17 +41,28 @@ func TestJobRecordsWhereItStands(t *testing.T) {
 
 func TestProblemNamesWhatAPersonCanFix(t *testing.T) {
 	for err, want := range map[error]string{
-		ErrSignInClosed:                 "signed-out",
-		takeout.ErrSignedOut:            "signed-out",
-		NoSpaceError{Need: 10, Free: 1}: "no-space",
-		ErrExpired:                      "expired",
-		errors.New("something else"):    "",
+		ErrSignInClosed:                      "signed-out",
+		takeout.ErrSignedOut:                 "signed-out",
+		NoSpaceError{Need: 10, Free: 1}:      "no-space",
+		ErrExpired:                           "expired",
+		&takeout.NotOfferedError{Year: 2024}: "not-offered",
+		errors.New("something else"):         "",
 	} {
 		var s JobState
 		problem(err, &s)
 		if s.Problem != want {
 			t.Errorf("%v: got %q, want %q", err, s.Problem, want)
 		}
+	}
+}
+
+// A year Google has no photos of is said with the years it has.
+func TestNotOfferedSaysTheYearsGoogleHas(t *testing.T) {
+	var s JobState
+	// "EgUyAwjpDw" is Google's id for 2025 (see takeout.YearOf); "Trip" an album.
+	problem(&takeout.NotOfferedError{Year: 2024, Offered: []takeout.Entry{{ID: "EgUyAwjpDw"}, {ID: "Trip"}}}, &s)
+	if s.Problem != "not-offered" || len(s.Offered) != 1 || s.Offered[0] != 2025 {
+		t.Fatalf("got %q %v, want not-offered [2025]", s.Problem, s.Offered)
 	}
 }
 

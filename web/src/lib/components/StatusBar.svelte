@@ -37,7 +37,7 @@
 <button class="details" onclick={ondetails}>{text.details}<ChevronUp size={14} /></button>
 {#if job.running}
 	<button class="ctl" aria-label={text.pause} onclick={() => stopJob(account)}><Pause size={16} /></button>
-{:else if !job.finished}
+{:else if !job.finished && job.problem !== 'not-offered'}
 	<button class="ctl" aria-label={text.resume} onclick={() => resumeJob(account, job)}
 		><Play size={16} /></button
 	>
