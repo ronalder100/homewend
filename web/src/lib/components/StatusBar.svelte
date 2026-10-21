@@ -19,7 +19,7 @@
 	const left = $derived(app.left[account]);
 </script>
 
-<span class="icon" class:err={job.error} class:live={job.running && !busy(job)} class:spin={busy(job)}>
+<span class="icon" class:err={job.error && job.problem !== 'not-offered'} class:warn={job.problem === 'not-offered'} class:live={job.running && !busy(job)} class:spin={busy(job)}>
 	{#if job.error}<CircleAlert size={16} />{:else if busy(job)}<Loader size={16} />{:else}<Download size={16} />{/if}
 </span>
 <span class="what">{headline(job)}{busy(job) ? ` · ${text.pleaseWait}` : ''}</span>
@@ -31,7 +31,7 @@
 	>
 {/if}
 {#if job.retry}<span class="note">{text.retrying(job.retry)}</span>{/if}
-{#if job.error}<span class="note err" title={failure(job)}>{failure(job)}</span>{/if}
+{#if job.error}<span class="note" class:err={job.problem !== 'not-offered'} title={failure(job)}>{failure(job)}</span>{/if}
 {#if job.running && !job.retry}<span class="note sleep">{text.pickUpAfterSleep}</span>{/if}
 <span class="spacer"></span>
 <button class="details" onclick={ondetails}>{text.details}<ChevronUp size={14} /></button>
@@ -63,6 +63,9 @@
 		to {
 			transform: rotate(360deg);
 		}
+	}
+	.icon.warn {
+		color: var(--warn);
 	}
 	.icon.err {
 		color: var(--err);

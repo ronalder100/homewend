@@ -111,10 +111,8 @@ export const text = {
 	retrying: (why: string) => `No network: trying again (${why})`,
 	failed: 'Stopped',
 	notOfferedTitle: (y: number) => `Google has no photos\nof ${y}.`,
-	notOfferedLead: (years: number[]) =>
-		years.length
-			? `On Google this account has photos of ${years.join(', ')}. Choose one of them, or everything.`
-			: 'Choose another year, or everything.',
+	notOfferedLead: 'This account has photos of other years: choose one, or everything.',
+	nothingToBring: 'Nothing to bring home',
 	chooseAnother: 'Choose another',
 	failedLead: 'Something stopped the download. Resume to try again: nothing already downloaded is lost.',
 	seeLibrary: 'See them in your library',

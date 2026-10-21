@@ -128,7 +128,7 @@
 		<!-- Known within a second: a download, or the page to start one. -->
 	{:else}
 		<div class="left">
-			<span class="pill" class:err={job.error} class:live={job.running}
+			<span class="pill" class:err={job.error && !notOffered} class:warn={notOffered} class:live={job.running}
 				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {text.pleaseWait} {elapsed}{:else}<i></i>{headline(job)}{/if}</span
 			>
 			<h1>{title}</h1>
@@ -287,6 +287,10 @@
 			transform: rotate(360deg);
 		}
 	}
+	.pill.warn {
+		background: var(--warn-soft);
+		color: var(--warn);
+	}
 	.pill.err {
 		background: var(--err-soft);
 		color: var(--err);
@@ -364,6 +368,7 @@
 	}
 	.chips {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 8px;
 	}
 	.chip {

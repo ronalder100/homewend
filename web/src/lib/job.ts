@@ -7,6 +7,7 @@ import { bytes } from './format.js';
 import { text } from './strings.js';
 
 export function headline(j: JobState): string {
+	if (j.problem === 'not-offered') return text.nothingToBring;
 	if (j.error) return text.failed;
 	if (j.finished) return text.finished;
 	// Paused before any part was known, Google preparing it: no part to name.
@@ -44,7 +45,7 @@ export function failure(j: JobState): string {
 		case 'expired':
 			return text.bannerExpiredDesc;
 		case 'not-offered':
-			return text.notOfferedLead([...(j.offered ?? [])].sort((a, b) => b - a));
+			return text.notOfferedLead;
 	}
 	return text.failedLead;
 }
