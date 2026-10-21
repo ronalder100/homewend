@@ -4,6 +4,7 @@
 package web
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"testing/fstest"
 
 	"github.com/ronalder100/homewend/internal/engine"
+	"github.com/ronalder100/homewend/internal/session"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -209,5 +211,15 @@ func TestFolderOfAProfile(t *testing.T) {
 	}
 	if got := get(s, "/api/folder?profile=..%2Fx", cookie); got.Code != http.StatusBadRequest {
 		t.Errorf("a path as a profile: %d, want 400", got.Code)
+	}
+}
+
+// No browser to sign in with is not a fault of ours: the page is told apart,
+// to say what to install.
+func TestNoBrowserIsAFailedDependency(t *testing.T) {
+	w := httptest.NewRecorder()
+	reply(w, nil, fmt.Errorf("signing in: %w", session.ErrNoBrowser))
+	if w.Code != http.StatusFailedDependency {
+		t.Fatalf("no browser: %d, want 424", w.Code)
 	}
 }

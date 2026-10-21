@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
+	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
@@ -244,6 +245,10 @@ func reply(w http.ResponseWriter, v any, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, takeout.ErrSignedOut):
 		http.Error(w, err.Error(), http.StatusUnauthorized)
+	// Nothing the request or we did wrong: the machine lacks what signing
+	// in needs, and the page says what to install.
+	case errors.Is(err, session.ErrNoBrowser):
+		http.Error(w, "no Chromium-family browser found", http.StatusFailedDependency)
 	case errors.Is(err, fs.ErrNotExist), errors.Is(err, engine.ErrNoLibrary), errors.Is(err, engine.ErrNoSuchAccount):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:
