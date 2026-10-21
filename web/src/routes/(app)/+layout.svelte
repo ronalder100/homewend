@@ -32,8 +32,15 @@
 	const firstRun = $derived(
 		(app.overview?.total ?? 0) === 0 && (page.url.pathname === '/choose' || page.url.pathname === '/bringing')
 	);
+	const picked = $derived(job ? app.picked[job.account] : '');
 	const chose = $derived(
-		job?.job.year ? text.choseYear(job.job.year) : job ? text.choseEverything : text.stepChooseLabel
+		job?.job.year
+			? text.choseYear(job.job.year)
+			: picked && job?.job.export?.startsWith(picked)
+				? text.choseTakeout
+				: job
+					? text.choseEverything
+					: text.stepChooseLabel
 	);
 
 	// Said once each, when it happens, in D2's words.

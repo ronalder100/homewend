@@ -30,6 +30,9 @@ export const app = $state<{
 	/** A newer version, offered; and whether it is being installed. */
 	update: string;
 	updating: boolean;
+	/** The takeout picked from the list, per account: a download of it is
+	 *  named for it, not for the year 0 it carries. */
+	picked: Record<string, string>;
 }>({
 	settings: {},
 	overview: null,
@@ -37,7 +40,8 @@ export const app = $state<{
 	left: {},
 	error: '',
 	update: '',
-	updating: false
+	updating: false,
+	picked: {}
 });
 
 const samples: Record<string, { t: number; done: number }[]> = {};

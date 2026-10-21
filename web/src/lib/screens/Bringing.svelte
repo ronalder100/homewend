@@ -22,10 +22,29 @@
 	const job = $derived(shown?.job);
 	const waiting = $derived(job?.stage === 'waiting');
 	const paused = $derived(job && !job.running && !job.finished && !job.error && job.stage);
+	// Google's password page is open in the browser: closing the window is
+	// not what to do now.
+	const password = $derived(job?.stage === 'first-download' && job.running);
 	const title = $derived(
-		job?.finished ? text.finishedTitle : paused ? text.pausedTitle : waiting ? text.preparingTitle : text.bringingTitle
+		job?.finished
+			? text.finishedTitle
+			: paused
+				? text.pausedTitle
+				: waiting
+					? text.preparingTitle(job?.year ?? 0)
+					: text.bringingTitle
 	);
-	const lead = $derived(paused ? text.pausedLead : waiting ? text.preparingLead : text.bringingLead);
+	const lead = $derived(
+		job?.finished
+			? text.finishedLead
+			: paused
+				? text.pausedLead
+				: password
+					? text.passwordLead
+					: waiting
+						? text.preparingLead
+						: text.bringingLead
+	);
 	const email = $derived(app.overview?.accounts.find((a) => a.id === shown?.account)?.email ?? '');
 
 	// The takeout as Google lists it: when it was asked, until when it is kept.
@@ -100,7 +119,7 @@
 			{#if !waiting && latest.length > 0}
 				<div class="strip">
 					<div class="striphead">
-						<span>{paused ? text.lastArrived : text.firstArrived}</span>
+						<span>{paused ? text.lastArrived : text.justArrived}</span>
 						<button class="link" onclick={() => goto('/library')}>{text.seeLibrary}<ArrowRight size={14} /></button>
 					</div>
 					<div class="tiles">

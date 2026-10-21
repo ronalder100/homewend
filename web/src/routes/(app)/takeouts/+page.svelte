@@ -127,7 +127,10 @@
 			refused = startFailure(e);
 		}
 	}
-	const download = (t: Takeout, again = false) => bring({ account, export: t.id, again });
+	const download = (t: Takeout, again = false) => {
+		app.picked[account] = t.id;
+		return bring({ account, export: t.id, again });
+	};
 	// An expired takeout is asked of Google once more, as it was asked.
 	const askAgain = (t: Takeout) => bring({ account, year: t.known && t.year ? t.year : undefined, fresh: true });
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.

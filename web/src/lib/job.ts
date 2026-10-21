@@ -8,8 +8,12 @@ import { text } from './strings.js';
 
 export function headline(j: JobState): string {
 	if (j.error) return text.failed;
-	if (!j.running && j.of > 0 && !j.finished) return text.pausedAt(j.parts + 1, j.of);
+	if (j.finished) return text.finished;
+	// Paused before any part was known, Google preparing it: no part to name.
+	if (!j.running) return j.of > 0 ? text.pausedAt(j.parts + 1, j.of) : text.paused;
 	switch (j.stage) {
+		case 'first-download':
+			return text.waitingForPassword;
 		case 'checking':
 		case 'prepare':
 		case 'request':
