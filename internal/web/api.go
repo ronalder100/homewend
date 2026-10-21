@@ -17,11 +17,10 @@ import (
 
 // apiRoutes are the engine calls the page makes. Each is a thin translation
 // to JSON: what they do lives in the engine.
-func apiRoutes() http.Handler {
+func apiRoutes(jobs *engine.Jobs) http.Handler {
 	mux := http.NewServeMux()
 	// One sign-in at a time: a second click must not open a second browser.
 	var signingIn sync.Mutex
-	jobs := &engine.Jobs{}
 	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
 		s, err := engine.LoadSettings()
 		reply(w, s, err)
@@ -198,7 +197,8 @@ func apiRoutes() http.Handler {
 		id := r.URL.Query().Get("account")
 		dir, err := engine.AccountDir(id)
 		if err == nil {
-			jobs.Stop(id)
+			// The job's browser must be gone before its profile is.
+			<-jobs.Stop(id)
 			_, err = engine.Logout(dir)
 		}
 		reply(w, map[string]string{}, err)

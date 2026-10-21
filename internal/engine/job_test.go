@@ -4,8 +4,10 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 	"github.com/ronalder100/homewend/internal/takeout"
@@ -50,5 +52,50 @@ func TestProblemNamesWhatAPersonCanFix(t *testing.T) {
 		if s.Problem != want {
 			t.Errorf("%v: got %q, want %q", err, s.Problem, want)
 		}
+	}
+}
+
+// slow is a job that takes a while to let go once stopped, as one closing
+// its browser does; ended says when it has.
+func slow(ended *bool) func(context.Context, progress.Func) error {
+	return func(ctx context.Context, _ progress.Func) error {
+		<-ctx.Done()
+		time.Sleep(50 * time.Millisecond)
+		*ended = true
+		return ctx.Err()
+	}
+}
+
+func TestStopWaitsForTheJobToEnd(t *testing.T) {
+	var j Jobs
+	var ended bool
+	if err := j.start("a", Get{}, slow(&ended)); err != nil {
+		t.Fatal(err)
+	}
+	<-j.Stop("a")
+	if !ended {
+		t.Fatal("Stop's channel closed before the job ended")
+	}
+	if s := j.State("a"); s.Running || s.Error != "" {
+		t.Errorf("stopped: %+v", s)
+	}
+	select {
+	case <-j.Stop("none"):
+	default:
+		t.Error("stopping no job does not end at once")
+	}
+}
+
+func TestStopAllWaitsForEveryJob(t *testing.T) {
+	var j Jobs
+	ended := make([]bool, 2)
+	for i, account := range []string{"a", "b"} {
+		if err := j.start(account, Get{}, slow(&ended[i])); err != nil {
+			t.Fatal(err)
+		}
+	}
+	j.StopAll()
+	if !ended[0] || !ended[1] {
+		t.Fatalf("StopAll returned before every job ended: %v", ended)
 	}
 }

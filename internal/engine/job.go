@@ -24,7 +24,10 @@ type Jobs struct {
 
 type job struct {
 	cancel context.CancelFunc
-	state  JobState
+	// closed once the job has returned, and let go of the account's browser
+	// profile and of the library
+	done  chan struct{}
+	state JobState
 	// bytes of the parts already complete, for the total arrived so far
 	partsBytes int64
 }
@@ -83,6 +86,13 @@ func (j *Jobs) Start(account string, g Get) error {
 	if err != nil {
 		return err
 	}
+	return j.start(account, g, func(ctx context.Context, emit progress.Func) error {
+		_, err := g.Run(ctx, sess, emit)
+		return err
+	})
+}
+
+func (j *Jobs) start(account string, g Get, run func(context.Context, progress.Func) error) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if j.jobs == nil {
@@ -92,10 +102,11 @@ func (j *Jobs) Start(account string, g Get) error {
 		return ErrJobRunning
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	jb := &job{cancel: cancel, state: JobState{Running: true, Year: g.Year, Years: []YearProgress{}}}
+	jb := &job{cancel: cancel, done: make(chan struct{}), state: JobState{Running: true, Year: g.Year, Years: []YearProgress{}}}
 	j.jobs[account] = jb
 	go func() {
-		_, err := g.Run(ctx, sess, func(e progress.Event) {
+		defer close(jb.done)
+		err := run(ctx, func(e progress.Event) {
 			j.mu.Lock()
 			jb.record(e)
 			j.mu.Unlock()
@@ -115,12 +126,39 @@ func (j *Jobs) Start(account string, g Get) error {
 	return nil
 }
 
-// Stop pauses the account's job; Start carries on from where it stopped.
-func (j *Jobs) Stop(account string) {
+// Stop pauses the account's job; Start carries on from where it stopped. The
+// channel closes when the job has ended, for whoever must wait for it before
+// deleting what it uses.
+func (j *Jobs) Stop(account string) <-chan struct{} {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if jb := j.jobs[account]; jb != nil {
 		jb.cancel()
+		return jb.done
+	}
+	return ended
+}
+
+// ended is the end of a job that never ran.
+var ended = func() chan struct{} {
+	c := make(chan struct{})
+	close(c)
+	return c
+}()
+
+// StopAll stops every job and waits for each to end. A program that exits
+// under a running job leaves its browser running, and the account's profile
+// locked to the next run.
+func (j *Jobs) StopAll() {
+	j.mu.Lock()
+	var done []chan struct{}
+	for _, jb := range j.jobs {
+		jb.cancel()
+		done = append(done, jb.done)
+	}
+	j.mu.Unlock()
+	for _, d := range done {
+		<-d
 	}
 }
 

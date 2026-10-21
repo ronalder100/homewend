@@ -18,6 +18,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/ronalder100/homewend/internal/engine"
 )
 
 // dist is the page as built by web/ (npm run build). Only .gitkeep is
@@ -42,6 +44,10 @@ type Server struct {
 	host  string
 	ln    net.Listener
 	srv   *http.Server
+	jobs  *engine.Jobs
+	// stop ends every request's context: Shutdown waits for the requests in
+	// flight, and a sign-in is one until the person has signed in.
+	stop context.CancelFunc
 }
 
 // Listen binds the loopback and makes a token for this run.
@@ -51,9 +57,11 @@ func Listen() (*Server, error) {
 		return nil, err
 	}
 	token := rand.Text()
-	s := &Server{token: token, host: ln.Addr().String(), ln: ln}
+	ctx, stop := context.WithCancel(context.Background())
+	s := &Server{token: token, host: ln.Addr().String(), ln: ln, jobs: &engine.Jobs{}, stop: stop}
 	s.URL = "http://" + s.host + "/?t=" + token
-	s.srv = &http.Server{Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second}
+	s.srv = &http.Server{Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second,
+		BaseContext: func(net.Listener) context.Context { return ctx }}
 	return s, nil
 }
 
@@ -65,14 +73,19 @@ func (s *Server) Serve() error {
 	return nil
 }
 
-// Shutdown stops taking requests and waits for the ones in flight.
+// Shutdown stops taking requests, ends the ones in flight, and stops the
+// downloads and waits for them: each one's browser is closed before the
+// program exits, or it would keep the account's profile locked.
 func (s *Server) Shutdown(ctx context.Context) error {
-	return s.srv.Shutdown(ctx)
+	s.stop()
+	err := s.srv.Shutdown(ctx)
+	s.jobs.StopAll()
+	return err
 }
 
 func (s *Server) handler() http.Handler {
 	files, _ := fs.Sub(dist, "dist")
-	api := apiRoutes()
+	api := apiRoutes(s.jobs)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A page on another site can resolve its own name to 127.0.0.1;
 		// the Host header is what tells that request apart from ours.
