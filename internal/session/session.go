@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -151,32 +153,74 @@ func printable(b []byte) bool {
 }
 
 // Cookies reads the profile's Google cookies, fresh, every time it is called.
-// That is the point of this package, not an inefficiency.
+// That is the point of this package, not an inefficiency. The header holds
+// every one of them, for telling that they changed: a request carries only
+// its own (cookiesFor).
 func (s *Session) Cookies() (header string, names map[string]bool, err error) {
-	var pairs []string
-	names = map[string]bool{}
-	err = s.query("Cookies",
-		`SELECT name, value, encrypted_value FROM cookies WHERE host_key LIKE '%google.com'`,
-		func(rows *sql.Rows) error {
-			var name, plain string
-			var encrypted []byte
-			if err := rows.Scan(&name, &plain, &encrypted); err != nil {
-				return err
-			}
-			value := plain
-			if value == "" {
-				value = s.decrypt(encrypted)
-			}
-			if value != "" {
-				pairs = append(pairs, name+"="+value)
-				names[name] = true
-			}
-			return nil
-		})
+	all, err := s.cookies()
 	if err != nil {
 		return "", nil, err
 	}
+	pairs := make([]string, len(all))
+	names = map[string]bool{}
+	for i, c := range all {
+		pairs[i] = c.Name + "=" + c.Value
+		names[c.Name] = true
+	}
 	return strings.Join(pairs, "; "), names, nil
+}
+
+// cookiesFor is the Cookie header a browser would send to target: the
+// cookies of its host and of the domains above it, on its path. Not every
+// Google cookie: once the profile had opened photos.google.com it held two
+// OSID, that one's and Takeout's, and /manage answered both with a redirect
+// to accounts.google.com/CookieMismatch, a session that looked signed out
+// (measured 2026-10-21).
+func (s *Session) cookiesFor(target *url.URL) (string, error) {
+	all, err := s.cookies()
+	if err != nil {
+		return "", err
+	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return "", err
+	}
+	for _, c := range all {
+		// Chrome writes a domain cookie's host with a leading dot, a host
+		// cookie's without.
+		host := strings.TrimPrefix(c.Domain, ".")
+		if c.Domain == host {
+			c.Domain = ""
+		}
+		jar.SetCookies(&url.URL{Scheme: "https", Host: host, Path: c.Path}, []*http.Cookie{c})
+	}
+	var pairs []string
+	for _, c := range jar.Cookies(target) {
+		pairs = append(pairs, c.Name+"="+c.Value)
+	}
+	return strings.Join(pairs, "; "), nil
+}
+
+// cookies reads the profile's Google cookies, each with its host and path.
+func (s *Session) cookies() ([]*http.Cookie, error) {
+	var all []*http.Cookie
+	err := s.query("Cookies",
+		`SELECT name, value, encrypted_value, host_key, path FROM cookies WHERE host_key LIKE '%google.com'`,
+		func(rows *sql.Rows) error {
+			var c http.Cookie
+			var encrypted []byte
+			if err := rows.Scan(&c.Name, &c.Value, &encrypted, &c.Domain, &c.Path); err != nil {
+				return err
+			}
+			if c.Value == "" {
+				c.Value = s.decrypt(encrypted)
+			}
+			if c.Value != "" {
+				all = append(all, &c)
+			}
+			return nil
+		})
+	return all, err
 }
 
 // DownloadURLs lists the addresses the browser's downloads finally came from,
@@ -270,12 +314,12 @@ func copyFile(source, dest string) error {
 // Those headers are not decoration: the download endpoint refuses anything
 // whose Sec-Fetch-Dest is not "document", which is why a fetch() from inside
 // the page bounces and a navigation does not. Measured 2026-09-23.
-func (s *Session) Get(url string, extra map[string]string) (*http.Response, error) {
-	cookies, _, err := s.Cookies()
+func (s *Session) Get(address string, extra map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, address, nil)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	cookies, err := s.cookiesFor(req.URL)
 	if err != nil {
 		return nil, err
 	}

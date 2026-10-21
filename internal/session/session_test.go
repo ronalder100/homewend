@@ -6,6 +6,7 @@ package session
 import (
 	"database/sql"
 	"encoding/hex"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,5 +113,45 @@ func TestTheCookieKeysAreChromes(t *testing.T) {
 		if got := hex.EncodeToString(keyFor(system)); got != want {
 			t.Errorf("%s: key %s, want %s", system, got, want)
 		}
+	}
+}
+
+// A request carries the cookies of its host and of the domains above it, not
+// another host's: two OSID, photos.google.com's and Takeout's, made /manage
+// answer CookieMismatch.
+func TestARequestCarriesOnlyItsHostsCookies(t *testing.T) {
+	profile := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(profile, "Default"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", filepath.Join(profile, "Default", "Cookies"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE cookies (host_key TEXT, name TEXT, value TEXT, encrypted_value BLOB, path TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range [][3]string{
+		{".google.com", "SID", "s"},
+		{"takeout.google.com", "OSID", "takeout"},
+		{"photos.google.com", "OSID", "photos"},
+		{"accounts.google.com", "LSID", "l"},
+	} {
+		if _, err := db.Exec(`INSERT INTO cookies VALUES (?, ?, ?, x'', '/')`, c[0], c[1], c[2]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := New(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := url.Parse("https://takeout.google.com/manage")
+	got, err := s.cookiesFor(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "SID=s; OSID=takeout"; got != want && got != "OSID=takeout; SID=s" {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
