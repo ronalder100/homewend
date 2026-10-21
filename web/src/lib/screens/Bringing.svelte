@@ -8,7 +8,7 @@
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
 	import { bytes, roughly } from '#lib/format.js';
-	import { failure, fraction, headline } from '#lib/job.js';
+	import { arrived, busy, failure, fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
@@ -32,7 +32,9 @@
 				? text.pausedTitle
 				: waiting
 					? text.preparingTitle(job?.year ?? 0)
-					: text.bringingTitle
+					: job?.stage === 'request'
+						? text.askingTitle(job.year ?? 0)
+						: text.bringingTitle
 	);
 	const lead = $derived(
 		job?.finished
@@ -43,7 +45,11 @@
 					? text.passwordLead
 					: waiting
 						? text.preparingLead
-						: text.bringingLead
+						: job?.stage === 'request'
+							? text.askingLead
+							: job?.stage === 'prepare'
+								? text.prepareLead
+								: text.bringingLead
 	);
 	const email = $derived(app.overview?.accounts.find((a) => a.id === shown?.account)?.email ?? '');
 
@@ -75,6 +81,22 @@
 	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 	const dayOf = (d: Date) => `${d.getDate()} ${months[d.getMonth()]}`;
+	// How long the step going on has lasted, counted here from when it began:
+	// a number that moves says the wait is alive.
+	let stageSince = $state(Date.now());
+	let lastStage = '';
+	let tick = $state(Date.now());
+	$effect(() => {
+		const s = job?.stage ?? '';
+		if (s !== lastStage) {
+			lastStage = s;
+			stageSince = Date.now();
+		}
+	});
+	onMount(() => {
+		const t = setInterval(() => (tick = Date.now()), 1000);
+		return () => clearInterval(t);
+	});
 	let now = $state(Date.now());
 	onMount(() => {
 		const t = setInterval(() => (now = Date.now()), 30000);
@@ -92,7 +114,9 @@
 		<!-- Known within a second: a download, or the page to start one. -->
 	{:else}
 		<div class="left">
-			<span class="pill" class:err={job.error} class:live={job.running}><i></i>{headline(job)}</span>
+			<span class="pill" class:err={job.error} class:live={job.running}
+				>{#if busy(job)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {text.pleaseWait} {text.elapsed(Math.max(0, Math.floor((tick - stageSince) / 1000)))}{:else}<i></i>{headline(job)}{/if}</span
+			>
 			<h1>{title}</h1>
 			<p class="lead">{job.error ? failure(job) : lead}</p>
 			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
@@ -123,7 +147,7 @@
 					<PrimaryButton onclick={() => resumeJob(shown.account, job)}>{text.resume}</PrimaryButton>
 				{/if}
 			</div>
-			{#if !waiting && latest.length > 0}
+			{#if !waiting && latest.length > 0 && arrived(job)}
 				<div class="strip">
 					<div class="striphead">
 						<span>{paused ? text.lastArrived : text.justArrived}</span>
@@ -218,6 +242,15 @@
 	@keyframes pulse {
 		50% {
 			opacity: 0.25;
+		}
+	}
+	.spin {
+		display: grid;
+		animation: spin 1s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
 		}
 	}
 	.pill.err {

@@ -15,9 +15,13 @@ export function headline(j: JobState): string {
 		case 'first-download':
 			return text.waitingForPassword;
 		case 'checking':
-		case 'prepare':
-		case 'request':
 			return text.checking;
+		case 'session-ready':
+			return text.settingUpAccount;
+		case 'prepare':
+			return text.settingUp;
+		case 'request':
+			return text.asking;
 		case 'waiting':
 			return text.waitingForGoogle;
 		case 'unpack':
@@ -41,6 +45,19 @@ export function failure(j: JobState): string {
 			return text.bannerExpiredDesc;
 	}
 	return text.failedLead;
+}
+
+/** A wait on Google or on Homewend with nothing to count yet: it turns and
+ *  says "please wait", as the command line does. Not the password, which is
+ *  the person's, nor Google preparing, hours long with a screen of its own. */
+export function busy(j: JobState): boolean {
+	return j.running && !j.retry && !['first-download', 'sign-in', 'waiting', 'download', 'receiving'].includes(j.stage ?? '');
+}
+
+/** Photos of this download are in the folder: the ones there before are
+ *  not "just arrived". */
+export function arrived(j: JobState): boolean {
+	return (j.years ?? []).some((y) => y.arrived > 0);
 }
 
 export function fraction(j: JobState): number {

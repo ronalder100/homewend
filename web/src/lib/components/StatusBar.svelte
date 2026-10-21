@@ -2,11 +2,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The download, in one line under every screen of the library. -->
 <script lang="ts">
-	import { Download, ChevronUp, Pause, Play, CircleAlert } from '@lucide/svelte';
+	import { Download, ChevronUp, Pause, Play, CircleAlert, Loader } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { stopJob } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { failure, headline, fraction } from '#lib/job.js';
+	import { busy, failure, headline, fraction } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 
 	import Avatar from './Avatar.svelte';
@@ -19,10 +19,10 @@
 	const left = $derived(app.left[account]);
 </script>
 
-<span class="icon" class:err={job.error} class:live={job.running}>
-	{#if job.error}<CircleAlert size={16} />{:else}<Download size={16} />{/if}
+<span class="icon" class:err={job.error} class:live={job.running && !busy(job)} class:spin={busy(job)}>
+	{#if job.error}<CircleAlert size={16} />{:else if busy(job)}<Loader size={16} />{:else}<Download size={16} />{/if}
 </span>
-<span class="what">{headline(job)}</span>
+<span class="what">{headline(job)}{busy(job) ? ` · ${text.pleaseWait}` : ''}</span>
 {#if email}<span class="who"><Avatar account={{ id: account, name: email, email, shown: true }} />{email}</span>{/if}
 {#if job.total > 0}
 	<span class="track"><b style:width="{fraction(job) * 100}%"></b></span>
@@ -54,6 +54,14 @@
 	@keyframes pulse {
 		50% {
 			opacity: 0.35;
+		}
+	}
+	.icon.spin {
+		animation: spin 1s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
 		}
 	}
 	.icon.err {
