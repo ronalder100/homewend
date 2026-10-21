@@ -140,7 +140,6 @@
 			{#if asking}
 				<div class="numbers">
 					<div><b>{elapsed}</b><span>{text.askingFor}</span></div>
-					<div><b>{text.twoThreeMin}</b><span>{text.usuallyTakes}</span></div>
 				</div>
 			{:else if waiting}
 				<div class="numbers">
