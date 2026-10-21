@@ -6,12 +6,20 @@ import type { JobState } from './api.js';
 import { bytes } from './format.js';
 import { text } from './strings.js';
 
+/** The part being brought, and how many there are, as the person counts
+ *  them: the manifest is one more archive to the engine, fetched first, and
+ *  no part of the person's photos. */
+export function part(j: JobState): { n: number; of: number } {
+	const of = Math.max(j.of - 1, 1);
+	return { n: Math.min(Math.max(j.parts, 1), of), of };
+}
+
 export function headline(j: JobState): string {
 	if (j.problem === 'not-offered') return text.nothingToBring;
 	if (j.error) return text.failed;
 	if (j.finished) return text.finished;
 	// Paused before any part was known, Google preparing it: no part to name.
-	if (!j.running) return j.of > 0 ? text.pausedAt(j.parts + 1, j.of) : text.paused;
+	if (!j.running) return j.of > 0 ? text.pausedAt(part(j).n, part(j).of) : text.paused;
 	switch (j.stage) {
 		case 'first-download':
 			return text.waitingForPassword;
@@ -33,7 +41,7 @@ export function headline(j: JobState): string {
 		case 'year':
 			return text.sorting;
 	}
-	if (j.of > 0) return text.bringingPart(Math.min(j.parts + 1, j.of), j.of);
+	if (j.of > 0) return text.bringingPart(part(j).n, part(j).of);
 	return text.checking;
 }
 
@@ -41,7 +49,7 @@ export function headline(j: JobState): string {
 export function failure(j: JobState): string {
 	switch (j.problem) {
 		case 'signed-out':
-			return text.bannerSignedOutDesc(j.parts + 1);
+			return text.bannerSignedOutDesc(part(j).n);
 		case 'no-space':
 			return text.bannerNoSpaceDesc(bytes(j.need ?? 0), bytes(j.free ?? 0));
 		case 'expired':

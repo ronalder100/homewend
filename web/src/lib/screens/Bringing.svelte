@@ -222,12 +222,16 @@
 				<header><h2>{text.byYear}</h2><span>{text.byYearLegend}</span></header>
 				{#each job.years as y (y.year)}
 					{@const done = y.of > 0 && y.arrived >= y.of}
+					<!-- Photos land when their part is whole: until then a takeout of
+					     this year alone moves with the bytes, any year by its spinner. -->
+					{@const share = job.year && String(job.year) === y.year ? Math.max(fraction(job), y.of ? y.arrived / y.of : 0) : y.of ? y.arrived / y.of : 0}
 					<div class="year">
 						<span class="folder"><Folder size={18} /></span>
 						<span class="name">{y.year || text.noDate}</span>
 						<span class="count" class:done>{y.arrived.toLocaleString('en')} / {y.of.toLocaleString('en')}</span>
+						{#if !done && job.running}<span class="spin turning"><Loader size={16} /></span>{/if}
 						<span class="state">
-							{#if done}<CircleCheck size={18} />{:else}<span class="bar"><b style:width="{y.of ? (y.arrived / y.of) * 100 : 0}%"></b></span>{/if}
+							{#if done}<CircleCheck size={18} />{:else}<span class="bar"><b style:width="{share * 100}%"></b></span>{/if}
 						</span>
 					</div>
 				{/each}
@@ -508,7 +512,8 @@
 		color: var(--faint);
 		font-weight: 400;
 	}
-	.state.arriving {
+	.state.arriving,
+	.turning {
 		color: var(--accent);
 	}
 	.years {

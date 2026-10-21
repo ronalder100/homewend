@@ -18,6 +18,7 @@
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { part } from '#lib/job.js';
 
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 	let account = $state('');
@@ -107,7 +108,7 @@
 		// While Google still prepares it, it is the preparing row; its parts
 		// are counted once they are known.
 		if (job?.running && job.stage !== 'waiting' && job.export?.startsWith(t.id))
-			return { status: text.statusDownloading, detail: job.of > 0 ? text.partsOf(job.parts, job.of) : '', tone: 'accent', act: '' };
+			return { status: text.statusDownloading, detail: job.of > 0 ? text.partsOf(Math.max(job.parts - 1, 0), part(job).of) : '', tone: 'accent', act: '' };
 		if (t.status === 'preparing') return { status: text.statusPreparing, detail: '', tone: 'warn', act: 'timer' };
 		if (all && (l.present ?? 0) < (l.declared ?? 0)) {
 			const missing = ((l.declared ?? 0) - (l.present ?? 0)).toLocaleString('en');
