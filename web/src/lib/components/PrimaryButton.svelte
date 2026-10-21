@@ -9,9 +9,11 @@
 <button {onclick}>{@render children()}</button>
 
 <style>
+	/* The secondary button's size: the two stand side by side, and one
+	   takes the other's place (Pause, Resume). */
 	button {
-		height: 52px;
-		padding: 0 24px;
+		height: 44px;
+		padding: 0 20px;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -20,7 +22,7 @@
 		background: var(--accent);
 		color: var(--on-accent);
 		box-shadow: inset 0 0 0 1px #00000026;
-		font-size: var(--text-title-3);
+		font-size: var(--text-body);
 		font-weight: 600;
 		white-space: nowrap;
 	}
