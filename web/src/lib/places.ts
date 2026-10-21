@@ -21,9 +21,12 @@ export function urlOf(p: Place): string {
 	}
 }
 
-/** Choose, on the account (and the year) it was opened for. */
+/** Choose, on the account it was opened for; with a year (0: none picked
+ *  yet), the page that lists the account's years. */
 export const chooseUrl = (account: string, year?: number) =>
-	`/choose?account=${encodeURIComponent(account)}${year ? `&year=${year}` : ''}`;
+	year === undefined
+		? `/choose?account=${encodeURIComponent(account)}`
+		: `/choose/year?account=${encodeURIComponent(account)}${year ? `&year=${year}` : ''}`;
 
 export function placeOf(url: { pathname: string; searchParams: { has(k: string): boolean; get(k: string): string | null } }): Place {
 	const q = url.searchParams;

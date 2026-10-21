@@ -76,7 +76,7 @@
 			: kind === 'no-space'
 				? [text.chooseAnotherFolder, chooseFolder]
 				: kind === 'expired'
-					? [text.newTakeoutAction, () => goto(chooseUrl(account, job.year))]
+					? [text.newTakeoutAction, () => goto(job.year ? chooseUrl(account, job.year) : chooseUrl(account))]
 					: kind === 'finished'
 						? [text.openLibrary, () => ((dismissed = kind), goto('/library'))]
 						: [undefined, undefined]}

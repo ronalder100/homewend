@@ -175,7 +175,7 @@
 				{#if job.running}
 					<SecondaryButton onclick={() => stopJob(shown.account)}>{text.pause}</SecondaryButton>
 				{:else if notOffered}
-					<PrimaryButton onclick={() => goto(chooseUrl(shown.account))}>{text.chooseAnother}</PrimaryButton>
+					<PrimaryButton onclick={() => goto(chooseUrl(shown.account, 0))}>{text.chooseAnother}</PrimaryButton>
 				{:else if !job.finished}
 					<PrimaryButton onclick={() => resumeJob(shown.account, job)}>{text.resume}</PrimaryButton>
 				{/if}

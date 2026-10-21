@@ -30,7 +30,7 @@
 	// The first run, before any photo: Choose and the download are three steps
 	// of their own, without the library around them (A2–A5).
 	const firstRun = $derived(
-		(app.overview?.total ?? 0) === 0 && (page.url.pathname === '/choose' || page.url.pathname === '/bringing')
+		(app.overview?.total ?? 0) === 0 && (page.url.pathname.startsWith('/choose') || page.url.pathname === '/bringing')
 	);
 	const picked = $derived(job ? app.picked[job.account] : '');
 	const chose = $derived(
@@ -97,8 +97,8 @@
 		<Titlebar menu={false} />
 		{@render strip()}
 		<Steps
-			steps={[text.stepSignIn, page.url.pathname === '/choose' ? text.stepChooseLabel : chose, text.stepBringHome]}
-			at={page.url.pathname === '/choose' ? 1 : 2}
+			steps={[text.stepSignIn, page.url.pathname.startsWith('/choose') ? text.stepChooseLabel : chose, text.stepBringHome]}
+			at={page.url.pathname.startsWith('/choose') ? 1 : 2}
 		/>
 		<div class="body">{@render children()}</div>
 	</div>

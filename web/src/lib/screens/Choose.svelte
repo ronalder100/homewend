@@ -6,98 +6,37 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { app, startFailure, startJob } from '#lib/app.svelte.js';
-	import { countYears, getLibrary, getYears, putLibrary, type YearCounts } from '#lib/api.js';
+	import { getLibrary, putLibrary } from '#lib/api.js';
+	import { Years } from '#lib/years.svelte.js';
+	import { chooseUrl } from '#lib/places.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
-	import { Plus, Folder, ChevronDown, ArrowRight, Loader } from '@lucide/svelte';
+	import { Plus, Folder, ArrowRight } from '@lucide/svelte';
 	import { bytes } from '#lib/format.js';
 	import { sidebarOf } from '#lib/app.svelte.js';
 
 	type Kind = 'year' | 'everything' | 'asked';
 	let kind = $state<Kind>('everything');
-	// The last four years, newest first: what most people want to try.
-	const thisYear = new Date().getFullYear();
-	// The years the account has on Google, once counted; until then, or if
-	// the count failed, every year is offered.
-	let counts = $state<YearCounts | null>(null);
-	const counted = $derived(counts?.years?.length ? counts.years : null);
-	const itemsOf = (y: number) => counted?.find((c) => c.year === y)?.items;
-	// Oldest first, as the design reads them: the three newest years.
-	const years = $derived(
-		counted ? counted.slice(0, 3).map((c) => c.year).reverse() : [3, 2, 1].map((n) => thisYear - n)
-	);
-	// Any other year from a list.
-	const older = $derived(
-		counted
-			? counted.slice(3).map((c) => c.year)
-			: [thisYear, ...Array.from({ length: thisYear - 4 - 1990 + 1 }, (_, n) => thisYear - 4 - n)]
-	);
-	let year = $state(thisYear - 1);
 	let dir = $state('');
 	let free = $state(0);
 	let failed = $state('');
 
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 	let account = $state('');
-	// The account and year the address names: an account just added, a
-	// takeout to ask for again. Without one, or once it is gone, the first.
+	// The account the address names: one just added. Without one, or once it
+	// is gone, the first.
 	$effect(() => {
-		const q = page.url.searchParams;
-		const [a, y] = [q.get('account'), Number(q.get('year'))];
+		const a = page.url.searchParams.get('account');
 		if (a) account = a;
-		if (y) [kind, year] = ['year', y];
 	});
 	$effect(() => {
 		if (accounts.length > 0 && !accounts.some((a) => a.id === account)) account = accounts[0].id;
 	});
 
 	const running = $derived(app.jobs[account]?.running ?? false);
-	// The years are not known yet: none is offered, rather than ones the
-	// account may not have.
-	const finding = $derived(!counts || counts.counting);
-
-	// The account's count: read, asked for once if there is none, and looked
-	// at every two seconds while it runs (about a minute).
-	let countSince = $state(0);
-	let tick = $state(Date.now());
-	$effect(() => {
-		const a = account;
-		if (!a) return;
-		counts = null;
-		let asked = false;
-		let stop = false;
-		const look = async () => {
-			try {
-				const c = await getYears(a);
-				if (stop) return;
-				if (!c.years && !c.counting && !c.error && !asked) {
-					asked = true;
-					await countYears(a).catch(() => {});
-					countSince = Date.now();
-					return look();
-				}
-				if (c.counting && !countSince) countSince = Date.now();
-				counts = c;
-			} catch (e) {
-				// No count: every year is offered.
-				if (!stop) counts = { counting: false, error: String(e) };
-			}
-		};
-		look();
-		const t = setInterval(() => {
-			tick = Date.now();
-			if (counts?.counting) look();
-		}, 2000);
-		return () => {
-			stop = true;
-			clearInterval(t);
-		};
-	});
-	// A year the account does not have is not offered.
-	$effect(() => {
-		if (counted && !counted.some((c) => c.year === year)) year = counted[0].year;
-	});
+	// Counted here already, while the person reads: the next page lists them.
+	const years = new Years(() => account);
 
 	onMount(async () => ({ dir, free } = await getLibrary()));
 
@@ -115,9 +54,9 @@
 		// place to choose it.
 		if (!dir) return (failed = text.noLibraryYet);
 		if (kind === 'asked') return goto('/takeouts');
-		if (kind === 'year' && finding) return (failed = text.waitForYears);
+		if (kind === 'year') return goto(chooseUrl(account, 0));
 		try {
-			await startJob({ account, year: kind === 'year' ? year : 0 });
+			await startJob({ account, year: 0 });
 			goto('/bringing');
 		} catch (e) {
 			failed = startFailure(e);
@@ -143,56 +82,11 @@
 		<div role="radio" tabindex="0" aria-checked={kind === 'year'} class="card" class:on={kind === 'year'} onclick={() => (kind = 'year')} onkeydown={(e) => e.key === 'Enter' && (kind = 'year')}>
 			<span class="title"><span class="radio"></span><h2>{text.oneYear}</h2></span>
 			<p>{text.oneYearDesc}</p>
-			{#if finding}
-				<div class="finding">
-					<span class="row"
-						><span class="spin"><Loader size={16} /></span><b>{text.findingYears}</b><time
-							>{text.elapsed(Math.max(0, Math.floor((tick - countSince) / 1000)))}</time
-						></span
-					>
-					<span>{text.findingYearsWhy}</span>
-				</div>
-			{:else}
-			<span class="chips" class:counted>
-				{#each years as y (y)}
-					<span
-						role="button"
-						tabindex="0"
-						class="chip"
-						class:on={kind === 'year' && year === y}
-						onclick={(e) => {
-							e.stopPropagation();
-							kind = 'year';
-							year = y;
-						}}
-						onkeydown={(e) => e.key === 'Enter' && ((kind = 'year'), (year = y))}
-						class:two={itemsOf(y) !== undefined}
-						>{y}{#if itemsOf(y) !== undefined}<small>{(itemsOf(y) ?? 0).toLocaleString('en')}</small>{/if}</span
-					>
-				{/each}
-				<select
-					class="chip"
-					class:on={kind === 'year' && !years.includes(year)}
-					aria-label={text.olderYear}
-					onclick={(e) => e.stopPropagation()}
-					onchange={(e) => {
-						kind = 'year';
-						year = Number((e.currentTarget as HTMLSelectElement).value);
-					}}
-				>
-					<option value="" selected={years.includes(year)} disabled>{text.olderYear}</option>
-					{#each older as y (y)}<option value={y} selected={year === y}
-							>{itemsOf(y) !== undefined ? text.yearWithCount(y, itemsOf(y) ?? 0) : y}</option
-						>{/each}
-				</select>
-			</span>
-			{#if counts?.error}<span class="counting">{text.countFailed}</span>{/if}
-			{/if}
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'everything'} class="card" class:on={kind === 'everything'} onclick={() => (kind = 'everything')} onkeydown={(e) => e.key === 'Enter' && (kind = 'everything')}>
 			<span class="title"><span class="radio"></span><h2>{text.everything}</h2></span>
 			<p>{text.everythingDesc}</p>
-			{#if counted}<span class="total">{text.itemsCount(counted.reduce((n, c) => n + c.items, 0))}</span>{/if}
+			{#if years.counted}<span class="total">{text.itemsCount(years.counted.reduce((n, c) => n + c.items, 0))}</span>{/if}
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'asked'} class="card" class:on={kind === 'asked'} onclick={() => (kind = 'asked')} onkeydown={(e) => e.key === 'Enter' && (kind = 'asked')}>
 			<span class="title"><span class="radio"></span><h2>{text.oneAsked}</h2></span>
@@ -217,11 +111,9 @@
 			<span class="hint">{text.alreadyBringing}</span>
 		{:else}
 			<PrimaryButton onclick={start}>
-				{kind === 'year' ? text.startYear(year) : kind === 'asked' ? text.seeTakeouts : text.startEverything}
+				{kind === 'year' ? text.nextChooseYear : kind === 'asked' ? text.seeTakeouts : text.startEverything}
 			</PrimaryButton>
-			{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint"
-					>{kind === 'year' && itemsOf(year) !== undefined ? `${text.itemsCount(itemsOf(year) ?? 0)}. ` : ''}{text.notifyWhenReady}</span
-				>{/if}
+			{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint">{kind === 'year' ? text.nextChooseYearHint : text.notifyWhenReady}</span>{/if}
 		{/if}
 	</div>
 </div>
@@ -325,104 +217,10 @@
 		line-height: 1.5;
 		color: var(--muted);
 	}
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin-top: 4px;
-	}
-	.chip {
-		height: 28px;
-		padding: 0 10px;
-		display: inline-flex;
-		align-items: center;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		font-size: var(--text-callout);
-		color: var(--text);
-	}
-	select.chip {
-		font: inherit;
-		font-size: var(--text-callout);
-		background: transparent;
-		cursor: default;
-	}
-	/* Counted, a year shows how many it holds, under it. */
-	.chips.counted .chip {
-		height: 44px;
-		padding: 0 10px;
-		border-radius: 10px;
-	}
-	.chip.two {
-		flex-direction: column;
-		align-items: flex-start;
-		justify-content: center;
-		font-weight: 600;
-		color: var(--fg);
-	}
-	.chip.two.on {
-		border: 2px solid var(--accent);
-		padding: 0 9px;
-		color: var(--accent);
-	}
-	.chip small {
-		font-size: var(--text-footnote);
-		font-weight: normal;
-		color: var(--muted);
-	}
-	.finding {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		margin-top: 4px;
-		padding: 12px 14px;
-		border-radius: 12px;
-		background: var(--accent-soft);
-		font-size: var(--text-footnote);
-		line-height: 1.4;
-		color: var(--muted);
-	}
-	.finding .row {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-size: var(--text-callout);
-		color: var(--fg);
-	}
-	.finding .row :global(svg) {
-		color: var(--accent);
-	}
-	.finding time {
-		margin-left: auto;
-		font-family: var(--font-mono);
-		color: var(--muted);
-	}
-	.counting {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		font-size: var(--text-footnote);
-		color: var(--muted);
-	}
-	.spin {
-		display: inline-flex;
-		animation: spin 1s linear infinite;
-	}
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
 	.total {
 		font-size: var(--text-callout);
 		font-weight: 600;
 		color: var(--fg);
-	}
-	.chip.on {
-		border-color: var(--accent);
-		color: var(--accent);
-		font-weight: 600;
 	}
 	.link {
 		display: inline-flex;
