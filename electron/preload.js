@@ -18,5 +18,6 @@ contextBridge.exposeInMainWorld('shell', {
 		ipcRenderer.send('update-listen');
 	},
 	announceUpdate: (version, title, body) => ipcRenderer.send('announce-update', version, title, body),
-	installUpdate: () => ipcRenderer.send('install-update')
+	installUpdate: () => ipcRenderer.send('install-update'),
+	onUpdateFailed: (fn) => ipcRenderer.on('update-failed', () => fn())
 });
