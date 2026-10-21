@@ -36,6 +36,12 @@
 	});
 	const running = $derived(app.jobs[account]?.running ?? false);
 
+	// The year picked is in view, the one an address named included.
+	function reveal(node: HTMLElement, on: boolean) {
+		if (on) node.scrollIntoView({ block: 'nearest' });
+		return { update: (now: boolean) => now && node.scrollIntoView({ block: 'nearest' }) };
+	}
+
 	async function start() {
 		failed = '';
 		if (!year) return;
@@ -68,7 +74,7 @@
 			<header><span>{text.yearsHead}</span><span>{years.counted ? text.yearsLegend : ''}</span></header>
 			<div class="rows" role="radiogroup">
 				{#each list as y (y.year)}
-					<button role="radio" aria-checked={year === y.year} class:on={year === y.year} onclick={() => (year = y.year)}>
+					<button role="radio" aria-checked={year === y.year} class:on={year === y.year} onclick={() => (year = y.year)} use:reveal={year === y.year}>
 						<span class="radio"></span>
 						<span class="folder"><Folder size={18} fill="currentColor" /></span>
 						<span class="name">{y.year}</span>
