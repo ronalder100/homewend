@@ -34,6 +34,11 @@
 								: ''
 	);
 
+	// Closed until it goes: the next time it comes, it shows again.
+	$effect(() => {
+		if (!kind) dismissed = '';
+	});
+
 	const again = signingInAgain(() => account);
 	// The library moves to the folder picked, and the download carries on
 	// there. If it cannot, the strip still says what stops it.

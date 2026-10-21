@@ -43,11 +43,16 @@
 					: text.stepChooseLabel
 	);
 
-	// Said once each, when it happens, in D2's words.
+	// Said once each, when it happens, in D2's words; said again when it
+	// happens again, after something else. Ready lasts too little to be seen
+	// in a second's ask: it is the move from Google preparing to downloading.
 	let said = '';
+	let was = { account: '', stage: '' };
 	$effect(() => {
 		const j = job?.job;
 		const email = app.overview?.accounts.find((a) => a.id === job?.account)?.email ?? '';
+		const ready = !!j?.running && j.stage !== 'waiting' && was.stage === 'waiting' && was.account === job?.account;
+		was = { account: job?.account ?? '', stage: j?.stage ?? '' };
 		const now =
 			j?.stage === 'first-download' && j.running
 				? 'password'
@@ -55,11 +60,12 @@
 					? 'signed-out'
 					: j?.finished
 						? 'finished'
-						: j?.stage === 'ready'
+						: ready
 							? 'ready'
 							: '';
-		if (!now || now === said) return;
+		if (now === said) return;
 		said = now;
+		if (!now) return;
 		const n = (j?.years ?? []).reduce((s, y) => s + y.arrived, 0).toLocaleString('en');
 		const say = {
 			password: [text.notifyPassword, text.notifyPasswordBody(email)],
