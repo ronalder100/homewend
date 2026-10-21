@@ -335,7 +335,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		padding-top: 16px;
+		padding: 16px 0 0;
 		font-size: var(--text-title-3);
 		color: var(--faint);
 	}
