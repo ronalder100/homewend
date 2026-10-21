@@ -115,6 +115,8 @@ export function startFailure(e: unknown): string {
 			return text.noLibraryYet;
 		case 409:
 			return text.alreadyBringing;
+		case 424:
+			return text.noBrowser;
 	}
 	return text.startFailed;
 }

@@ -76,7 +76,7 @@
 			},
 			(e) => {
 				if (account !== a) return;
-				failed = String(e);
+				failed = e instanceof ApiError && e.status === 424 ? text.noBrowser : text.takeoutsFailed;
 				signedOut = e instanceof ApiError && e.status === 401;
 			}
 		);
@@ -192,12 +192,12 @@
 	{#if failed && list === null}
 		<!-- What went wrong is the engine's to log; the person is told what
 		     they can do. -->
-		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
+		<div class="failed {signedOut ? 'warn' : 'accent'}">
 			{#if signedOut}
 				<p>{again.here ? text.signingIn : text.bannerSignedOut(email)}</p>
 				<button class="pill" disabled={again.busy} onclick={() => signInAgain(account)}>{text.signInAgain}</button>
 			{:else}
-				<p>{text.takeoutsFailed}</p>
+				<p>{failed}</p>
 				<button class="pill" onclick={() => tries++}>{text.retry}</button>
 			{/if}
 		</div>
