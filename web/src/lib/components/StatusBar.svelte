@@ -10,7 +10,7 @@
 	import { text } from '#lib/strings.js';
 
 	import Avatar from './Avatar.svelte';
-	import { app, startJob } from '#lib/app.svelte.js';
+	import { app, resumeJob } from '#lib/app.svelte.js';
 	import { roughly } from '#lib/format.js';
 
 	let { account, job, ondetails }: { account: string; job: JobState; ondetails?: () => void } =
@@ -38,7 +38,7 @@
 {#if job.running}
 	<button class="ctl" aria-label={text.pause} onclick={() => stopJob(account)}><Pause size={16} /></button>
 {:else if !job.finished}
-	<button class="ctl" aria-label={text.resume} onclick={() => startJob({ account, year: job.year })}
+	<button class="ctl" aria-label={text.resume} onclick={() => resumeJob(account, job)}
 		><Play size={16} /></button
 	>
 {/if}

@@ -81,6 +81,11 @@ export async function startJob(o: Parameters<typeof startGet>[0]) {
 	app.jobs[o.account] = await startGet(o);
 }
 
+/** Carries on with a download that stopped: the same takeout, not a new one
+ *  of the same year, which would ask Google again. */
+export const resumeJob = (account: string, j: JobState) =>
+	startJob({ account, year: j.year, export: j.export || undefined });
+
 /** Every account's download has been asked about at least once. */
 export const jobsKnown = () =>
 	app.overview !== null && app.overview.accounts.every((a) => a.id in app.jobs);
@@ -214,6 +219,10 @@ export async function signInAgain(account: string) {
 	try {
 		await login(account);
 		await refresh();
+		// The download Google's sign-out stopped carries on, as the banner
+		// that offered the sign-in promised.
+		const j = app.jobs[account];
+		if (j?.problem === 'signed-out') await resumeJob(account, j);
 	} catch {
 		// Not signed in after all: the strip that offered it still says so,
 		// and offers it again.
