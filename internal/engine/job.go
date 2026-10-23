@@ -121,7 +121,8 @@ type JobState struct {
 	Error      string `json:"error,omitempty"`
 	// Problem names what stopped the job when a person can act on it:
 	// "signed-out", "no-space" (Need and Free say how much), "expired",
-	// "not-offered" (Google has no photos of the year; Offered, the years it has).
+	// "not-offered" (Google has no photos of the year; Offered, the years it has),
+	// "password-closed" (the window where Google asks the password was closed).
 	Problem string `json:"problem,omitempty"`
 	Offered []int  `json:"offered,omitempty"`
 	Need    int64  `json:"need,omitempty"`
@@ -146,6 +147,8 @@ func problem(err error, s *JobState) {
 		s.Problem = "signed-out"
 	case errors.Is(err, ErrExpired), errors.Is(err, ErrExportGone):
 		s.Problem = "expired"
+	case errors.Is(err, ErrNoDownload):
+		s.Problem = "password-closed"
 	}
 }
 
@@ -304,8 +307,9 @@ func (j *Jobs) StopAll() {
 
 // Count counts the account's photos and videos on Google, by year, in the
 // background, and keeps the count (LoadYearCounts). A count already running
-// goes on; an account bringing photos home is not counted, its browser
-// profile being in use.
+// goes on. An account bringing photos home is counted too: the two take
+// turns on its browser profile (session.lockProfile), and while Google
+// prepares a takeout the job holds no browser at all.
 func (j *Jobs) Count(account string) error {
 	sess, err := AccountSession(account)
 	if err != nil {
@@ -317,9 +321,6 @@ func (j *Jobs) Count(account string) error {
 func (j *Jobs) count(account string, run func(context.Context) error) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	if jb := j.jobs[account]; jb != nil && jb.state.Running {
-		return ErrJobRunning
-	}
 	if c := j.counts[account]; c != nil {
 		select {
 		case <-c.done:

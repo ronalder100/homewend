@@ -168,15 +168,23 @@ func TestAJobWaitsForTheCountToLetGoOfTheProfile(t *testing.T) {
 	}
 }
 
-func TestAnAccountBringingPhotosHomeIsNotCounted(t *testing.T) {
+// While a takeout is prepared, the account's years can still be counted: the
+// person opens New takeout to see them.
+func TestAnAccountBringingPhotosHomeIsCountedToo(t *testing.T) {
 	var j Jobs
 	var ended bool
 	if err := j.start("a", Get{}, slow(&ended)); err != nil {
 		t.Fatal(err)
 	}
 	defer j.StopAll()
-	if err := j.count("a", func(context.Context) error { return nil }); !errors.Is(err, ErrJobRunning) {
-		t.Fatalf("got %v; want ErrJobRunning", err)
+	counted := make(chan struct{})
+	if err := j.count("a", func(context.Context) error { close(counted); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-counted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the count never ran")
 	}
 }
 

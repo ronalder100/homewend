@@ -56,6 +56,8 @@ export function failure(j: JobState): string {
 			return text.bannerExpiredDesc;
 		case 'not-offered':
 			return text.notOfferedLead;
+		case 'password-closed':
+			return text.passwordClosedLead;
 	}
 	return text.failedLead;
 }

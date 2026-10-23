@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	cdpbrowser "github.com/chromedp/cdproto/browser"
@@ -34,6 +35,34 @@ type Page struct {
 	cancel  func()
 	browser *exec.Cmd
 	exited  chan struct{}
+	// unlock lets the next browser have the profile (lockProfile).
+	unlock func()
+}
+
+// profiles holds, for each browser profile, a turn: Chrome opens a profile in
+// one browser at a time. Counting an account's photos and bringing them home
+// both drive its profile; one waits for the other instead of failing.
+var (
+	profilesMu sync.Mutex
+	profiles   = map[string]chan struct{}{}
+)
+
+// lockProfile waits for the profile's turn, or for ctx to end.
+func lockProfile(ctx context.Context, profile string) (unlock func(), err error) {
+	profilesMu.Lock()
+	turn := profiles[profile]
+	if turn == nil {
+		turn = make(chan struct{}, 1)
+		profiles[profile] = turn
+	}
+	profilesMu.Unlock()
+	select {
+	case turn <- struct{}{}:
+		var once sync.Once
+		return func() { once.Do(func() { <-turn }) }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // Headless opens url in a browser with no window, on the session's profile.
@@ -129,6 +158,16 @@ func (s *Session) drive(ctx context.Context, flags []string, open chromedp.Actio
 	if err != nil {
 		return nil, err
 	}
+	unlock, err := lockProfile(ctx, s.Profile)
+	if err != nil {
+		return nil, err
+	}
+	started := false
+	defer func() {
+		if !started {
+			unlock()
+		}
+	}()
 	// A port file left by a browser that did not shut down would point at a
 	// port nobody listens on.
 	portFile := filepath.Join(s.Profile, "DevToolsActivePort")
@@ -151,7 +190,8 @@ func (s *Session) drive(ctx context.Context, flags []string, open chromedp.Actio
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting %s: %w", browser, err)
 	}
-	p := &Page{sess: s, browser: cmd, exited: make(chan struct{}), cancel: func() {}, gaveUp: ctx.Done()}
+	started = true
+	p := &Page{sess: s, browser: cmd, exited: make(chan struct{}), cancel: func() {}, gaveUp: ctx.Done(), unlock: unlock}
 	go func() {
 		cmd.Wait()
 		close(p.exited)
@@ -324,6 +364,9 @@ func (p *Page) Close() {
 		}
 	}
 	shutDown(p.browser, p.exited)
+	if p.unlock != nil {
+		p.unlock()
+	}
 	// chromedp takes a second to give up on a browser that is gone (measured
 	// 2026-10-02): nobody has to wait for that.
 	go p.cancel()

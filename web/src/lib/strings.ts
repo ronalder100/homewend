@@ -85,6 +85,8 @@ export const text = {
 	finishedTitle: 'Your photos are home.',
 	finishedLead: 'Every file in the takeout is in your folder, by year and by album.',
 	passwordLead: 'Google asks once, before the first download. Homewend never sees it.',
+	passwordClosedLead:
+		'The window where Google asks for your password was closed. Google asks it once per account, before the first download: press Resume and type it there.',
 	byYear: 'By year.',
 	byYearLegend: 'arrived / in the takeout',
 	waitingForGoogle: 'Waiting for Google',
