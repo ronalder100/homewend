@@ -10,8 +10,27 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
+const util = require('node:util');
 const { autoUpdater } = require('electron-updater');
 const tokens = require('./tokens.json').variables;
+
+// What the app and its engine say goes to a file as well: opened from the
+// menu or the Finder, nobody sees the terminal. One file, in Electron's
+// folder for the app's logs, set aside as .old once it passes 5 MB.
+const logFile = path.join(app.getPath('logs'), 'homewend.log');
+fs.mkdirSync(path.dirname(logFile), { recursive: true });
+try {
+	if (fs.statSync(logFile).size > 5e6) fs.renameSync(logFile, logFile + '.old');
+} catch {}
+const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+for (const name of ['log', 'error']) {
+	const say = console[name];
+	console[name] = (...args) => {
+		say(...args);
+		logStream.write(`${new Date().toISOString()} ${util.format(...args)}\n`);
+	};
+}
+console.log(`Homewend ${app.getVersion()} started`);
 
 // Where the engine is: inside the app once packaged (electron-builder's
 // extraResources), else set by whoever runs it from source, else the PATH.
@@ -118,6 +137,7 @@ function startEngine() {
 		let said = '';
 		child.stderr.on('data', (data) => {
 			process.stderr.write(data);
+			logStream.write(data);
 			said = (said + data).slice(-1000);
 		});
 		let up = false;

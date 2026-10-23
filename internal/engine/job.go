@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -208,6 +209,11 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		case <-counted:
 			err = run(ctx, func(e progress.Event) {
 				j.mu.Lock()
+				// Each new stage, and each retry, goes to the log: what a job
+				// did before it stopped is read there afterwards.
+				if e.Stage != jb.state.Stage || e.Stage == progress.Retry {
+					log.Printf("%s: %s %s", account, e.Stage, e.Note)
+				}
 				jb.record(e)
 				j.mu.Unlock()
 			})
@@ -221,10 +227,13 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		}
 		switch {
 		case errors.Is(err, context.Canceled):
+			log.Printf("%s: paused", account)
 		case err != nil:
+			log.Printf("%s: stopped: %v", account, err)
 			jb.state.Error = err.Error()
 			problem(err, &jb.state)
 		default:
+			log.Printf("%s: finished", account)
 			jb.state.Finished = true
 		}
 		j.mu.Unlock()

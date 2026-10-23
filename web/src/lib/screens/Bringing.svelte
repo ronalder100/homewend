@@ -140,6 +140,8 @@
 			>
 			<h1>{title}</h1>
 			<p class="lead">{job.error ? failure(job) : lead}</p>
+			<!-- A stop with no name of its own: Google's or the network's words, as they came. -->
+			{#if job.error && !job.problem}<p class="cause">{job.error}</p>{/if}
 			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
 			{#if notOffered && job.offered?.length}
 				<div class="chips">
@@ -317,6 +319,15 @@
 		line-height: 1.05;
 		color: var(--fg);
 		white-space: pre-line;
+	}
+	.cause {
+		margin-top: 8px;
+		max-width: 560px;
+		font-family: var(--font-mono);
+		font-size: var(--text-footnote);
+		color: var(--muted);
+		overflow-wrap: anywhere;
+		user-select: text;
 	}
 	.lead {
 		font-size: var(--text-title-2);
