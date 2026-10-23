@@ -38,16 +38,18 @@ func homewend(t *testing.T, args ...string) (string, int) {
 // homewendIn runs homewend with config as the user's config directory.
 func homewendIn(t *testing.T, config string, args ...string) (string, int) {
 	t.Helper()
-	cmd := exec.Command(os.Args[0], args...)
-	// os.UserConfigDir reads XDG_CONFIG_HOME on Linux, AppData on Windows and
-	// HOME/Library/Application Support on macOS: config is each of them.
 	home := t.TempDir()
+	// macOS ignores XDG_CONFIG_HOME: its config directory is always under HOME.
 	if runtime.GOOS == "darwin" {
-		os.Mkdir(filepath.Join(home, "Library"), 0o700)
+		if err := os.Mkdir(filepath.Join(home, "Library"), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.Symlink(config, filepath.Join(home, "Library", "Application Support")); err != nil {
 			t.Fatal(err)
 		}
 	}
+	cmd := exec.Command(os.Args[0], args...)
+	// Windows reads its config directory from AppData.
 	cmd.Env = append(os.Environ(), "HOMEWEND_TEST_MAIN=1", "XDG_CONFIG_HOME="+config, "AppData="+config, "HOME="+home)
 	out, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok {
@@ -147,8 +149,8 @@ func TestBarIsTwentyCells(t *testing.T) {
 	}
 }
 
-// The line going on carries its time when it is worth counting, and a line
-// under it when there is one.
+// The line going on carries its time when it is worth counting, a line
+// under it when there is one, wrapped to the window, and a note under that.
 func TestTheLineGoingOn(t *testing.T) {
 	s := &liveLine{out: look{}}
 	if s.line(timeZero) != "" {
@@ -156,12 +158,17 @@ func TestTheLineGoingOn(t *testing.T) {
 	}
 	start := timeZero.Add(1)
 	s.now = going{said: "Asking Google to export your 2025 photos", bar: -1, since: start}
-	if got := s.line(start.Add(63e9)); !strings.HasSuffix(got, "Asking Google to export your 2025 photos · 1m3s") {
+	if got := s.line(start.Add(63e9)); !strings.HasSuffix(got, "Asking Google to export your 2025 photos"+text["please wait"]+" · 1m3s") {
 		t.Errorf("got %q", got)
 	}
-	s.now = going{sign: signWaiting, said: text["preparing"], bar: -1, below: text["preparing hint"]}
-	if got := s.line(start); got != "* "+text["preparing"]+"\n  "+text["preparing hint"] {
-		t.Errorf("got %q", got)
+	s.now = going{sign: signWaiting, said: "Waiting", bar: -1, below: "one two three four five six", lead: "Go?", note: "seven eight nine ten eleven"}
+	s.width = 80
+	if got, want := s.line(start), "* Waiting\n  one two three four five six\n\n  ● Go? seven eight nine ten eleven"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	s.width = 28
+	if got, want := s.line(start), "* Waiting\n  one two three four five\n  six\n\n  ● Go? seven eight nine\n    ten eleven"; got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
@@ -301,7 +308,7 @@ func TestTheWaitCountsNoTime(t *testing.T) {
 	captured(t, func() { p.event(progress.Event{Stage: progress.Waiting, Name: "job"}) })
 	p.live = nil
 	got := l.line(timeZero.Add(3 * 3600e9))
-	if !strings.HasPrefix(got, signPulse+" "+text["preparing"]+"\n") || strings.Contains(got, "·") {
+	if !strings.HasPrefix(got, signPulse+" "+text["preparing"]+text["please wait"]+"\n") || strings.Contains(got, "3h") {
 		t.Errorf("got %q", got)
 	}
 }

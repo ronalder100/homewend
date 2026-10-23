@@ -15,7 +15,7 @@ var ErrNoBrowser = errors.New("no Chromium-family browser found; set BROWSER_BIN
 type chromium struct {
 	commands []string // Linux: names on PATH; the default one's .desktop id is the first plus ".desktop"
 	bundle   string   // macOS: bundle id, as LaunchServices records it
-	app      string   // macOS: the executable inside the app
+	app      string   // macOS: the executable inside the app, in /Applications
 	exe      string   // Windows: the executable's name, as the registry's open commands end
 }
 

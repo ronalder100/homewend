@@ -130,18 +130,25 @@ func TestTheManifestComesFirstAndTheYearsAreFollowed(t *testing.T) {
 		t.Errorf("verification %+v", result.Verification)
 	}
 
-	// A second run finds it all there: no download, and every year full from
-	// its first word.
+	// A second run finds it all there: no download, every year full from its
+	// first word, and every archive said to be here already.
 	served.asked, years = nil, nil
+	var here []string
 	if _, err := f.Run(context.Background(), served, func(e progress.Event) {
-		if e.Stage == progress.Year {
+		switch e.Stage {
+		case progress.Year:
 			years = append(years, fmt.Sprintf("%s %d/%d", e.Name, e.N, e.Of))
+		case progress.Already:
+			here = append(here, fmt.Sprintf("%s %d/%d %d", e.Name, e.N, e.Of, e.Total))
 		}
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if len(served.asked) != 0 || strings.Join(years, ", ") != "2024 1/1, 2025 2/2" {
 		t.Errorf("a second run asked for %v and said %q", served.asked, strings.Join(years, ", "))
+	}
+	if want := fmt.Sprintf("manifest.zip 1/2 %d, part-001.zip 2/2 %d", len(manifest), len(part)); strings.Join(here, ", ") != want {
+		t.Errorf("already here: %q, want %q", strings.Join(here, ", "), want)
 	}
 
 	// The list of takeouts says it is all here, as counted at the end.

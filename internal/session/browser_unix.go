@@ -31,8 +31,16 @@ func matches(c chromium, def string) bool {
 
 func installed(c chromium) string {
 	if runtime.GOOS == "darwin" {
-		if _, err := os.Stat(c.app); err == nil {
-			return c.app
+		// An app is installed for everyone in /Applications, or for one
+		// person, without an administrator, in their own ~/Applications.
+		places := []string{c.app}
+		if home, err := os.UserHomeDir(); err == nil {
+			places = append(places, filepath.Join(home, c.app))
+		}
+		for _, path := range places {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
 		}
 		return ""
 	}

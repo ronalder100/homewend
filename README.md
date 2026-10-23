@@ -86,7 +86,7 @@ homewend takeout
 
 Good to know:
 
-- Google needs time to prepare your photos: minutes for a year, hours for everything. You do not have to wait: close the terminal, run the same command later, and it picks up where it left off.
+- Google needs time to prepare your photos: minutes for a year, hours for everything. Leave it running and the download starts by itself; if you have to close the terminal, run the same command later and it picks up where it left off.
 - If the computer restarts, run the same command again. Sleep is fine: it carries on when the computer wakes.
 - The first time, Google asks for your password once more, in a browser window: **type it there**. Only once.
 - You need Chrome, Chromium, Brave or Edge.
@@ -140,7 +140,7 @@ Homewend/
 └── .homewend/
 ```
 
-- One folder per profile: whose photos they are. Each Google account belongs to one, named after the address the first time and changeable then; two accounts can share one.
+- One folder per profile: whose photos they are. Each Google account belongs to one, named after its address; two accounts can share one.
 - Inside, one folder per year and month. `unknown-month/` when Google knows only the year.
 - Albums link to the same photos: no extra space, where the disk allows links. A photo two profiles both have is stored once.
 - `messaging/` keeps the pictures that came through WhatsApp, Signal or Telegram apart from your photos.

@@ -64,9 +64,9 @@ Google's sign-in opens in a window of its own, never inside the app.
    photos go in, proposed from your address. It is asked once per account.
 3. **Choose what to bring home:** one year, everything, or a takeout you
    already made on Google.
-4. **Leave it.** Google prepares the takeout, often for hours; Homewend
-   downloads it by itself when it is ready, part by part, and picks up where it
-   was if the computer sleeps.
+4. **Leave it.** Google prepares the takeout, minutes for a year and a few
+   hours for everything; Homewend downloads it by itself when it is ready,
+   part by part, and picks up where it was if the computer sleeps.
 
 ## Where your photos go
 

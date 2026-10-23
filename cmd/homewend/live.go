@@ -108,17 +108,26 @@ func (p *printer) event(e progress.Event) {
 			p.now(now(text["checking"], ""))
 		}
 	case progress.SignIn:
-		p.now(now(text["sign in"], ""))
+		g := now(text["sign in"], "")
+		g.yours = true
+		p.now(g)
 	case progress.SessionReady:
 		p.now(now(text["session ready"], ""))
 	case progress.Prepare:
-		p.now(now(text["prepare"], ""))
+		g := now(text["prepare"], "")
+		g.below = text["prepare hint"]
+		p.now(g)
 	case progress.FirstDownload:
-		p.now(now(text["password"], ""))
+		g := now(text["password"], "")
+		g.below, g.yours = text["password hint"], true
+		p.now(g)
 	case progress.Request:
-		p.asked = t
+		// Already set when the spinner started before the run did.
+		if p.asked.IsZero() {
+			p.asked = t
+		}
 		g := now(text["asking"], "")
-		g.since = t
+		g.since, g.below = p.asked, text["asking hint"]
 		p.now(g)
 	case progress.Waiting:
 		if !p.asked.IsZero() {
@@ -127,7 +136,7 @@ func (p *printer) event(e progress.Event) {
 		}
 		// No time: hours on a counter read as a hang. A dot that breathes
 		// says it is alive.
-		g := going{pulse: true, said: text["preparing"], bar: -1, below: text["preparing hint"]}
+		g := going{pulse: true, said: text["preparing"], bar: -1, below: text["preparing hint"], lead: text["preparing lead"], note: text["preparing note"]}
 		p.now(g)
 	case progress.Ready, progress.InLibrary:
 		if e.Name == p.shown {
@@ -196,7 +205,11 @@ type going struct {
 	details string
 	since   time.Time
 	below   string
-	pulse   bool // a dot breathing in place of the spinner: a wait of hours
+	// A note under below: what to know meanwhile, its lead in yellow.
+	lead, note string
+	pulse      bool
+	// The wait is on the user, who is told what to do: no "please wait".
+	yours bool // a dot breathing in place of the spinner: a wait of hours
 }
 
 // liveLine draws the step going on at the bottom of a terminal and redraws
@@ -208,6 +221,7 @@ type liveLine struct {
 	now   going
 	frame int
 	drawn int // lines on screen now
+	width int // the window's columns, as of the last draw
 	quit  chan struct{}
 	done  chan struct{}
 }
@@ -301,6 +315,7 @@ func (l *liveLine) draw() {
 	if err != nil || width <= 0 {
 		width = 80
 	}
+	l.width = width
 	rows := strings.Split(text, "\n")
 	for i, r := range rows {
 		rows[i] = ansi.Truncate(r, width-1, "")
@@ -318,6 +333,10 @@ func (s *liveLine) line(t time.Time) string {
 	l := s.out
 	spin := frames[s.frame%len(frames)]
 	details := g.details
+	// A wait on Google or on us, with nothing to show for it: say so.
+	if g.bar < 0 && g.sign == "" && !g.yours {
+		details = text["please wait"] + details
+	}
 	if !g.since.IsZero() {
 		details += fmt.Sprintf(text["elapsed"], t.Sub(g.since).Round(time.Second))
 	}
@@ -333,7 +352,16 @@ func (s *liveLine) line(t time.Time) string {
 		line = l.paint(spin, accentColour, false) + " " + l.marked(g.said, nil) + l.paint(details, mutedColour, false)
 	}
 	if g.below != "" {
-		line += "\n" + l.cause(g.below)
+		width := s.width
+		if width <= 0 {
+			width = 80
+		}
+		for _, row := range strings.Split(ansi.Wordwrap(g.below, max(20, width-4), ""), "\n") {
+			line += "\n" + l.cause(row)
+		}
+	}
+	if g.note != "" {
+		line += "\n\n" + l.note(g.lead, g.note, s.width)
 	}
 	return line
 }

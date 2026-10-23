@@ -7,11 +7,13 @@
 	import { KeyRound, HardDrive, CalendarX, WifiOff, CircleCheck } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { signInAgain, signingInAgain } from '#lib/app.svelte.js';
+	import { resumeJob, signInAgain, signingInAgain } from '#lib/app.svelte.js';
+	import { chooseUrl } from '#lib/places.js';
+	import { part } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 
 	import { onMount } from 'svelte';
-	import { getLibrary } from '#lib/api.js';
+	import { getLibrary, putLibrary } from '#lib/api.js';
 
 	let { account, email, job }: { account: string; email: string; job: JobState } = $props();
 	let dir = $state('');
@@ -34,10 +36,21 @@
 								: ''
 	);
 
+	// Closed until it goes: the next time it comes, it shows again.
+	$effect(() => {
+		if (!kind) dismissed = '';
+	});
+
 	const again = signingInAgain(() => account);
+	// The library moves to the folder picked, and the download carries on
+	// there. If it cannot, the strip still says what stops it.
 	async function chooseFolder() {
-		const picked = await window.shell?.chooseFolder();
-		if (picked) goto('/settings');
+		const picked = await window.shell?.chooseFolder(dir);
+		if (!picked) return;
+		try {
+			dir = (await putLibrary(picked)).dir;
+			await resumeJob(account, job);
+		} catch {}
 	}
 </script>
 
@@ -48,7 +61,7 @@
 		kind === 'password'
 			? [text.bannerPassword(email), text.bannerPasswordDesc]
 			: kind === 'signed-out'
-				? [text.bannerSignedOut(email), again.here ? text.signingIn : text.bannerSignedOutDesc(job.parts + 1)]
+				? [text.bannerSignedOut(email), again.here ? text.signingIn : again.failed ? text.signInFailed : text.bannerSignedOutDesc(part(job).n)]
 				: kind === 'no-space'
 					? [text.bannerNoSpace, text.bannerNoSpaceDesc(bytes(job.need ?? 0), bytes(job.free ?? 0))]
 					: kind === 'expired'
@@ -64,7 +77,7 @@
 			: kind === 'no-space'
 				? [text.chooseAnotherFolder, chooseFolder]
 				: kind === 'expired'
-					? [text.newTakeoutAction, () => goto('/choose')]
+					? [text.newTakeoutAction, () => goto(job.year ? chooseUrl(account, job.year) : chooseUrl(account))]
 					: kind === 'finished'
 						? [text.openLibrary, () => ((dismissed = kind), goto('/library'))]
 						: [undefined, undefined]}

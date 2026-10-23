@@ -13,10 +13,13 @@ contextBridge.exposeInMainWorld('shell', {
 	openFolder: (path) => ipcRenderer.send('open-folder', path),
 	onToggleSidebar: (fn) => ipcRenderer.on('toggle-sidebar', () => fn()),
 	notify: (title, body) => ipcRenderer.send('notify', title, body),
+	keepAwake: (on) => ipcRenderer.send('keep-awake', on),
+	closeWindow: () => ipcRenderer.send('close-window'),
 	onUpdate: (fn) => {
 		ipcRenderer.on('update-available', (_event, version) => fn(version));
 		ipcRenderer.send('update-listen');
 	},
 	announceUpdate: (version, title, body) => ipcRenderer.send('announce-update', version, title, body),
-	installUpdate: () => ipcRenderer.send('install-update')
+	installUpdate: () => ipcRenderer.send('install-update'),
+	onUpdateFailed: (fn) => ipcRenderer.on('update-failed', () => fn())
 });

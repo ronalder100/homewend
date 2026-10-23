@@ -3,8 +3,8 @@
 
 // The desktop app is a window on the page "homewend ui" serves. It has no
 // interface and no logic of its own: it starts the engine, shows its address,
-// and stops it when the window goes.
-const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
+// and stops it when the app quits.
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeImage, nativeTheme, powerSaveBlocker, screen, shell } = require('electron');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -40,6 +40,9 @@ const windowButtons =
 
 let child;
 let win;
+// Set once the app is quitting: the window closes for good, and the engine
+// stopping is not a failure.
+let quitting = false;
 
 // Where the window was, as a native app reopens where it was left.
 const placeFile = () => path.join(app.getPath('userData'), 'window.json');
@@ -90,17 +93,61 @@ function overlay() {
 	return { color: theme('bg'), symbolColor: theme('fg'), height: TITLEBAR_HEIGHT - 1 };
 }
 
+// Opened from the Finder, an app gets the system's PATH alone, without
+// Homebrew's, where ffmpeg is for the thumbnails of videos.
+const env =
+	process.platform === 'darwin'
+		? { ...process.env, PATH: [process.env.PATH, '/opt/homebrew/bin', '/usr/local/bin'].filter(Boolean).join(':') }
+		: process.env;
+
+// What stops the app is said in a box: opened from the Finder there is no
+// terminal, and the app would only vanish.
+function fail(err) {
+	console.error(err.message);
+	dialog.showErrorBox('Homewend stopped', err.message);
+	app.quit();
+}
+
 function startEngine() {
 	return new Promise((resolve, reject) => {
 		// windowsHide: the engine is a console program, and started from a
 		// window it would get a console window of its own on Windows (Node's
 		// child_process.spawn).
-		child = spawn(engine, ['ui'], { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true });
+		child = spawn(engine, ['ui'], { stdio: ['pipe', 'pipe', 'pipe'], env, windowsHide: true });
+		// Its last words, still passed on, for the box if it stops.
+		let said = '';
+		child.stderr.on('data', (data) => {
+			process.stderr.write(data);
+			said = (said + data).slice(-1000);
+		});
+		let up = false;
 		child.once('error', reject);
-		child.once('exit', (code) => reject(new Error(`homewend ui exited with ${code}`)));
+		child.once('exit', (code) => {
+			const err = new Error([`homewend ui exited with ${code}`, said.trim()].filter(Boolean).join('\n\n'));
+			if (!up) reject(err);
+			// Under a page already open: nothing it shows works any more.
+			else if (!quitting) fail(err);
+		});
 		// The first line is the address; nothing else is read from it.
-		readline.createInterface({ input: child.stdout }).once('line', resolve);
+		readline.createInterface({ input: child.stdout }).once('line', (line) => {
+			up = true;
+			resolve(line);
+		});
 	});
+}
+
+// A notification nobody holds is collected, and its click with it.
+const notifications = new Set();
+function notify(title, body, click) {
+	const n = new Notification({ title: String(title), body: String(body) });
+	notifications.add(n);
+	const forget = () => notifications.delete(n);
+	n.on('click', () => {
+		forget();
+		click();
+	});
+	n.on('close', forget);
+	n.show();
 }
 
 async function open() {
@@ -129,7 +176,18 @@ async function open() {
 		webPreferences: { preload: path.join(__dirname, 'preload.js'), spellcheck: false }
 	});
 	win.once('ready-to-show', () => win.show());
-	win.on('close', keepPlace);
+	win.on('close', (event) => {
+		keepPlace();
+		// On the Mac closing the window leaves the app running, as Mac apps
+		// do and as the page tells: the download goes on, and the Dock brings
+		// the window back.
+		if (process.platform === 'darwin' && !quitting) {
+			event.preventDefault();
+			win.hide();
+		}
+	});
+	// The page offers to close it while the download goes on.
+	ipcMain.on('close-window', () => win.close());
 	// A pinch enlarges the page in a browser; an app's interface keeps its size.
 	win.webContents.setVisualZoomLevelLimits(1, 1);
 	// The person's choice in Settings, or the system's when they chose none.
@@ -138,10 +196,16 @@ async function open() {
 	});
 	// D2: the system's own notification, for what happens while nobody looks.
 	ipcMain.on('notify', (_event, title, body) => {
-		if (Notification.isSupported() && !win.isFocused()) {
-			const n = new Notification({ title: String(title), body: String(body) });
-			n.on('click', () => win.show());
-			n.show();
+		if (Notification.isSupported() && !win.isFocused()) notify(title, body, () => win.show());
+	});
+	// Awake while a download runs: asleep, the computer downloads nothing. The
+	// screen may still go dark.
+	let awake = -1;
+	ipcMain.on('keep-awake', (_event, on) => {
+		if (on && awake < 0) awake = powerSaveBlocker.start('prevent-app-suspension');
+		else if (!on && awake >= 0) {
+			powerSaveBlocker.stop(awake);
+			awake = -1;
 		}
 	});
 	ipcMain.on('open-folder', (_event, dir) => {
@@ -175,6 +239,12 @@ async function open() {
 		shell.openExternal(target);
 		return { action: 'deny' };
 	});
+	// A photo or a file dropped on the window would open in its place, and
+	// the page would be gone with no way back: the window shows the engine's
+	// page and nothing else.
+	win.webContents.on('will-navigate', (event) => {
+		if (new URL(event.url).origin !== new URL(url).origin) event.preventDefault();
+	});
 	Menu.setApplicationMenu(menu());
 	updates();
 	win.loadURL(url);
@@ -186,6 +256,10 @@ async function open() {
 // then it is installed and the app restarts. HOMEWEND_UPDATES points at
 // another place that serves the same files, to try an update without
 // publishing one.
+//
+// Not on the Mac: Squirrel.Mac installs only an app signed with an Apple
+// identity, and ours is signed ad hoc. There asking opens the release's page,
+// to download it as the first time.
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
 function updates() {
 	// A build between releases (0.1.2-dev.5…) is not offered the last
@@ -198,8 +272,11 @@ function updates() {
 	// The newer version found, told to the page now and whenever it asks: it
 	// may be found before the page listens.
 	let available = '';
+	// Its release's tag, on GitHub.
+	let tag = '';
 	autoUpdater.on('update-available', (info) => {
 		available = info.version;
+		tag = info.tag || `v${info.version}`;
 		win?.webContents.send('update-available', available);
 	});
 	ipcMain.on('update-listen', (event) => available && event.sender.send('update-available', available));
@@ -209,20 +286,26 @@ function updates() {
 	// Asked from the notification and the strip alike: fetched once.
 	let installing = false;
 	const install = () => {
+		if (process.platform === 'darwin') {
+			shell.openExternal(releasePage(tag));
+			// Nothing installs here: the strip offers its button again.
+			win?.webContents.send('update-failed');
+			return;
+		}
 		if (installing) return;
 		installing = true;
 		autoUpdater.downloadUpdate().catch((err) => {
 			installing = false;
 			console.error('update:', err.message);
+			// The page stops saying it is installing, and can be asked again.
+			win?.webContents.send('update-failed');
 		});
 	};
 	ipcMain.on('install-update', install);
 	ipcMain.on('announce-update', (_event, version, title, body) => {
 		if (version === announced || !Notification.isSupported()) return;
 		announced = version;
-		const n = new Notification({ title: String(title), body: String(body) });
-		n.on('click', install);
-		n.show();
+		notify(title, body, install);
 	});
 	const check = () => autoUpdater.checkForUpdates().catch(() => {});
 	// Once the page can say it.
@@ -230,12 +313,29 @@ function updates() {
 	setInterval(check, UPDATE_EVERY);
 }
 
+// The page of a release: on GitHub, where build.publish points, which
+// electron-builder writes into app-update.yml beside the app (the packaged
+// package.json loses it); or HOMEWEND_UPDATES, the place trying one.
+function releasePage(tag) {
+	if (process.env.HOMEWEND_UPDATES) return process.env.HOMEWEND_UPDATES;
+	const config = fs.readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8');
+	const field = (name) => config.match(new RegExp(`^${name}: *(\\S+)`, 'm'))?.[1];
+	return `https://github.com/${field('owner')}/${field('repo')}/releases/tag/${tag}`;
+}
+
 // One app, one window: opening it again brings the open window forward.
 if (!app.requestSingleInstanceLock()) app.exit();
 app.on('second-instance', () => {
 	if (!win) return;
 	if (win.isMinimized()) win.restore();
+	win.show();
 	win.focus();
+});
+
+// The Dock icon clicked, the window closed on the Mac comes back.
+app.on('activate', () => win?.show());
+app.on('before-quit', () => {
+	quitting = true;
 });
 
 // An AppImage is one file with no installer: on Linux the app puts itself in
@@ -289,10 +389,7 @@ function desktopEntry() {
 app.whenReady().then(() => {
 	desktopEntry();
 	return open();
-}).catch((err) => {
-	console.error(err.message);
-	app.quit();
-});
+}).catch(fail);
 
 app.on('window-all-closed', () => app.quit());
 

@@ -9,13 +9,15 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/web"
 )
 
-// ui serves the interface until Ctrl-C or until stdin closes: the desktop
-// app holds our stdin, so if it dies without stopping us we stop anyway.
+// ui serves the interface until Ctrl-C, SIGTERM or until stdin closes: the
+// desktop app holds our stdin, so if it dies without stopping us we stop
+// anyway, and it stops us with SIGTERM when it quits.
 func ui(args []string) int {
 	newFlags("ui").Parse(args)
 	web.Version = version
@@ -25,8 +27,9 @@ func ui(args []string) int {
 		return exitError
 	}
 	fmt.Println(srv.URL)
+	srv.KeepJobs()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {
 		io.Copy(io.Discard, os.Stdin)

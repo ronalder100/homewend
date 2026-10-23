@@ -12,16 +12,16 @@ import (
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
+	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // apiRoutes are the engine calls the page makes. Each is a thin translation
 // to JSON: what they do lives in the engine.
-func apiRoutes() http.Handler {
+func apiRoutes(jobs *engine.Jobs) http.Handler {
 	mux := http.NewServeMux()
 	// One sign-in at a time: a second click must not open a second browser.
 	var signingIn sync.Mutex
-	jobs := &engine.Jobs{}
 	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
 		s, err := engine.LoadSettings()
 		reply(w, s, err)
@@ -192,13 +192,37 @@ func apiRoutes() http.Handler {
 		jobs.Stop(account)
 		reply(w, jobs.State(account), nil)
 	})
+	// How many photos and videos the account has on Google, by year, as last
+	// counted; and whether a count runs, or why the last one failed.
+	mux.HandleFunc("GET /api/years", func(w http.ResponseWriter, r *http.Request) {
+		account := r.URL.Query().Get("account")
+		counts, err := engine.LoadYearCounts(account)
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		running, failed := jobs.Counting(account)
+		out := struct {
+			*engine.YearCounts
+			Counting bool   `json:"counting"`
+			Error    string `json:"error,omitempty"`
+		}{YearCounts: counts, Counting: running}
+		if failed != nil {
+			out.Error = failed.Error()
+		}
+		reply(w, out, nil)
+	})
+	mux.HandleFunc("POST /api/years", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, map[string]string{}, jobs.Count(r.URL.Query().Get("account")))
+	})
 	// Signing out deletes the account's browser profile: its Google cookies
 	// go, its photos stay.
 	mux.HandleFunc("POST /api/logout", func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("account")
 		dir, err := engine.AccountDir(id)
 		if err == nil {
-			jobs.Stop(id)
+			// The job's browser must be gone before its profile is.
+			<-jobs.Stop(id)
 			_, err = engine.Logout(dir)
 		}
 		reply(w, map[string]string{}, err)
@@ -244,6 +268,10 @@ func reply(w http.ResponseWriter, v any, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, takeout.ErrSignedOut):
 		http.Error(w, err.Error(), http.StatusUnauthorized)
+	// Nothing the request or we did wrong: the machine lacks what signing
+	// in needs, and the page says what to install.
+	case errors.Is(err, session.ErrNoBrowser):
+		http.Error(w, "no Chromium-family browser found", http.StatusFailedDependency)
 	case errors.Is(err, fs.ErrNotExist), errors.Is(err, engine.ErrNoLibrary), errors.Is(err, engine.ErrNoSuchAccount):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:

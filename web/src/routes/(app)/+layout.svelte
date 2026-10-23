@@ -30,17 +30,29 @@
 	// The first run, before any photo: Choose and the download are three steps
 	// of their own, without the library around them (A2–A5).
 	const firstRun = $derived(
-		(app.overview?.total ?? 0) === 0 && (page.url.pathname === '/choose' || page.url.pathname === '/bringing')
+		(app.overview?.total ?? 0) === 0 && (page.url.pathname.startsWith('/choose') || page.url.pathname === '/bringing')
 	);
+	const picked = $derived(job ? app.picked[job.account] : '');
 	const chose = $derived(
-		job?.job.year ? text.choseYear(job.job.year) : job ? text.choseEverything : text.stepChooseLabel
+		job?.job.year
+			? text.choseYear(job.job.year)
+			: picked && job?.job.export?.startsWith(picked)
+				? text.choseTakeout
+				: job
+					? text.choseEverything
+					: text.stepChooseLabel
 	);
 
-	// Said once each, when it happens, in D2's words.
+	// Said once each, when it happens, in D2's words; said again when it
+	// happens again, after something else. Ready lasts too little to be seen
+	// in a second's ask: it is the move from Google preparing to downloading.
 	let said = '';
+	let was = { account: '', stage: '' };
 	$effect(() => {
 		const j = job?.job;
 		const email = app.overview?.accounts.find((a) => a.id === job?.account)?.email ?? '';
+		const ready = !!j?.running && j.stage !== 'waiting' && was.stage === 'waiting' && was.account === job?.account;
+		was = { account: job?.account ?? '', stage: j?.stage ?? '' };
 		const now =
 			j?.stage === 'first-download' && j.running
 				? 'password'
@@ -48,11 +60,12 @@
 					? 'signed-out'
 					: j?.finished
 						? 'finished'
-						: j?.stage === 'ready'
+						: ready
 							? 'ready'
 							: '';
-		if (!now || now === said) return;
+		if (now === said) return;
 		said = now;
+		if (!now) return;
 		const n = (j?.years ?? []).reduce((s, y) => s + y.arrived, 0).toLocaleString('en');
 		const say = {
 			password: [text.notifyPassword, text.notifyPasswordBody(email)],
@@ -84,8 +97,8 @@
 		<Titlebar menu={false} />
 		{@render strip()}
 		<Steps
-			steps={[text.stepSignIn, page.url.pathname === '/choose' ? text.stepChooseLabel : chose, text.stepBringHome]}
-			at={page.url.pathname === '/choose' ? 1 : 2}
+			steps={[text.stepSignIn, page.url.pathname.startsWith('/choose') ? text.stepChooseLabel : chose, text.stepBringHome]}
+			at={page.url.pathname.startsWith('/choose') ? 1 : 2}
 		/>
 		<div class="body">{@render children()}</div>
 	</div>

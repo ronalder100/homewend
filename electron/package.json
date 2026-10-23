@@ -47,6 +47,7 @@
 				"dmg"
 			],
 			"category": "public.app-category.photography",
+			"icon": "build/icon.icns",
 			"identity": "-",
 			"hardenedRuntime": false
 		},

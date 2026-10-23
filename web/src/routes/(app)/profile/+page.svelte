@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { ApiError, getLibrary, putProfile } from '#lib/api.js';
 	import { app, refresh } from '#lib/app.svelte.js';
+	import { chooseUrl } from '#lib/places.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 
@@ -41,7 +42,7 @@
 		try {
 			await putProfile(id, name.trim());
 			await refresh();
-			goto('/choose', { replaceState: true });
+			goto(chooseUrl(id), { replaceState: true });
 		} catch (e) {
 			// No account to name: it signed out, or its folder went.
 			failed = e instanceof ApiError && e.status === 404 ? text.accountGone : text.badProfile;

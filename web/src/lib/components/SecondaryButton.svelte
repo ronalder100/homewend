@@ -13,9 +13,10 @@
 <button class:small {onclick}>{@render children()}</button>
 
 <style>
+	/* The primary button's size (see there). */
 	button {
-		height: 40px;
-		padding: 0 16px;
+		height: 44px;
+		padding: 0 20px;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;

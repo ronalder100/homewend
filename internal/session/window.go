@@ -46,6 +46,9 @@ func (s *Session) launch(open ...string) (*Window, error) {
 	if err := s.neverSavePasswords(); err != nil {
 		return nil, err
 	}
+	if err := s.forgetTabs(); err != nil {
+		return nil, err
+	}
 	args := []string{
 		"--user-data-dir=" + s.Profile,
 		// A fixed password for the cookie key, so that we can read the cookies
@@ -69,6 +72,14 @@ func (s *Session) launch(open ...string) (*Window, error) {
 		close(w.exited)
 	}()
 	return w, nil
+}
+
+// forgetTabs deletes the tabs the browser kept of its last run. A run stopped
+// halfway leaves the browser "crashed", and the next window opened on the
+// profile brought back every Takeout page of every run before it, beside the
+// password page (Chromium 152, macOS, 2026-10-15).
+func (s *Session) forgetTabs() error {
+	return os.RemoveAll(filepath.Join(s.Profile, "Default", "Sessions"))
 }
 
 // neverSavePasswords tells the browser not to offer to save a password in

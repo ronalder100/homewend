@@ -5,6 +5,8 @@ package session
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -70,5 +72,27 @@ func TestCommandPath(t *testing.T) {
 		if got := commandPath(command); got != want {
 			t.Errorf("%q: got %q, want %q", command, got, want)
 		}
+	}
+}
+
+func TestABrowserInTheHomeApplicationsIsFound(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("~/Applications is the Mac's")
+	}
+	c := chromium{app: "/Applications/Nowhere.app/Contents/MacOS/Nowhere"}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if got := installed(c); got != "" {
+		t.Fatalf("not installed: got %q", got)
+	}
+	app := filepath.Join(home, c.app)
+	if err := os.MkdirAll(filepath.Dir(app), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(app, nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := installed(c); got != app {
+		t.Errorf("got %q, want %q", got, app)
 	}
 }

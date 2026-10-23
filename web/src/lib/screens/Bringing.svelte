@@ -3,38 +3,85 @@
 <!-- A3, A4, A5: Google preparing, the parts arriving, or paused. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Folder, CircleCheck, ArrowRight, Loader } from '@lucide/svelte';
-	import { app, jobsKnown, shownJob } from '#lib/app.svelte.js';
-	import { getLatest, getTakeouts, startGet, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
+	import { Folder, CircleCheck, ArrowRight, Loader, Hourglass, Circle, X, RotateCcw } from '@lucide/svelte';
+	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
+	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
 	import { bytes, roughly } from '#lib/format.js';
-	import { fraction, headline } from '#lib/job.js';
+	import { arrived, busy, failure, fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
+	import { chooseUrl } from '#lib/places.js';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 
 	const shown = $derived(shownJob());
+	// On the Mac the closed window leaves the app running: the page can close it.
+	const mac = /Mac/.test(navigator.platform) && !!window.shell;
 	// No download to show, once that is known: the page to start one.
 	$effect(() => {
 		if (jobsKnown() && !shown) goto('/choose', { replaceState: true });
 	});
 	const job = $derived(shown?.job);
 	const waiting = $derived(job?.stage === 'waiting');
-	const paused = $derived(job && !job.running && !job.finished && !job.error && job.stage);
-	const title = $derived(
-		job?.finished ? text.finishedTitle : paused ? text.pausedTitle : waiting ? text.preparingTitle : text.bringingTitle
+	// Before Google has the request: signing in checked, the export asked for.
+	// Which of the steps before Google's answer is going on: sign-in, set up, request.
+	const askingStep = $derived(
+		({ checking: 0, 'session-ready': 1, prepare: 1, request: 2 } as Record<string, number>)[job?.stage ?? ''] ?? -1
 	);
-	const lead = $derived(paused ? text.pausedLead : waiting ? text.preparingLead : text.bringingLead);
+	const asking = $derived(!!job?.running && ['checking', 'session-ready', 'prepare', 'request'].includes(job.stage ?? ''));
+	const paused = $derived(job && !job.running && !job.finished && !job.error && job.stage);
+	// Google's password page is open in the browser: closing the window is
+	// not what to do now.
+	const password = $derived(job?.stage === 'first-download' && job.running);
+	// Google has no photos of the year asked: nothing to resume, another to choose.
+	const notOffered = $derived(job?.problem === 'not-offered');
+	const title = $derived(
+		notOffered
+			? text.notOfferedTitle(job?.year ?? 0)
+			: job?.error
+				? text.bringingTitle
+				: job?.finished
+					? text.finishedTitle
+					: paused
+						? text.pausedTitle
+						: waiting
+							? text.preparingTitle(job?.year ?? 0)
+							: job?.stage === 'request'
+								? text.askingTitle(job.year ?? 0)
+								: text.bringingTitle
+	);
+	const lead = $derived(
+		job?.finished
+			? text.finishedLead
+			: paused
+				? text.pausedLead
+				: password
+					? text.passwordLead
+					: waiting
+						? text.preparingLead
+						: job?.stage === 'request'
+							? text.askingLead
+							: job?.stage === 'prepare'
+								? text.prepareLead
+								: text.bringingLead
+	);
 	const email = $derived(app.overview?.accounts.find((a) => a.id === shown?.account)?.email ?? '');
 
 	// The takeout as Google lists it: when it was asked, until when it is kept.
+	// Asked once for each takeout, answered or not: the job changes every
+	// second, and the list is a page of Google's.
 	let takeout = $state<Takeout | null>(null);
+	let askedFor = '';
 	$effect(() => {
 		const id = job?.export;
 		const account = shown?.account;
-		if (!id || !account || takeout?.id && id.startsWith(takeout.id)) return;
-		getTakeouts(account).then((l) => (takeout = l.find((t) => id.startsWith(t.id)) ?? null));
+		if (!id || !account || askedFor === `${account} ${id}`) return;
+		askedFor = `${account} ${id}`;
+		getTakeouts(account).then(
+			(l) => (takeout = l.find((t) => id.startsWith(t.id)) ?? null),
+			() => {}
+		);
 	});
 
 	// The photos that arrived last, refreshed while they arrive.
@@ -49,11 +96,33 @@
 	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 	const dayOf = (d: Date) => `${d.getDate()} ${months[d.getMonth()]}`;
+	// How long the step going on has lasted, counted here from when it began:
+	// a number that moves says the wait is alive.
+	let stageSince = $state(Date.now());
+	let lastStage = '';
+	let tick = $state(Date.now());
+	$effect(() => {
+		const s = job?.stage ?? '';
+		if (s !== lastStage) {
+			lastStage = s;
+			stageSince = Date.now();
+		}
+	});
+	onMount(() => {
+		const t = setInterval(() => (tick = Date.now()), 1000);
+		return () => clearInterval(t);
+	});
 	let now = $state(Date.now());
 	onMount(() => {
 		const t = setInterval(() => (now = Date.now()), 30000);
 		return () => clearInterval(t);
 	});
+	const elapsed = $derived(text.elapsed(Math.max(0, Math.floor((tick - stageSince) / 1000))));
+	// While Google prepares it, the wait is counted from when Google got the
+	// request, as its own list says; until that is read, from when this began.
+	const waited = $derived(
+		text.elapsed(Math.max(0, Math.floor((tick - (takeout ? new Date(takeout.Created).getTime() : stageSince)) / 1000)))
+	);
 	const sameDay = (d: Date) => new Date(now).toDateString() === d.toDateString();
 
 	const left = $derived(
@@ -66,15 +135,34 @@
 		<!-- Known within a second: a download, or the page to start one. -->
 	{:else}
 		<div class="left">
-			<span class="pill" class:err={job.error} class:live={job.running}><i></i>{headline(job)}</span>
+			<span class="pill" class:err={job.error && !notOffered} class:warn={notOffered} class:live={job.running}
+				>{#if busy(job) || (waiting && job.running)}<span class="spin"><Loader size={14} /></span>{headline(job)} · {waiting ? waited : elapsed}{:else}<i></i>{headline(job)}{/if}</span
+			>
 			<h1>{title}</h1>
-			<p class="lead">{job.error || lead}</p>
+			<p class="lead">{job.error ? failure(job) : lead}</p>
 			{#if email}<span class="who"><Avatar account={{ id: shown.account, name: email, email, shown: true }} />{email}</span>{/if}
-			{#if waiting}
+			{#if notOffered && job.offered?.length}
+				<div class="chips">
+					{#each [...job.offered].sort((a, b) => b - a) as y (y)}
+						<button class="chip" onclick={() => goto(chooseUrl(shown.account, y))}>{y}</button>
+					{/each}
+				</div>
+			{/if}
+			{#if asking}
+				<ol class="steps">
+					{#each text.askingSteps as st, i (i)}
+						<li class:now={i === askingStep} class:done={i < askingStep}>
+							{#if i < askingStep}<CircleCheck size={20} />{:else if i === askingStep}<span class="spin"><Loader size={20} /></span>{:else}<Circle size={20} />{/if}
+							{i < askingStep ? st.done : st.now}
+							{#if i === askingStep}<time>{elapsed}</time>{/if}
+						</li>
+					{/each}
+				</ol>
+			{:else if waiting}
 				<div class="numbers">
 					{#if takeout}
 						{@const asked = new Date(takeout.Created)}
-						<div><b>{sameDay(asked) ? clock.format(asked) : dayOf(asked)}</b><span>{sameDay(asked) ? text.askedToday : text.asked}</span></div>
+						<div><b>{waited}</b><span>{sameDay(asked) ? text.waitingAskedAt(clock.format(asked)) : text.waitingAskedOn(dayOf(asked))}</span></div>
 					{/if}
 					{#if job.lastLooked}
 						<div><b>{text.minAgo(Math.floor((now - new Date(job.lastLooked).getTime()) / 60000))}</b><span>{text.lastLooked}</span></div>
@@ -93,14 +181,16 @@
 			<div class="actions">
 				{#if job.running}
 					<SecondaryButton onclick={() => stopJob(shown.account)}>{text.pause}</SecondaryButton>
+				{:else if notOffered}
+					<PrimaryButton onclick={() => goto(chooseUrl(shown.account, 0))}>{text.chooseAnother}</PrimaryButton>
 				{:else if !job.finished}
-					<PrimaryButton onclick={() => startGet({ account: shown.account, year: job.year })}>{text.resume}</PrimaryButton>
+					<PrimaryButton onclick={() => resumeJob(shown.account, job)}>{text.resume}</PrimaryButton>
 				{/if}
 			</div>
-			{#if !waiting && latest.length > 0}
+			{#if !waiting && latest.length > 0 && arrived(job)}
 				<div class="strip">
 					<div class="striphead">
-						<span>{paused ? text.lastArrived : text.firstArrived}</span>
+						<span>{paused ? text.lastArrived : text.justArrived}</span>
 						<button class="link" onclick={() => goto('/library')}>{text.seeLibrary}<ArrowRight size={14} /></button>
 					</div>
 					<div class="tiles">
@@ -109,30 +199,39 @@
 				</div>
 			{/if}
 		</div>
-		{#if waiting}
+		{#if waiting || asking}
 			<section class="card">
 				<h2>{text.canClose}</h2>
 				<p>{text.canCloseDesc}</p>
+				{#if mac}
+					<div class="close"><SecondaryButton onclick={() => window.shell?.closeWindow()}><X size={16} />{text.closeWindow}</SecondaryButton></div>
+					<p class="quit"><RotateCcw size={16} />{text.quitStops}</p>
+				{/if}
 				<ol>
-					<li class="now"><Loader size={16} />{text.stepPrepares}</li>
+					{#if asking}<li class="now"><span class="spin"><Loader size={16} /></span>{text.stepAsks}</li>{/if}
+					<li class:now={waiting}>{#if waiting}<span class="spin"><Loader size={16} /></span>{:else}<Hourglass size={16} />{/if}{text.stepPrepares}</li>
 					<li><Folder size={16} />{text.stepDownloads}</li>
 					<li><CircleCheck size={16} />{text.stepLands}</li>
 					<li><CircleCheck size={16} />{text.stepNotify}</li>
 				</ol>
-				<a class="link" href="https://takeout.google.com/manage" target="_blank" rel="noreferrer">{text.seeOnTakeout}<ArrowRight size={14} /></a>
+				{#if waiting}<a class="link" href="https://takeout.google.com/manage" target="_blank" rel="noreferrer">{text.seeOnTakeout}<ArrowRight size={14} /></a>{/if}
 			</section>
 		{/if}
-		{#if !waiting && (job.years.length > 0 || job.unassigned > 0)}
+		{#if !waiting && !asking && (job.years.length > 0 || job.unassigned > 0)}
 			<section class="years">
 				<header><h2>{text.byYear}</h2><span>{text.byYearLegend}</span></header>
 				{#each job.years as y (y.year)}
 					{@const done = y.of > 0 && y.arrived >= y.of}
+					<!-- Photos land when their part is whole: until then a takeout of
+					     this year alone moves with the bytes, any year by its spinner. -->
+					{@const share = job.year && String(job.year) === y.year ? Math.max(fraction(job), y.of ? y.arrived / y.of : 0) : y.of ? y.arrived / y.of : 0}
 					<div class="year">
 						<span class="folder"><Folder size={18} /></span>
 						<span class="name">{y.year || text.noDate}</span>
 						<span class="count" class:done>{y.arrived.toLocaleString('en')} / {y.of.toLocaleString('en')}</span>
+						{#if !done && job.running}<span class="spin turning"><Loader size={16} /></span>{/if}
 						<span class="state">
-							{#if done}<CircleCheck size={18} />{:else}<span class="bar"><b style:width="{y.of ? (y.arrived / y.of) * 100 : 0}%"></b></span>{/if}
+							{#if done}<CircleCheck size={18} />{:else}<span class="bar"><b style:width="{share * 100}%"></b></span>{/if}
 						</span>
 					</div>
 				{/each}
@@ -150,15 +249,17 @@
 </div>
 
 <style>
+	/* In a narrow window the card goes under the text rather than squeeze it. */
 	.page {
 		height: 100%;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 40px;
 		padding: 64px 40px 40px;
 		align-items: flex-start;
 	}
 	.left {
-		flex: 1;
+		flex: 1 1 360px;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
@@ -191,6 +292,19 @@
 		50% {
 			opacity: 0.25;
 		}
+	}
+	.spin {
+		display: grid;
+		animation: spin 1s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.pill.warn {
+		background: var(--warn-soft);
+		color: var(--warn);
 	}
 	.pill.err {
 		background: var(--err-soft);
@@ -234,9 +348,60 @@
 		border-radius: 999px;
 		background: var(--accent);
 	}
+	.steps {
+		list-style: none;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		padding: 16px 0 0;
+		font-size: var(--text-title-3);
+		color: var(--faint);
+	}
+	.steps li {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.steps li.done {
+		color: var(--muted);
+	}
+	.steps li.done :global(svg) {
+		color: var(--ok);
+	}
+	.steps li.now {
+		color: var(--fg);
+		font-weight: 600;
+	}
+	.steps li.now :global(svg) {
+		color: var(--accent);
+	}
+	.steps time {
+		font-family: var(--font-mono);
+		font-weight: normal;
+		color: var(--muted);
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.chip {
+		height: 32px;
+		padding: 0 12px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		font-size: var(--text-callout);
+		color: var(--text);
+	}
+	.chip:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
 	.numbers {
 		display: flex;
-		gap: 40px;
+		flex-wrap: wrap;
+		gap: 16px 40px;
 	}
 	.numbers b {
 		display: block;
@@ -287,7 +452,7 @@
 		border-radius: 6px;
 	}
 	.card {
-		width: 380px;
+		width: min(380px, 100%);
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
@@ -306,6 +471,15 @@
 		font-size: var(--text-callout);
 		line-height: 1.5;
 		color: var(--muted);
+	}
+	.card .quit {
+		display: flex;
+		gap: 8px;
+	}
+	.quit :global(svg) {
+		flex: none;
+		margin-top: 2px;
+		color: var(--ok);
 	}
 	.card ol {
 		list-style: none;
@@ -338,11 +512,12 @@
 		color: var(--faint);
 		font-weight: 400;
 	}
-	.state.arriving {
+	.state.arriving,
+	.turning {
 		color: var(--accent);
 	}
 	.years {
-		width: 380px;
+		width: min(380px, 100%);
 		flex-shrink: 0;
 		max-height: 100%;
 		overflow-y: auto;

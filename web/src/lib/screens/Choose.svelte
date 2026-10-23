@@ -4,33 +4,39 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { app } from '#lib/app.svelte.js';
-	import { getLibrary, putLibrary, startGet } from '#lib/api.js';
+	import { page } from '$app/state';
+	import { app, startFailure, startJob } from '#lib/app.svelte.js';
+	import { getLibrary, putLibrary } from '#lib/api.js';
+	import { Years } from '#lib/years.svelte.js';
+	import { chooseUrl } from '#lib/places.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
-	import { Plus, Folder, ChevronDown, ArrowRight } from '@lucide/svelte';
+	import { Plus, Folder, ArrowRight } from '@lucide/svelte';
 	import { bytes } from '#lib/format.js';
 	import { sidebarOf } from '#lib/app.svelte.js';
 
 	type Kind = 'year' | 'everything' | 'asked';
 	let kind = $state<Kind>('everything');
-	// The last four years, newest first: what most people want to try.
-	const thisYear = new Date().getFullYear();
-	// Oldest first, as the design reads them; the current year is still filling.
-	const years = [3, 2, 1].map((n) => thisYear - n);
-	// Any older year from a list: Google says which it has only when asked.
-	const older = [thisYear, ...Array.from({ length: thisYear - 4 - 1990 + 1 }, (_, n) => thisYear - 4 - n)];
-	let year = $state(thisYear - 1);
 	let dir = $state('');
 	let free = $state(0);
 	let failed = $state('');
 
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 	let account = $state('');
+	// The account the address names: one just added. Without one, or once it
+	// is gone, the first.
 	$effect(() => {
-		if (!account && accounts.length > 0) account = accounts[0].id;
+		const a = page.url.searchParams.get('account');
+		if (a) account = a;
 	});
+	$effect(() => {
+		if (accounts.length > 0 && !accounts.some((a) => a.id === account)) account = accounts[0].id;
+	});
+
+	const running = $derived(app.jobs[account]?.running ?? false);
+	// Counted here already, while the person reads: the next page lists them.
+	const years = new Years(() => account);
 
 	onMount(async () => ({ dir, free } = await getLibrary()));
 
@@ -44,13 +50,16 @@
 
 	async function start() {
 		failed = '';
-		if (kind === 'asked') return goto('/takeouts');
+		// A takeout from the list needs the folder too, and the list has no
+		// place to choose it.
 		if (!dir) return (failed = text.noLibraryYet);
+		if (kind === 'asked') return goto('/takeouts');
+		if (kind === 'year') return goto(chooseUrl(account, 0));
 		try {
-			await startGet({ account, year: kind === 'year' ? year : 0 });
+			await startJob({ account, year: 0 });
 			goto('/bringing');
 		} catch (e) {
-			failed = String(e);
+			failed = startFailure(e);
 		}
 	}
 </script>
@@ -73,39 +82,11 @@
 		<div role="radio" tabindex="0" aria-checked={kind === 'year'} class="card" class:on={kind === 'year'} onclick={() => (kind = 'year')} onkeydown={(e) => e.key === 'Enter' && (kind = 'year')}>
 			<span class="title"><span class="radio"></span><h2>{text.oneYear}</h2></span>
 			<p>{text.oneYearDesc}</p>
-			<span class="chips">
-				{#each years as y (y)}
-					<span
-						role="button"
-						tabindex="0"
-						class="chip"
-						class:on={kind === 'year' && year === y}
-						onclick={(e) => {
-							e.stopPropagation();
-							kind = 'year';
-							year = y;
-						}}
-						onkeydown={(e) => e.key === 'Enter' && ((kind = 'year'), (year = y))}>{y}</span
-					>
-				{/each}
-				<select
-					class="chip"
-					class:on={kind === 'year' && !years.includes(year)}
-					aria-label={text.olderYear}
-					onclick={(e) => e.stopPropagation()}
-					onchange={(e) => {
-						kind = 'year';
-						year = Number((e.currentTarget as HTMLSelectElement).value);
-					}}
-				>
-					<option value="" selected={years.includes(year)} disabled>{text.olderYear}</option>
-					{#each older as y (y)}<option value={y} selected={year === y}>{y}</option>{/each}
-				</select>
-			</span>
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'everything'} class="card" class:on={kind === 'everything'} onclick={() => (kind = 'everything')} onkeydown={(e) => e.key === 'Enter' && (kind = 'everything')}>
 			<span class="title"><span class="radio"></span><h2>{text.everything}</h2></span>
 			<p>{text.everythingDesc}</p>
+			{#if years.counted}<span class="total">{text.itemsCount(years.counted.reduce((n, c) => n + c.items, 0))}</span>{/if}
 		</div>
 		<div role="radio" tabindex="0" aria-checked={kind === 'asked'} class="card" class:on={kind === 'asked'} onclick={() => (kind = 'asked')} onkeydown={(e) => e.key === 'Enter' && (kind = 'asked')}>
 			<span class="title"><span class="radio"></span><h2>{text.oneAsked}</h2></span>
@@ -123,10 +104,17 @@
 	</div>
 
 	<div class="go">
-		<PrimaryButton onclick={start}>
-			{kind === 'year' ? text.startYear(year) : kind === 'asked' ? text.seeTakeouts : text.startEverything}
-		</PrimaryButton>
-		{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint">{text.notifyWhenReady}</span>{/if}
+		<!-- One download at a time for each account: the one running is shown
+		     instead of a start the engine would refuse. -->
+		{#if running}
+			<PrimaryButton onclick={() => goto('/bringing')}>{text.seeDownload}</PrimaryButton>
+			<span class="hint">{text.alreadyBringing}</span>
+		{:else}
+			<PrimaryButton onclick={start}>
+				{kind === 'year' ? text.nextChooseYear : kind === 'asked' ? text.seeTakeouts : text.startEverything}
+			</PrimaryButton>
+			{#if failed}<span class="err">{failed}</span>{:else if kind !== 'asked'}<span class="hint">{kind === 'year' ? text.nextChooseYearHint : text.notifyWhenReady}</span>{/if}
+		{/if}
 	</div>
 </div>
 
@@ -153,6 +141,8 @@
 	}
 	.accounts {
 		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
 		gap: 8px;
 	}
 	.accounts button {
@@ -227,32 +217,10 @@
 		line-height: 1.5;
 		color: var(--muted);
 	}
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin-top: 4px;
-	}
-	.chip {
-		height: 28px;
-		padding: 0 10px;
-		display: inline-flex;
-		align-items: center;
-		border: 1px solid var(--border);
-		border-radius: 8px;
+	.total {
 		font-size: var(--text-callout);
-		color: var(--text);
-	}
-	select.chip {
-		font: inherit;
-		font-size: var(--text-callout);
-		background: transparent;
-		cursor: default;
-	}
-	.chip.on {
-		border-color: var(--accent);
-		color: var(--accent);
 		font-weight: 600;
+		color: var(--fg);
 	}
 	.link {
 		display: inline-flex;
@@ -307,7 +275,9 @@
 		white-space: nowrap;
 		user-select: text;
 	}
+	/* At the left edge, where the hint beside it cannot move it. */
 	.go {
+		align-self: stretch;
 		display: flex;
 		align-items: center;
 		gap: 16px;

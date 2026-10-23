@@ -16,7 +16,10 @@ declare global {
 			openFolder(path: string): void;
 			onToggleSidebar(fn: () => void): void;
 			notify(title: string, body: string): void;
+			keepAwake(on: boolean): void;
+			closeWindow(): void;
 			onUpdate(fn: (version: string) => void): void;
+			onUpdateFailed(fn: () => void): void;
 			announceUpdate(version: string, title: string, body: string): void;
 			installUpdate(): void;
 		};

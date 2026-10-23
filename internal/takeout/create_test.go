@@ -6,8 +6,10 @@ package takeout
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // form stands in for Takeout's pages: it answers each look at the page with
@@ -15,6 +17,9 @@ import (
 type form struct {
 	step1, picker, dialog, ticked, step2 string // the JSON each look returns
 	clicks                               []point
+	// waits are the answers the picker's button gives before f.picker: the
+	// list still on its way.
+	waits []string
 }
 
 func (f *form) Eval(expression string, out any) error {
@@ -26,6 +31,9 @@ func (f *form) Eval(expression string, out any) error {
 		answer = "true"
 	case strings.Contains(expression, "Pickers:"):
 		answer = f.picker
+		if len(f.waits) > 0 {
+			answer, f.waits = f.waits[0], f.waits[1:]
+		}
 	case strings.Contains(expression, "Entries:"):
 		answer = f.dialog
 	case strings.Contains(expression, "b.value === "):
@@ -110,6 +118,37 @@ func TestCreateExportChoosesTheYearAlone(t *testing.T) {
 		if f.clicks[i] != want[i] {
 			t.Fatalf("pressed %v; want %v", f.clicks, want)
 		}
+	}
+}
+
+func TestThePickerIsAwaitedAsLongAsThePagePollsForIt(t *testing.T) {
+	defer func(was time.Duration) { pollStall = was }(pollStall)
+	pollStall = 1500 * time.Millisecond
+	f := newForm()
+	// Longer than pollStall in all, with a poll every second.
+	for n := range 4 {
+		f.waits = append(f.waits, fmt.Sprintf(`{"Pickers":0,"Polls":%d}`, n))
+	}
+	if err := CreateExport(f, 2025); err != nil {
+		t.Fatal(err)
+	}
+	if !f.pressed(create) {
+		t.Errorf("pressed %v; want the export created", f.clicks)
+	}
+}
+
+func TestThePickerIsGivenUpWhenThePageStopsPolling(t *testing.T) {
+	defer func(was time.Duration) { pollStall = was }(pollStall)
+	pollStall = 1500 * time.Millisecond
+	f := newForm()
+	for range 5 {
+		f.waits = append(f.waits, `{"Pickers":0,"Polls":7}`)
+	}
+	if err := CreateExport(f, 2025); !errors.Is(err, ErrPickerStalled) {
+		t.Fatalf("got %v, want ErrPickerStalled", err)
+	}
+	if f.pressed(pickerAt) || f.pressed(create) {
+		t.Errorf("pressed %v; want nothing", f.clicks)
 	}
 }
 

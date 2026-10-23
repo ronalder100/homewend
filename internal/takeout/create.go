@@ -38,11 +38,17 @@ func (e *NotOfferedError) Error() string {
 	return fmt.Sprintf("Takeout offers no export of %d", e.Year)
 }
 
-// PickerWait is how long Google may take to fill the content picker. It
-// answers the page's poll with the list of albums only when it has built it:
-// 1 m 34 s to 2 m 3 s after the page loaded, six loads on 2026-09-26, nothing
-// cached between loads.
-const PickerWait = 5 * time.Minute
+// ErrPickerStalled means the page stopped asking Google for the list of albums
+// and years before Google sent it. Nothing was sent.
+var ErrPickerStalled = errors.New("Takeout stopped waiting for the list of years")
+
+// The content picker has no deadline: Google answers the page's poll with the
+// list of albums only when it has built it, 1 m 34 s to 2 m 3 s after the page
+// loaded on 2026-09-26 (six loads) and 4 m 29 s on 2026-10-21. While it builds
+// it, the page polls (the OIek4b RPC) every ~3.3 s; so the wait goes on as long
+// as the polls do, and ends only when they stop. pollStall is how long without
+// one counts as stopped: about eighteen polls missed.
+var pollStall = time.Minute
 
 // The form, as read on 2026-09-26 at PhotosURL. It is found by what survives
 // translation — Google's jsname, jsaction and data-id values, input names and
@@ -100,6 +106,7 @@ type step1 struct {
 type picker struct {
 	Pickers int
 	At      *point
+	Polls   int // the page's polls for the list so far
 }
 
 // dialog is the open content picker.
@@ -199,18 +206,35 @@ func CreateExport(d Driver, year int) error {
 // 2026-09-26.
 func choose(d Driver, year int) error {
 	var p picker
-	err := waitFor(d, "the content picker to be enabled", PickerWait, `(() => {`+formScript+`
+	wait := `(() => {` + formScript + `
+		if (!window.__polls) {
+			window.__polls = { n: 0 }
+			new PerformanceObserver(l => { for (const e of l.getEntries()) if (e.name.includes('rpcids=OIek4b')) window.__polls.n++ })
+				.observe({ type: 'resource', buffered: true })
+		}
 		const p = pickers()
-		return { Pickers: p.length, At: p.length === 1 ? centre(p[0]) : null }
-	})()`, &p, func() bool { return p.Pickers > 0 })
-	if err != nil {
-		return err
+		return { Pickers: p.length, At: p.length === 1 ? centre(p[0]) : null, Polls: window.__polls.n }
+	})()`
+	polls, since := -1, time.Now()
+	for ; ; time.Sleep(time.Second) {
+		if err := d.Eval(wait, &p); err != nil {
+			return err
+		}
+		if p.Pickers > 0 {
+			break
+		}
+		if p.Polls != polls {
+			polls, since = p.Polls, time.Now()
+		} else if time.Since(since) > pollStall {
+			return fmt.Errorf("%w: no poll for %s, %d before", ErrPickerStalled, pollStall, polls)
+		}
 	}
 	if p.Pickers != 1 {
 		return fmt.Errorf("%w: %d content pickers, expected Google Photos' alone", ErrFormChanged, p.Pickers)
 	}
 
 	var dl dialog
+	var err error
 	look := `(() => {` + formScript + `
 		const open = dialogs()
 		if (open.length !== 1) return { Dialogs: open.length }

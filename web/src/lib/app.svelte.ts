@@ -6,16 +6,19 @@
 import { goto } from '$app/navigation';
 import { onDestroy } from 'svelte';
 import {
+	ApiError,
 	getJob,
 	getOverview,
 	getSettings,
 	login,
 	putSettings,
+	startGet,
 	type JobState,
 	type Overview,
 	type Settings
 } from './api.js';
-import type { Sidebar } from './library.js';
+import type { Sidebar, YearState } from './library.js';
+import { chooseUrl } from './places.js';
 import { text } from './strings.js';
 
 export const app = $state<{
@@ -28,6 +31,9 @@ export const app = $state<{
 	/** A newer version, offered; and whether it is being installed. */
 	update: string;
 	updating: boolean;
+	/** The takeout picked from the list, per account: a download of it is
+	 *  named for it, not for the year 0 it carries. */
+	picked: Record<string, string>;
 }>({
 	settings: {},
 	overview: null,
@@ -35,7 +41,8 @@ export const app = $state<{
 	left: {},
 	error: '',
 	update: '',
-	updating: false
+	updating: false,
+	picked: {}
 });
 
 const samples: Record<string, { t: number; done: number }[]> = {};
@@ -51,14 +58,29 @@ function measure(account: string, j: JobState) {
 	else delete app.left[account];
 }
 
+/** How many times each account's download state was written by a start: an
+ *  ask sent before a start and answered after it is older, and dropped. */
+const writes: Record<string, number> = {};
+
 /** Asks every second where each account's download stands. */
 export function watchJobs(): () => void {
 	let wasRunning = false;
 	const tick = async () => {
-		for (const a of app.overview?.accounts ?? []) {
+		const accounts = app.overview?.accounts ?? [];
+		// An account signed out has no download left to ask about or show.
+		for (const id of Object.keys(app.jobs)) {
+			if (accounts.some((a) => a.id === id)) continue;
+			delete app.jobs[id];
+			delete app.left[id];
+			delete samples[id];
+		}
+		for (const a of accounts) {
+			const w = writes[a.id];
 			try {
-				app.jobs[a.id] = await getJob(a.id);
-				measure(a.id, app.jobs[a.id]);
+				const j = await getJob(a.id);
+				if (writes[a.id] !== w) continue;
+				app.jobs[a.id] = j;
+				measure(a.id, j);
 			} catch {
 				// The engine went away: the window says so elsewhere.
 			}
@@ -66,12 +88,45 @@ export function watchJobs(): () => void {
 		// Photos arrive while a job runs: the counts follow them.
 		const running = Object.values(app.jobs).some((j) => j.running);
 		if (running || wasRunning) app.overview = await getOverview();
+		// A computer asleep downloads nothing: awake while photos come home.
+		if (running !== wasRunning) window.shell?.keepAwake(running);
 		wasRunning = running;
 	};
 	tick();
 	const t = setInterval(tick, 1000);
 	return () => clearInterval(t);
 }
+
+/** Starts an account's download and keeps the state it starts in: the page
+ *  that shows it must not wait a second for the next ask, or it sees no
+ *  download and sends the person back to Choose. */
+export async function startJob(o: Parameters<typeof startGet>[0]) {
+	// Counted as it is sent and as it is answered: an ask in flight across
+	// either is older than this.
+	writes[o.account] = (writes[o.account] ?? 0) + 1;
+	const j = await startGet(o);
+	writes[o.account]++;
+	app.jobs[o.account] = j;
+}
+
+/** What a person is told when a download does not start: what they can do,
+ *  never the engine's own words. */
+export function startFailure(e: unknown): string {
+	switch (e instanceof ApiError && e.status) {
+		case 404:
+			return text.noLibraryYet;
+		case 409:
+			return text.alreadyBringing;
+		case 424:
+			return text.noBrowser;
+	}
+	return text.startFailed;
+}
+
+/** Carries on with a download that stopped: the same takeout, not a new one
+ *  of the same year, which would ask Google again. */
+export const resumeJob = (account: string, j: JobState) =>
+	startJob({ account, year: j.year, export: j.export || undefined });
 
 /** Every account's download has been asked about at least once. */
 export const jobsKnown = () =>
@@ -121,14 +176,13 @@ export function sidebarOf(o: Overview): Sidebar {
 	};
 }
 
-/** A year is complete when the download that brought it says every photo
- *  arrived, arriving while it still counts; otherwise nothing is said. */
-function yearState(year: string): 'complete' | 'arriving' | 'none' {
+/** A year is arriving while a running download still brings photos of it.
+ *  Nothing else is said: the library holds photos from anywhere, and one
+ *  download's last count says nothing about the year as a whole. */
+function yearState(year: string): YearState {
 	for (const j of Object.values(app.jobs)) {
 		const y = j.years.find((x) => x.year === year);
-		if (!y) continue;
-		if (y.of > 0 && y.arrived >= y.of) return 'complete';
-		return j.running ? 'arriving' : 'none';
+		if (y && j.running && !(y.of > 0 && y.arrived >= y.of)) return 'arriving';
 	}
 	return 'none';
 }
@@ -136,7 +190,7 @@ function yearState(year: string): 'complete' | 'arriving' | 'none' {
 /** The sign-in open in the system browser, one at a time as the engine
  *  allows, wherever it was started: the account signing in again, or NEW for
  *  a new one; '' when none is. A new account's failure is kept to say. */
-export const signIn = $state({ account: '', failed: '' });
+export const signIn = $state({ account: '', failed: '', failedAgain: '' });
 const NEW = 'new';
 /** Any sign-in is open: none can start. */
 const busy = () => signIn.account !== '';
@@ -177,9 +231,10 @@ export async function signInNew() {
 		// person went meanwhile: nothing else asks it. One already asked
 		// goes on to Choose, unless the person went elsewhere.
 		if (!app.settings.profiles?.[a.id]) goto(`/profile?account=${encodeURIComponent(a.id)}`);
-		else if (location.pathname === from) goto('/choose');
+		else if (location.pathname === from) goto(chooseUrl(a.id));
 	} catch (e) {
-		signIn.failed = String(e);
+		// No browser to sign in with is the one failure a person can mend.
+		signIn.failed = e instanceof ApiError && e.status === 424 ? text.noBrowser : text.signInFailed;
 	} finally {
 		signIn.account = '';
 	}
@@ -194,6 +249,10 @@ export function signingInAgain(account: () => string) {
 		},
 		get busy() {
 			return busy();
+		},
+		/** This account's last sign-in again did not finish. */
+		get failed() {
+			return signIn.failedAgain !== '' && signIn.failedAgain === account();
 		}
 	};
 }
@@ -203,12 +262,18 @@ export async function signInAgain(account: string) {
 	// Two clicks quicker than the button greys out reach here both.
 	if (busy()) return;
 	signIn.account = account;
+	signIn.failedAgain = '';
 	try {
 		await login(account);
 		await refresh();
+		// The download Google's sign-out stopped carries on, as the banner
+		// that offered the sign-in promised.
+		const j = app.jobs[account];
+		if (j?.problem === 'signed-out') await resumeJob(account, j);
 	} catch {
-		// Not signed in after all: the strip that offered it still says so,
-		// and offers it again.
+		// Not signed in after all: the strip that offered it says that it did
+		// not finish, and offers it again. Unsaid, the click looks ignored.
+		signIn.failedAgain = account;
 	} finally {
 		signIn.account = '';
 	}

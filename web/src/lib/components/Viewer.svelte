@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- B7: one photo, over the grid. ← and → move, Esc or Space closes. -->
 <script lang="ts">
-	import { X, ChevronLeft, ChevronRight, FolderOpen } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, FolderOpen } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { getAbout, pathOf, type GridPhoto } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
@@ -60,7 +60,6 @@
 {#if p}
 	<div class="viewer" transition:fade={{ duration: 150 }}>
 		<header>
-			<button class="round" aria-label={text.close} onclick={() => (index = null)}><X size={18} /></button>
 			<div class="meta">
 				<b>{p.taken ? taken(p.taken) : text.noDate}</b>
 				<span>{p.name}{about}</span>
@@ -100,7 +99,10 @@
 		align-items: center;
 		gap: 16px;
 		padding: 12px 16px;
-		/* Clear of the window buttons the system draws over the top right. */
+		/* Clear of the window buttons the system draws, at the top left on a
+		   Mac, at the top right elsewhere. Esc closes it: a button of ours
+		   there sat under the Mac's own. */
+		padding-left: calc(env(titlebar-area-x, 0px) + 16px);
 		padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px);
 	}
 	.meta {

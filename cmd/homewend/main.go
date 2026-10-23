@@ -263,23 +263,13 @@ func login(args []string) int {
 	if already {
 		return exitOK
 	}
-	// Whose photos these are is asked once, when the account is new: the
-	// folder of the library they go in.
-	if fresh && interactive(*asJSON) {
-		out.close()
-		fmt.Println()
-		profile, err := field(ctx, text["ask profile"], text["ask profile meta"], a.Profile)
-		if err != nil {
-			return newPrinter(*asJSON).fail(err)
+	// A new account's photos go in the profile named after its address: a
+	// question here would stand between the user and the first takeout.
+	if fresh {
+		if err := engine.SetProfile(a.ID, a.Profile); err != nil {
+			return out.fail(err)
 		}
-		if profile == "" {
-			profile = a.Profile
-		}
-		if err := engine.SetProfile(a.ID, profile); err != nil {
-			return newPrinter(*asJSON).fail(err)
-		}
-		out = newPrinter(*asJSON)
-		out.say(out.out.done(fmt.Sprintf(text["profile is"], profile), ""))
+		out.say(out.out.done(fmt.Sprintf(text["profile is"], a.Profile), ""))
 	}
 	year := time.Now().Year() - 1
 	out.say("")
@@ -549,7 +539,7 @@ func takeoutCommand(args []string) int {
 	if interactive(*asJSON) && !*yes && !*fresh && (found == nil || g.Takeout == "" && !found.Started) {
 		out.close()
 		if found == nil {
-			at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), text["ask new meta"], []string{text["yes"], text["no"]})
+			at, err := choose(ctx, fmt.Sprintf(text["ask new"], out.what), "", []string{text["yes"], text["no"]})
 			if err != nil {
 				return newPrinter(*asJSON).fail(err)
 			}
@@ -588,6 +578,14 @@ func takeoutCommand(args []string) int {
 	}
 	out.say(out.out.param(text["field library"], tilde(filepath.Join(dir, profile), home), ""))
 	out.say("")
+	// The run reads Takeout's list again before it asks or downloads, for
+	// seconds: the spinner starts now, not when that is over.
+	if found == nil {
+		out.asked = time.Now()
+		out.now(going{said: text["asking"], bar: -1, since: out.asked, below: text["asking hint"]})
+	} else {
+		out.now(looking)
+	}
 	result, err := g.Run(ctx, sess, out.event)
 	if err != nil {
 		return out.fail(err)

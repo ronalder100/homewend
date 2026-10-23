@@ -2,15 +2,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The download, in one line under every screen of the library. -->
 <script lang="ts">
-	import { Download, ChevronUp, Pause, Play, CircleAlert } from '@lucide/svelte';
+	import { Download, ChevronUp, Pause, Play, CircleAlert, Loader } from '@lucide/svelte';
 	import type { JobState } from '#lib/api.js';
-	import { stopJob, startGet } from '#lib/api.js';
+	import { stopJob } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
-	import { headline, fraction } from '#lib/job.js';
+	import { busy, failure, headline, fraction } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 
 	import Avatar from './Avatar.svelte';
-	import { app } from '#lib/app.svelte.js';
+	import { app, resumeJob } from '#lib/app.svelte.js';
 	import { roughly } from '#lib/format.js';
 
 	let { account, job, ondetails }: { account: string; job: JobState; ondetails?: () => void } =
@@ -19,8 +19,8 @@
 	const left = $derived(app.left[account]);
 </script>
 
-<span class="icon" class:err={job.error} class:live={job.running}>
-	{#if job.error}<CircleAlert size={16} />{:else}<Download size={16} />{/if}
+<span class="icon" class:err={job.error && job.problem !== 'not-offered'} class:warn={job.problem === 'not-offered'} class:live={job.running && !busy(job)} class:spin={busy(job)}>
+	{#if job.error}<CircleAlert size={16} />{:else if busy(job)}<Loader size={16} />{:else}<Download size={16} />{/if}
 </span>
 <span class="what">{headline(job)}</span>
 {#if email}<span class="who"><Avatar account={{ id: account, name: email, email, shown: true }} />{email}</span>{/if}
@@ -31,14 +31,14 @@
 	>
 {/if}
 {#if job.retry}<span class="note">{text.retrying(job.retry)}</span>{/if}
-{#if job.error}<span class="note err" title={job.error}>{job.error}</span>{/if}
+{#if job.error}<span class="note" class:err={job.problem !== 'not-offered'} title={failure(job)}>{failure(job)}</span>{/if}
 {#if job.running && !job.retry}<span class="note sleep">{text.pickUpAfterSleep}</span>{/if}
 <span class="spacer"></span>
 <button class="details" onclick={ondetails}>{text.details}<ChevronUp size={14} /></button>
 {#if job.running}
 	<button class="ctl" aria-label={text.pause} onclick={() => stopJob(account)}><Pause size={16} /></button>
-{:else if !job.finished}
-	<button class="ctl" aria-label={text.resume} onclick={() => startGet({ account, year: job.year })}
+{:else if !job.finished && job.problem !== 'not-offered'}
+	<button class="ctl" aria-label={text.resume} onclick={() => resumeJob(account, job)}
 		><Play size={16} /></button
 	>
 {/if}
@@ -55,6 +55,17 @@
 		50% {
 			opacity: 0.35;
 		}
+	}
+	.icon.spin {
+		animation: spin 1s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.icon.warn {
+		color: var(--warn);
 	}
 	.icon.err {
 		color: var(--err);

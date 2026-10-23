@@ -12,12 +12,13 @@
 	import { onMount, untrack } from 'svelte';
 	import { Archive, Ellipsis, RotateCw, Timer } from '@lucide/svelte';
 	import ContextMenu, { folderItems, type MenuItem } from '#lib/components/ContextMenu.svelte';
-	import { app, signIn, sidebarOf, signInAgain, signingInAgain } from '#lib/app.svelte.js';
-	import { ApiError, folderOf, getTakeouts, readContents, startGet, type Takeout } from '#lib/api.js';
+	import { app, signIn, sidebarOf, signInAgain, signingInAgain, startFailure, startJob } from '#lib/app.svelte.js';
+	import { ApiError, folderOf, getTakeouts, readContents, type Takeout } from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { part } from '#lib/job.js';
 
 	const accounts = $derived(app.overview ? sidebarOf(app.overview).accounts : []);
 	let account = $state('');
@@ -51,6 +52,7 @@
 		list = seen.get(a) ?? null;
 		failed = '';
 		signedOut = false;
+		refused = '';
 		getTakeouts(a).then(
 			async (l) => {
 				seen.set(a, l);
@@ -74,7 +76,8 @@
 				}
 			},
 			(e) => {
-				failed = String(e);
+				if (account !== a) return;
+				failed = e instanceof ApiError && e.status === 424 ? text.noBrowser : text.takeoutsFailed;
 				signedOut = e instanceof ApiError && e.status === 401;
 			}
 		);
@@ -102,8 +105,10 @@
 		const until = t.Expires ? (t.status === 'expired' ? text.since : text.until)(day.format(new Date(t.Expires))) : '';
 		const l = t.local;
 		const all = l && l.of > 0 && l.parts === l.of;
-		if (job?.running && job.export?.startsWith(t.id))
-			return { status: text.statusDownloading, detail: text.partsOf(job.parts, job.of), tone: 'accent', act: '' };
+		// While Google still prepares it, it is the preparing row; its parts
+		// are counted once they are known.
+		if (job?.running && job.stage !== 'waiting' && job.export?.startsWith(t.id))
+			return { status: text.statusDownloading, detail: job.of > 0 ? text.partsOf(Math.max(job.parts - 1, 0), part(job).of) : '', tone: 'accent', act: '' };
 		if (t.status === 'preparing') return { status: text.statusPreparing, detail: '', tone: 'warn', act: 'timer' };
 		if (all && (l.present ?? 0) < (l.declared ?? 0)) {
 			const missing = ((l.declared ?? 0) - (l.present ?? 0)).toLocaleString('en');
@@ -115,13 +120,25 @@
 		return { status: text.statusReady, detail: until, tone: 'ok', act: 'download' };
 	}
 
-	async function bring(o: Parameters<typeof startGet>[0]) {
-		await startGet(o);
-		goto('/bringing');
+	// Why the last download asked for did not start, said above the list.
+	let refused = $state('');
+	async function bring(o: Parameters<typeof startJob>[0]) {
+		refused = '';
+		try {
+			await startJob(o);
+			goto('/bringing');
+		} catch (e) {
+			refused = startFailure(e);
+		}
 	}
-	const download = (t: Takeout, again = false) => bring({ account, export: t.id, again });
-	// An expired takeout is asked of Google once more, as it was asked.
-	const askAgain = (t: Takeout) => bring({ account, year: t.known && t.year ? t.year : undefined, fresh: true });
+	const download = (t: Takeout, again = false) => {
+		app.picked[account] = t.id;
+		return bring({ account, export: t.id, again });
+	};
+	// An expired takeout is asked of Google once more, as it was asked: one
+	// made on Google that held a single year, as that year.
+	const yearOf = (t: Takeout) => (t.known ? t.year : t.years?.length === 1 ? Number(t.years[0]) : 0);
+	const askAgain = (t: Takeout) => bring({ account, year: yearOf(t) || undefined, fresh: true });
 	// The ⋯ of a row: the same menu as a folder's, at the end of the button.
 	// Pressed again, the ⋯ closes it.
 	let menu = $state<{ id: string; anchor: Element; items: MenuItem[] } | null>(null);
@@ -176,12 +193,12 @@
 	{#if failed && list === null}
 		<!-- What went wrong is the engine's to log; the person is told what
 		     they can do. -->
-		<div class="failed {signedOut ? 'warn' : 'accent'}" title={failed}>
+		<div class="failed {signedOut ? 'warn' : 'accent'}">
 			{#if signedOut}
 				<p>{again.here ? text.signingIn : text.bannerSignedOut(email)}</p>
 				<button class="pill" disabled={again.busy} onclick={() => signInAgain(account)}>{text.signInAgain}</button>
 			{:else}
-				<p>{text.takeoutsFailed}</p>
+				<p>{failed}</p>
 				<button class="pill" onclick={() => tries++}>{text.retry}</button>
 			{/if}
 		</div>
@@ -190,6 +207,7 @@
 	{:else if list.length === 0}
 		<p class="muted">{text.noTakeouts}</p>
 	{:else}
+		{#if refused}<p class="refused">{refused}</p>{/if}
 		<table>
 			<thead>
 				<tr><th>{text.takeoutCol}</th><th>{text.askedCol}</th><th>{text.sizeCol}</th><th>{text.statusCol}</th><th></th></tr>
@@ -401,6 +419,9 @@
 	}
 	.muted {
 		color: var(--muted);
+	}
+	.refused {
+		color: var(--err);
 	}
 	.failed .pill {
 		width: auto;
