@@ -28,10 +28,18 @@ type Jobs struct {
 	counts map[string]*counting
 	// File, when set, keeps the downloads under way, for Resume to start
 	// again when the program next runs: quitting it stops them, and a person
-	// told the download carries on expects it to. A pause, an end or a
-	// failure takes one out.
+	// told the download carries on expects it to. A failure is kept too,
+	// stopped, so that Resume is still there next time; a pause or an end
+	// takes one out.
 	File  string
-	saved map[string]Get
+	saved map[string]kept
+}
+
+// kept is a download under way, or stopped by a failure (Error set).
+type kept struct {
+	Get
+	Error   string `json:"error,omitempty"`
+	Problem string `json:"problem,omitempty"`
 }
 
 // JobsFile is where the app keeps the downloads under way.
@@ -48,12 +56,31 @@ func (j *Jobs) Resume() {
 	if j.File == "" {
 		return
 	}
-	var saved map[string]Get
+	var saved map[string]kept
 	data, err := os.ReadFile(j.File)
 	if err != nil || json.Unmarshal(data, &saved) != nil {
 		return
 	}
-	for account, g := range saved {
+	for account, k := range saved {
+		// A failed one comes back as it was left, stopped, with its Resume:
+		// started again unasked it could open Google's password window at
+		// launch.
+		if k.Error != "" {
+			j.mu.Lock()
+			if j.jobs == nil {
+				j.jobs = map[string]*job{}
+			}
+			done := make(chan struct{})
+			close(done)
+			j.jobs[account] = &job{cancel: func() {}, done: done, state: JobState{Year: k.Year, Export: k.Takeout, Error: k.Error, Problem: k.Problem, Years: []YearProgress{}}}
+			if j.saved == nil {
+				j.saved = map[string]kept{}
+			}
+			j.saved[account] = k
+			j.mu.Unlock()
+			continue
+		}
+		g := k.Get
 		// An account gone, or signed out, says so as any download does;
 		// one that cannot even start is forgotten.
 		if j.Start(account, g) != nil {
@@ -70,9 +97,9 @@ func (j *Jobs) keep(account string, g Get) {
 		return
 	}
 	if j.saved == nil {
-		j.saved = map[string]Get{}
+		j.saved = map[string]kept{}
 	}
-	j.saved[account] = g
+	j.saved[account] = kept{Get: g}
 	writeJSON(j.File, j.saved)
 }
 
@@ -224,10 +251,7 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		}
 		j.mu.Lock()
 		jb.state.Running = false
-		// Stopped, it is kept or forgotten by whoever stopped it.
-		if !errors.Is(err, context.Canceled) {
-			j.forget(account)
-		}
+		// Paused or quit, it is kept or forgotten by whoever stopped it.
 		switch {
 		case errors.Is(err, context.Canceled):
 			log.Printf("%s: paused", account)
@@ -235,8 +259,15 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 			log.Printf("%s: stopped: %v", account, err)
 			jb.state.Error = err.Error()
 			problem(err, &jb.state)
+			if j.File != "" {
+				// Its takeout, once known, is the one Resume carries on.
+				g.Takeout = jb.state.Export
+				j.saved[account] = kept{Get: g, Error: jb.state.Error, Problem: jb.state.Problem}
+				writeJSON(j.File, j.saved)
+			}
 		default:
 			log.Printf("%s: finished", account)
+			j.forget(account)
 			jb.state.Finished = true
 		}
 		j.mu.Unlock()

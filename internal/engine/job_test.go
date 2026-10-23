@@ -193,8 +193,8 @@ func TestAnAccountBringingPhotosHomeIsCountedToo(t *testing.T) {
 func TestDownloadsUnderWayAreKeptAcrossQuitting(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "jobs.json")
 	j := &Jobs{File: file}
-	kept := func() map[string]Get {
-		var saved map[string]Get
+	kept := func() map[string]kept {
+		var saved map[string]kept
 		data, _ := os.ReadFile(file)
 		json.Unmarshal(data, &saved)
 		return saved
@@ -211,14 +211,30 @@ func TestDownloadsUnderWayAreKeptAcrossQuitting(t *testing.T) {
 	if _, ok := kept()["a"]; ok {
 		t.Fatal("a paused download is kept")
 	}
-	end := make(chan struct{})
-	j.start("b", Get{Year: 2020}, func(context.Context, progress.Func) error { close(end); return errors.New("failed") })
-	<-end
+	// A failed one is kept stopped: after a restart it is there, with its
+	// Resume, and not started again unasked.
+	j.start("b", Get{Year: 2020}, func(context.Context, progress.Func) error { return errors.New("failed") })
+	for range 100 {
+		if j.State("b").Error != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := kept()["b"]; got.Year != 2020 {
+		t.Fatalf("a failed download is not kept: %v", kept())
+	}
+	again := &Jobs{File: file}
+	again.Resume()
+	if st := again.State("b"); st.Running || st.Error != "failed" || st.Year != 2020 {
+		t.Fatalf("after a restart: %+v", st)
+	}
+	// One that ends is forgotten.
+	j.start("b", Get{Year: 2020}, func(context.Context, progress.Func) error { return nil })
 	for range 100 {
 		if _, ok := kept()["b"]; !ok {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("a failed download is kept")
+	t.Fatal("a finished download is kept")
 }
