@@ -238,3 +238,24 @@ func TestDownloadsUnderWayAreKeptAcrossQuitting(t *testing.T) {
 	}
 	t.Fatal("a finished download is kept")
 }
+
+// A step's start is the engine's: a window opened later counts from it, and
+// the same step said again does not move it.
+func TestJobRecordsWhenAStepBegan(t *testing.T) {
+	jb := &job{state: JobState{Years: []YearProgress{}}}
+	jb.record(progress.Event{Stage: progress.Request})
+	began := jb.state.StageSince
+	if began.IsZero() {
+		t.Fatal("no start for the step")
+	}
+	time.Sleep(time.Millisecond)
+	jb.record(progress.Event{Stage: progress.Request})
+	jb.record(progress.Event{Stage: progress.Retry, Note: "no network"})
+	if !jb.state.StageSince.Equal(began) {
+		t.Fatalf("the same step moved its start: %v, then %v", began, jb.state.StageSince)
+	}
+	jb.record(progress.Event{Stage: progress.Waiting, Name: "job"})
+	if !jb.state.StageSince.After(began) {
+		t.Fatalf("a new step kept the old start: %v", jb.state.StageSince)
+	}
+}

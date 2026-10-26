@@ -93,18 +93,11 @@
 		return () => clearInterval(t);
 	});
 
-	// How long the step going on has lasted, counted here from when it began:
-	// a number that moves says the wait is alive.
-	let stageSince = $state(Date.now());
-	let lastStage = '';
+	// How long the step going on has lasted, from when the engine began it: a
+	// number that moves says the wait is alive, and reopening the window does
+	// not start it again.
 	let tick = $state(Date.now());
-	$effect(() => {
-		const s = job?.stage ?? '';
-		if (s !== lastStage) {
-			lastStage = s;
-			stageSince = Date.now();
-		}
-	});
+	const stageSince = $derived(job?.stageSince ? new Date(job.stageSince).getTime() : tick);
 	onMount(() => {
 		const t = setInterval(() => (tick = Date.now()), 1000);
 		return () => clearInterval(t);

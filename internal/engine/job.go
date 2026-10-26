@@ -140,6 +140,8 @@ type JobState struct {
 	Total   int64          `json:"total"`            // bytes in the export
 	Years   []YearProgress `json:"years"`
 	Retry   string         `json:"retry,omitempty"` // why the network is being tried again
+	// StageSince is when Stage began: a window opened later counts from it.
+	StageSince time.Time `json:"stageSince,omitzero"`
 	// LastLooked is when /manage was last read while Google prepared it.
 	LastLooked time.Time `json:"lastLooked,omitzero"`
 	// Unassigned photos have arrived and wait for their date.
@@ -225,6 +227,7 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		case <-counted:
 		default:
 			jb.state.Stage = progress.Counting
+			jb.state.StageSince = time.Now()
 		}
 	}
 	go func() {
@@ -433,6 +436,9 @@ func (jb *job) record(e progress.Event) {
 		s.Done = jb.partsBytes
 	case progress.Year:
 		jb.year(e)
+	}
+	if e.Stage != s.Stage {
+		s.StageSince = time.Now()
 	}
 	s.Stage = e.Stage
 	s.Retry = ""

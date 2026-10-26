@@ -84,6 +84,8 @@ export interface JobState {
 	total: number;
 	years: { year: string; arrived: number; of: number }[];
 	retry?: string;
+	/** When the stage began, as the engine saw it. */
+	stageSince?: string;
 	finished?: boolean;
 	lastLooked?: string;
 	unassigned: number;
