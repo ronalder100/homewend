@@ -194,6 +194,8 @@ export interface ImportState {
 	dir?: string;
 	/** Whose photos they are, for a copy taken up again. */
 	profile?: string;
+	/** Whether dir was a card when the run began. */
+	card?: boolean;
 	kind?: 'plan' | 'import';
 	/** The file being read or copied, n of of; done of total its bytes. */
 	n: number;

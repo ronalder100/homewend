@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"slices"
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/library"
@@ -30,6 +31,9 @@ type ImportState struct {
 	Dir     string `json:"dir,omitempty"`
 	// whose photos they are, for a copy taken up again
 	Profile string `json:"profile,omitempty"`
+	// Card is whether Dir was a card when the run began: one taken out is
+	// waited for, and carries on by itself when it is back.
+	Card bool `json:"card,omitempty"`
 	// "plan" while the folder is read to know what comes in, "import" while
 	// it is copied.
 	Kind string `json:"kind,omitempty"`
@@ -94,12 +98,16 @@ func (im *Importing) start(dir, profile, kind string, run func(context.Context, 
 		return ErrImportRunning
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	// The plan of the same folder is kept for the copy that follows it.
+	// The plan of the same folder is kept for the copy that follows it, and
+	// what came in before a card went out for the screen that waits for it.
 	var plan *library.ImportPlan
+	var before *library.Imported
+	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
 	if im.state.Dir == dir {
-		plan = im.state.Plan
+		plan, before = im.state.Plan, im.state.Imported
+		card = card || im.state.Card
 	}
-	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Kind: kind, Plan: plan}
+	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {
@@ -118,6 +126,11 @@ func (im *Importing) start(dir, profile, kind string, run func(context.Context, 
 			s.Plan = out.Plan
 		}
 		s.Imported = out.Imported
+		// Asked to carry on with the card still out: nothing new came in,
+		// and what came in before is still what to show.
+		if errors.As(err, new(FolderGoneError)) && before != nil && (out.Imported == nil || out.Imported.Placed == 0) {
+			s.Imported = before
+		}
 		switch {
 		case errors.Is(err, context.Canceled):
 			s.Stopped = true

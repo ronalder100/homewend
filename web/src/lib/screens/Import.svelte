@@ -43,7 +43,9 @@
 	function nameOf(dir: string) {
 		return cards.find((c) => c.path === dir)?.name || dir.split(/[\\/]/).filter(Boolean).pop() || dir;
 	}
-	const isCard = $derived(cards.some((c) => c.path === im?.dir));
+	// Said by the engine when the run began: a card taken out is no longer
+	// in the list, and is still a card.
+	const isCard = $derived(!!im?.card);
 
 	type View = 'choose' | 'reading' | 'plan' | 'copying' | 'taken-out' | 'done' | 'stopped' | 'failed';
 	const view = $derived<View>(
