@@ -35,7 +35,7 @@ func importWith(t *testing.T, card, root string, link bool, ctx context.Context,
 	if err != nil {
 		t.Fatal(err)
 	}
-	done, err := Import(ctx, folder, root, catalog, Options{Profile: "ruvido"}, ImportOptions{Link: link, Fits: fits}, nil)
+	done, err := Import(ctx, folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Link: link, Fits: fits}, nil)
 	if err != nil && ctx.Err() == nil && !errors.Is(err, errFull) {
 		t.Fatal(err)
 	}
@@ -53,9 +53,9 @@ func TestACardIsCopiedByDateAndLeftAsItWas(t *testing.T) {
 	if done.Placed != 3 || done.Twins != 1 || done.InLibrary != 0 {
 		t.Errorf("%+v, want 3 placed and 1 twin", done)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "2026", "08", "DSCF0001.JPG"))
-	mustExist(t, filepath.Join(root, "ruvido", "2018", "01", "DSCF0002.JPG"))
-	mustExist(t, filepath.Join(root, "ruvido", "undated", "DSCF0003.MOV"))
+	mustExist(t, filepath.Join(root, "ron", "2026", "08", "DSCF0001.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "2018", "01", "DSCF0002.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "undated", "DSCF0003.MOV"))
 	if after := snapshot(t, card); len(after) != len(before) {
 		t.Errorf("the card changed: %d files before, %d after", len(before), len(after))
 	} else {
@@ -90,7 +90,7 @@ func TestWhatAStoppedRunLeftIsNotKept(t *testing.T) {
 	if done.Placed != 3 {
 		t.Errorf("placed %d, want 3", done.Placed)
 	}
-	content, err := os.ReadFile(filepath.Join(root, "ruvido", "2026", "08", "DSCF0001.JPG"))
+	content, err := os.ReadFile(filepath.Join(root, "ron", "2026", "08", "DSCF0001.JPG"))
 	if err != nil || string(content) != string(exifPhoto("2026:08:15 18:23:12", "one")) {
 		t.Errorf("the photo in the library is not the card's: %q, %v", content, err)
 	}
@@ -106,7 +106,7 @@ func TestALinkIsTheSameFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.Stat(filepath.Join(root, "ruvido", "2019", "07", "IMG_1.JPG"))
+	b, err := os.Stat(filepath.Join(root, "ron", "2019", "07", "IMG_1.JPG"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestALinkToALinkIsTheFile(t *testing.T) {
 	}
 	root := filepath.Join(dir, "library")
 	importCard(t, card, root, true)
-	info, err := os.Lstat(filepath.Join(root, "ruvido", "2019", "07", "IMG_2.JPG"))
+	info, err := os.Lstat(filepath.Join(root, "ron", "2019", "07", "IMG_2.JPG"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestAPhotoDeletedFromTheLibraryComesBackAsNew(t *testing.T) {
 	card := cameraCard(t)
 	root := t.TempDir()
 	importCard(t, card, root, false)
-	gone := filepath.Join(root, "ruvido", "2018", "01", "DSCF0002.JPG")
+	gone := filepath.Join(root, "ron", "2018", "01", "DSCF0002.JPG")
 	if err := os.Remove(gone); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestACopyTellsItsBytes(t *testing.T) {
 			whole[e.Name] = true
 		}
 	}
-	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, emit); err != nil {
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, emit); err != nil {
 		t.Fatal(err)
 	}
 	if len(whole) != len(folder.Items) {
@@ -347,14 +347,14 @@ func TestADateGivenGoesWithThePhoto(t *testing.T) {
 	}
 	when := time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)
 	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0004.JPG", "DSCF0005.JPG"}, When: when}}}
-	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, how, nil)
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, how, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if done.Redated != 2 {
 		t.Errorf("redated %d, want 2", done.Redated)
 	}
-	five := filepath.Join(root, "ruvido", "2026", "09", "DSCF0005.JPG")
+	five := filepath.Join(root, "ron", "2026", "09", "DSCF0005.JPG")
 	mustExist(t, five)
 	content, err := os.ReadFile(five)
 	if err != nil || string(content) != string(exifPhoto("2018:01:01 00:02:46", "five")) {
@@ -385,7 +385,7 @@ func TestADateForANameNotThereIsSaid(t *testing.T) {
 		t.Fatal(err)
 	}
 	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0099.JPG"}, When: time.Now()}}}
-	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, how, nil)
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, how, nil)
 	var unknown UnknownNameError
 	if !errors.As(err, &unknown) || unknown.Name != "DSCF0099.JPG" || done.Placed != 0 {
 		t.Errorf("%v, %+v; want DSCF0099.JPG said and nothing copied", err, done)
@@ -406,7 +406,7 @@ func importDated(t *testing.T, card, root string, redates []Redate) (Imported, e
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, ImportOptions{Fits: func(int64) error { return nil }, Redates: redates}, nil)
+	return Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: func(int64) error { return nil }, Redates: redates}, nil)
 }
 
 // The likeliest use: a first import shows 2018 in the library, and the
@@ -418,7 +418,7 @@ func TestADateGivenToAPhotoAlreadyInMovesIt(t *testing.T) {
 	if _, err := importDated(t, card, root, nil); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "2018", "01", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "2018", "01", "DSCF0004.JPG"))
 	done, err := importDated(t, card, root, []Redate{{Names: []string{"dscf0004.jpg"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}})
 	if err != nil {
 		t.Fatal(err)
@@ -426,9 +426,9 @@ func TestADateGivenToAPhotoAlreadyInMovesIt(t *testing.T) {
 	if done.Redated != 1 || done.InLibrary != 1 {
 		t.Errorf("%+v, want 1 redated, 1 in the library", done)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "DSCF0004.JPG"))
-	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "DSCF0004.JPG.xmp"))
-	if exists(filepath.Join(root, "ruvido", "2018")) {
+	mustExist(t, filepath.Join(root, "ron", "2026", "09", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "2026", "09", "DSCF0004.JPG.xmp"))
+	if exists(filepath.Join(root, "ron", "2018")) {
 		t.Error("2018 is still there, empty or not")
 	}
 }
@@ -448,8 +448,8 @@ func TestANameInTwoFoldersIsChosenByItsPath(t *testing.T) {
 	if _, err := importDated(t, card, root, []Redate{{Names: []string{"DCIM/100_FUJI/DSCF0004.JPG"}, When: when}}); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "DSCF0004.JPG"))
-	mustExist(t, filepath.Join(root, "ruvido", "2025", "06", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "2026", "09", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "2025", "06", "DSCF0004.JPG"))
 }
 
 // The XMP begins with the byte-order mark its packet header names, and a
@@ -511,7 +511,7 @@ func TestADateFromAnotherProfileLeavesThePhoto(t *testing.T) {
 	if done.NotRedated != 1 || done.Redated != 0 {
 		t.Errorf("%+v, want it said as another profile's", done)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "2018", "01", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ron", "2018", "01", "DSCF0004.JPG"))
 	mustExist(t, filepath.Join(root, "ann", "2018", "01", "DSCF0004.JPG"))
 }
 
@@ -523,12 +523,12 @@ func TestTheProfilesFolderStays(t *testing.T) {
 	if _, err := importDated(t, card, root, nil); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "undated", "clip.mov"))
+	mustExist(t, filepath.Join(root, "ron", "undated", "clip.mov"))
 	if _, err := importDated(t, card, root, []Redate{{Names: []string{"clip.mov"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}); err != nil {
 		t.Fatal(err)
 	}
-	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "clip.mov"))
-	mustExist(t, filepath.Join(root, "ruvido"))
+	mustExist(t, filepath.Join(root, "ron", "2026", "09", "clip.mov"))
+	mustExist(t, filepath.Join(root, "ron"))
 }
 
 // A dry run says the photos already in that a date would move; a name is

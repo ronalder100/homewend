@@ -45,7 +45,7 @@ func TestACardTakenOutHalfwayIsSaid(t *testing.T) {
 			os.RemoveAll(card) // taken out
 		}
 	}
-	done, err := Import(context.Background(), card, "ruvido", false, nil, out)
+	done, err := Import(context.Background(), card, "ron", false, nil, out)
 	var gone FolderGoneError
 	if !errors.As(err, &gone) {
 		t.Fatalf("err %v, want the folder said gone", err)

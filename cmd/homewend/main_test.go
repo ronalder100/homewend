@@ -333,7 +333,7 @@ func TestAPastedFolderReachesTheShellAsWritten(t *testing.T) {
 		"/media/card":     "/media/card",
 		"/media/NO NAME":  "'/media/NO NAME'",
 		"/media/$HOME":    "'/media/$HOME'",
-		"/media/Ruvido's": `'/media/Ruvido'\''s'`,
+		"/media/Ron's": `'/media/Ron'\''s'`,
 	} {
 		if got := shellWord(in); got != want {
 			t.Errorf("shellWord(%q) = %s, want %s", in, got, want)
