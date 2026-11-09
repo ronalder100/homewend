@@ -92,6 +92,9 @@ func (im *Importing) Import(dir, profile string, link bool, redates []library.Re
 }
 
 func (im *Importing) start(dir, profile, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+	// Looked at before the lock: a drive that does not answer must not
+	// hold up the window asking where things stand.
+	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
 	im.mu.Lock()
 	defer im.mu.Unlock()
 	if im.state.Running {
@@ -100,12 +103,17 @@ func (im *Importing) start(dir, profile, kind string, run func(context.Context, 
 	ctx, cancel := context.WithCancel(context.Background())
 	// The plan of the same folder is kept for the copy that follows it, and
 	// what came in before a card went out for the screen that waits for it.
+	// A new look makes a new plan: an old one is not shown for it.
 	var plan *library.ImportPlan
 	var before *library.Imported
-	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
 	if im.state.Dir == dir {
-		plan, before = im.state.Plan, im.state.Imported
 		card = card || im.state.Card
+		if kind == "import" {
+			plan = im.state.Plan
+		}
+		if im.state.Problem == "taken-out" {
+			before = im.state.Imported
+		}
 	}
 	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})

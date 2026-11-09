@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/progress"
 )
 
@@ -144,5 +145,35 @@ func TestACardTakenOutWhileReadIsSaid(t *testing.T) {
 	}
 	if _, err := Import(context.Background(), card, "ron", false, nil, nil); !errors.As(err, &gone) {
 		t.Errorf("gone before the copy: %v", err)
+	}
+}
+
+// Carried on with the card still out, a copy stays a card's, and what came
+// in before it went out is still what the screen shows.
+func TestACopyCarriedOnWithTheCardOutKeepsWhatCameIn(t *testing.T) {
+	config(t)
+	if err := SetDefaultLibrary(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	gone := filepath.Join(t.TempDir(), "EOS_DIGITAL")
+	before := &library.Imported{Placed: 300}
+	im := Importing{state: ImportState{Dir: gone, Kind: "import", Card: true, Imported: before, Problem: "taken-out", Error: "taken out"}}
+	if err := im.Import(gone, "ron", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	s := importEnded(t, &im)
+	if s.Problem != "taken-out" || !s.Card {
+		t.Errorf("state %+v, want a card still taken out", s)
+	}
+	if s.Imported == nil || s.Imported.Placed != 300 {
+		t.Errorf("came in: %+v, want the 300 from before", s.Imported)
+	}
+	// A new look at it has no plan but its own.
+	im.state.Plan = &library.ImportPlan{Photos: 7}
+	if err := im.Plan(gone, "ron", nil); err != nil {
+		t.Fatal(err)
+	}
+	if s := importEnded(t, &im); s.Plan != nil {
+		t.Errorf("an old plan shown for a new look: %+v", s.Plan)
 	}
 }
