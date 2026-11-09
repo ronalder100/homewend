@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -152,10 +151,12 @@ UPDATE OR IGNORE album_owners SET account = 'google/' || account WHERE instr(acc
 // So a catalog with no -wal beside it is opened immutable. One with a -wal
 // holds rows not yet in the catalog file — a download running, or one
 // stopped by closing its terminal — that immutable would not see: it is
-// opened read-only, and the files it needs are already there.
+// opened read-only, and the files it needs are already there. A -wal
+// without its -shm (a library copied without it) would need one created:
+// the catalog file is read alone, and what only the -wal holds is missed.
 func OpenCatalogReadOnly(path string) (*Catalog, error) {
 	options := "mode=ro&immutable=1"
-	if _, err := os.Stat(path + "-wal"); err == nil {
+	if exists(path+"-wal") && exists(path+"-shm") {
 		options = "mode=ro&_pragma=busy_timeout(5000)"
 	}
 	db, err := sql.Open("sqlite", catalogDSN(path, options))

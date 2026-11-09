@@ -763,20 +763,11 @@ func verify(args []string) int {
 // importCommand tells what a card or a folder would bring into the library.
 // Only --dry-run exists: the copy comes next.
 func importCommand(args []string) int {
-	flags := newFlags("import")
-	dryRun := flags.Bool("dry-run", false, "only tell what would happen")
-	flags.Bool("json", false, "one JSON object per line")
-	// The flags may come after the folder too: Go's parser stops at the
-	// first word that is not one.
-	flags.Parse(args)
-	dir := flags.Arg(0)
-	if flags.NArg() > 1 {
-		flags.Parse(flags.Args()[1:])
-	}
+	dir, dryRun, more := importArgs(args)
 	if dir == "" {
 		return failed(text["import no dir"], nil, text["import no dir hint"])
 	}
-	if flags.NArg() > 0 {
+	if more {
 		return failed(text["import one folder"], nil, text["import no dir hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
@@ -786,7 +777,7 @@ func importCommand(args []string) int {
 	} else if _, err := os.ReadDir(dir); err != nil {
 		return failed(fmt.Sprintf(text["import cannot read"], dir), nil)
 	}
-	if !*dryRun {
+	if !dryRun {
 		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], shellWord(dir)))
 	}
 	out := begin(args)
@@ -834,6 +825,22 @@ func importCommand(args []string) int {
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
 	}
 	return exitOK
+}
+
+// importArgs reads import's words: the folder, whether --dry-run was given,
+// and whether more than one folder was. The flags may come before the folder
+// or after it: Go's parser stops at the first word that is not a flag, so
+// what follows the folder is parsed again.
+func importArgs(args []string) (dir string, dryRun, more bool) {
+	flags := newFlags("import")
+	dry := flags.Bool("dry-run", false, "only tell what would happen")
+	flags.Bool("json", false, "one JSON object per line")
+	flags.Parse(args)
+	dir = flags.Arg(0)
+	if flags.NArg() > 0 {
+		flags.Parse(flags.Args()[1:])
+	}
+	return dir, *dry, dir != "" && flags.NArg() > 0
 }
 
 // counted is n of a thing, "1 photo" or "3 photos": key names the plural in

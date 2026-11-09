@@ -340,3 +340,27 @@ func TestAPastedFolderReachesTheShellAsWritten(t *testing.T) {
 		}
 	}
 }
+
+// Every way the help shows, and the folder before the flags, read the same.
+func TestImportReadsItsFolderWhereverTheFlagsAre(t *testing.T) {
+	for _, c := range []struct {
+		args   []string
+		dir    string
+		dryRun bool
+		more   bool
+	}{
+		{[]string{"--dry-run", "/card"}, "/card", true, false},
+		{[]string{"/card", "--dry-run"}, "/card", true, false},
+		{[]string{"--json", "--dry-run", "/card"}, "/card", true, false},
+		{[]string{"/card", "--json", "--dry-run"}, "/card", true, false},
+		{[]string{"/card"}, "/card", false, false},
+		{[]string{"--dry-run", "/card", "/other"}, "/card", true, true},
+		{[]string{"/card", "/other", "--dry-run"}, "/card", false, true},
+		{[]string{"--dry-run"}, "", true, false},
+	} {
+		dir, dryRun, more := importArgs(c.args)
+		if dir != c.dir || dryRun != c.dryRun || more != c.more {
+			t.Errorf("importArgs(%q) = %q, %v, %v; want %q, %v, %v", c.args, dir, dryRun, more, c.dir, c.dryRun, c.more)
+		}
+	}
+}
