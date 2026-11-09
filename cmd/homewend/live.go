@@ -179,7 +179,12 @@ func (p *printer) event(e progress.Event) {
 		}
 		p.now(going{said: text["sorting"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
 	case progress.Copy:
-		p.now(going{said: text["copying"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
+		// Files counted, and the bytes of a large one while it is copied.
+		details := fmt.Sprintf("%d of %d", e.N, e.Of)
+		if e.Total > 0 && e.Done < e.Total {
+			details += fmt.Sprintf(" · %s of %s", size(e.Done), size(e.Total))
+		}
+		p.now(going{said: text["copying"], bar: fraction(int64(e.N), int64(e.Of)), details: details})
 	case progress.Read:
 		p.now(going{said: text["reading"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
 	case progress.Busy:

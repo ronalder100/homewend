@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 func importCard(t *testing.T, card, root string, link bool) Imported {
@@ -290,5 +292,35 @@ func TestACopyIsTheSamePhoto(t *testing.T) {
 	}
 	if same(filepath.Join(dir, "a", "DSCF0001.JPG"), filepath.Join(dir, "c", "DSCF0001.JPG")) {
 		t.Error("two photos of the same size were taken for one")
+	}
+}
+
+// A file being copied tells its bytes, ending with all of them.
+func TestACopyTellsItsBytes(t *testing.T) {
+	card := cameraCard(t)
+	root := t.TempDir()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	whole := map[string]bool{}
+	emit := func(e progress.Event) {
+		if e.Stage == progress.Copy && e.Total > 0 && e.Done == e.Total {
+			whole[e.Name] = true
+		}
+	}
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, false, func(int64) error { return nil }, emit); err != nil {
+		t.Fatal(err)
+	}
+	if len(whole) != len(folder.Items) {
+		t.Errorf("%d files told whole, want %d: %v", len(whole), len(folder.Items), whole)
 	}
 }

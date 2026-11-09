@@ -39,7 +39,7 @@ func UnpackPart(path, dstDir string) (int, error) {
 		// No hard links here — an SMB share refuses them, measured on a NAS
 		// on 2026-09-28 — or a name left by an interrupted copy: the file is
 		// copied, whole.
-		if _, err := copyFile(path, target); err != nil {
+		if _, err := copyFile(path, target, nil); err != nil {
 			return 0, fmt.Errorf("unpacking %s: %w", filepath.Base(path), err)
 		}
 	}
@@ -161,7 +161,9 @@ func safeJoin(root, name string) (string, error) {
 	return target, nil
 }
 
-func copyFile(src, dst string) (int64, error) {
+// copyFile copies src to dst and reads the copy back against the checksum
+// of what was read. copied, when not nil, hears the bytes written so far.
+func copyFile(src, dst string, copied func(int64)) (int64, error) {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return 0, err
 	}
@@ -176,7 +178,11 @@ func copyFile(src, dst string) (int64, error) {
 		return 0, err
 	}
 	sum := crc32.NewIEEE()
-	written, copyErr := io.Copy(file, io.TeeReader(source, sum))
+	var to io.Writer = file
+	if copied != nil {
+		to = &counting{w: file, copied: copied}
+	}
+	written, copyErr := io.Copy(to, io.TeeReader(source, sum))
 	if syncErr := file.Sync(); copyErr == nil {
 		copyErr = syncErr
 	}
@@ -187,4 +193,18 @@ func copyFile(src, dst string) (int64, error) {
 		return written, copyErr
 	}
 	return written, readsBack(dst, sum.Sum32())
+}
+
+// counting is a writer that tells how much went through it.
+type counting struct {
+	w      io.Writer
+	n      int64
+	copied func(int64)
+}
+
+func (c *counting) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.n += int64(n)
+	c.copied(c.n)
+	return n, err
 }

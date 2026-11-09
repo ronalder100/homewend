@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -95,7 +96,17 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			done.InLibrary++
 			continue
 		}
-		placed, err := bringIn(item.Path, i, root, catalog, opt, link, fits)
+		// A file of a few GB is minutes on a card: its bytes are told, at
+		// most a few times a second.
+		var last time.Time
+		size := sizeOf(item.Path)
+		copied := func(n int64) {
+			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || n == size {
+				last = now
+				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path), Done: n, Total: size})
+			}
+		}
+		placed, err := bringIn(item.Path, i, root, catalog, opt, link, fits, copied)
 		if err != nil {
 			return done, err
 		}
@@ -107,7 +118,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 }
 
 // bringIn copies or links one file into the arrivals and places it.
-func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error) (Organized, error) {
+func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error, copied func(int64)) (Organized, error) {
 	// A folder of its own for each file: two cameras both name a photo
 	// DSCF0001.JPG. Emptied once the file is placed.
 	arrived := filepath.Join(arrivals(root), fmt.Sprint(i), filepath.Base(src))
@@ -129,7 +140,7 @@ func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link
 		if err := fits(sizeOf(src)); err != nil {
 			return Organized{}, err
 		}
-		if _, err := copyFile(src, arrived); err != nil {
+		if _, err := copyFile(src, arrived, copied); err != nil {
 			return Organized{}, fmt.Errorf("copying %s: %w", src, err)
 		}
 	}

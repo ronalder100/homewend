@@ -364,7 +364,7 @@ func linkInto(src, path string) (bool, error) {
 	if err := os.Link(src, path); err == nil {
 		return true, nil
 	}
-	if _, err := copyFile(src, path); err != nil {
+	if _, err := copyFile(src, path, nil); err != nil {
 		return false, fmt.Errorf("adding %s to an album: %w", filepath.Base(src), err)
 	}
 	return false, nil
