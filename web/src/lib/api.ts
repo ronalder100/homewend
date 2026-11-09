@@ -172,7 +172,7 @@ export interface ImportPlan {
 	twins: number;
 	unreadable: number;
 	/** Newest first; "" is the photos with no date. */
-	years: { year: string; photos: number; videos: number }[];
+	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by the folder it sits in. */
 	others: { folder: string; files: number; bytes: number }[];
 }

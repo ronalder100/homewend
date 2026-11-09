@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -86,8 +87,9 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	if plan.Photos != 1 || plan.Videos != 1 {
 		t.Errorf("%d photos and %d videos to copy, want 1 and 1", plan.Photos, plan.Videos)
 	}
-	want := []ImportYear{{Year: "2018", Photos: 1}, {Year: "", Videos: 1}}
-	if len(plan.Years) != len(want) || plan.Years[0] != want[0] || plan.Years[1] != want[1] {
+	// Each year with its months; the undated have none.
+	want := []ImportYear{{Year: "2018", Photos: 1, Months: []ImportMonth{{Month: 1, Photos: 1}}}, {Year: "", Videos: 1}}
+	if !reflect.DeepEqual(plan.Years, want) {
 		t.Errorf("years %+v, want %+v: newest first, the undated last", plan.Years, want)
 	}
 	if len(plan.Others) != 2 || plan.Others[0].Folder != "." || plan.Others[1].Folder != "FFDB" {

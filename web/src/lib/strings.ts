@@ -235,6 +235,7 @@ export const text = {
 	importFree: 'free on the library\'s disk',
 	importNoRoom: 'There is not enough room on the library\'s disk.',
 	byYearImport: 'By year.',
+	monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 	byYearImportLegend: 'photos · videos',
 	leftOut: 'Left out.',
 	leftOutLead: 'Not photos or videos: they stay where they are.',

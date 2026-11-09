@@ -6,7 +6,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { CircleCheck, Folder, HardDrive, Loader, TriangleAlert } from '@lucide/svelte';
+	import { ChevronRight, CircleCheck, Folder, HardDrive, Loader, TriangleAlert } from '@lucide/svelte';
 	import { app } from '#lib/app.svelte.js';
 	import {
 		ApiError,
@@ -17,6 +17,7 @@
 		startImport,
 		stopImport,
 		type Card,
+		type ImportPlan,
 		type ImportState
 	} from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
@@ -136,11 +137,41 @@
 	}
 
 	const plan = $derived(im?.plan);
+	// The years opened to show their months.
+	let opened = $state(new Set<string>());
+	function toggle(year: string) {
+		const next = new Set(opened);
+		if (!next.delete(year)) next.add(year);
+		opened = next;
+	}
+	const counts = (c: { photos: number; videos: number }) =>
+		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
 	const otherFiles = $derived((plan?.others ?? []).reduce((n, o) => n + o.files, 0));
 	const fits = $derived(!plan || !free || plan.bytes <= free);
 	const fileShare = $derived(im && im.total > 0 ? im.done / im.total : 0);
 	const share = $derived(im && im.of > 0 ? (im.n - 1 + fileShare) / im.of : 0);
 </script>
+
+<!-- The years, newest first; a year opened shows its months below it (I8b). -->
+{#snippet byYear(years: ImportPlan['years'])}
+	{#if years.length > 0}
+		<section class="years">
+			<header><h2>{text.byYearImport}</h2><span>{text.byYearImportLegend}</span></header>
+			{#each years as y (y.year)}
+				{@const open = opened.has(y.year)}
+				<button class="year" class:open disabled={!y.months?.length} onclick={() => toggle(y.year)}>
+					<span class="name">{#if y.months?.length}<ChevronRight size={16} />{/if}{y.year || text.noDate}</span>
+					<span class="count">{counts(y)}</span>
+				</button>
+				{#if open}
+					{#each y.months ?? [] as m (m.month)}
+						<div class="year month"><span class="name">{text.monthNames[m.month - 1]}</span><span class="count">{counts(m)}</span></div>
+					{/each}
+				{/if}
+			{/each}
+		</section>
+	{/if}
+{/snippet}
 
 <div class="page">
 	{#if view === 'choose'}
@@ -201,14 +232,7 @@
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
 		</div>
 		<p class="whose">{text.importGoesTo} <b>{im.profile || profile}</b></p>
-		{#if plan.years.length > 0}
-			<section class="years">
-				<header><h2>{text.byYearImport}</h2><span>{text.byYearImportLegend}</span></header>
-				{#each plan.years as y (y.year)}
-					<div class="year"><span class="name">{y.year || text.noDate}</span><span class="count">{y.photos.toLocaleString('en')}{y.videos ? ` · ${y.videos.toLocaleString('en')}` : ''}</span></div>
-				{/each}
-			</section>
-		{/if}
+		{@render byYear(plan.years)}
 		{#if plan.others.length > 0}
 			<section class="years">
 				<header><h2>{text.leftOut}</h2><span>{text.leftOutLead}</span></header>
@@ -267,6 +291,8 @@
 			<PrimaryButton onclick={() => goto('/library')}>{text.seeLibraryNow}</PrimaryButton>
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
 		</div>
+		<!-- All of it came in: what came in is what the look said would. -->
+		{#if view === 'done' && plan}{@render byYear(plan.years)}{/if}
 	{:else if im}
 		<span class="pill err">{name}</span>
 		<h1>{text.importFailed}</h1>
@@ -483,9 +509,29 @@
 		padding: 10px 0;
 		border-bottom: 1px solid var(--line);
 	}
+	button.year {
+		width: 100%;
+		text-align: left;
+	}
+	button.year:not(:disabled):hover {
+		background: var(--soft);
+	}
 	.year .name {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
 		color: var(--fg);
 		font-weight: 600;
+	}
+	.year.open .name :global(svg) {
+		transform: rotate(90deg);
+	}
+	.year.month {
+		padding-left: 24px;
+	}
+	.year.month .name {
+		font-weight: 400;
+		color: var(--muted);
 	}
 	.mono {
 		font-family: var(--font-mono);

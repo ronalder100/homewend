@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,11 +41,20 @@ type ImportPlan struct {
 	Others []ImportOther `json:"others"`
 }
 
-// ImportYear is what a year would receive.
+// ImportYear is what a year would receive, and each of its months.
 type ImportYear struct {
 	Year   string `json:"year"`
 	Photos int    `json:"photos"`
 	Videos int    `json:"videos"`
+	// January first; none for the photos with no date.
+	Months []ImportMonth `json:"months,omitempty"`
+}
+
+// ImportMonth is what a month would receive.
+type ImportMonth struct {
+	Month  int `json:"month"` // 1 to 12
+	Photos int `json:"photos"`
+	Videos int `json:"videos"`
 }
 
 // ImportOther is a folder's files that stay out.
@@ -115,26 +125,46 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, pro
 		if info, err := os.Stat(item.Path); err == nil {
 			plan.Bytes += info.Size()
 		}
-		year := ""
-		if when, ok := dates[item.Path]; ok {
-			year = strconv.Itoa(when.Year())
-		} else if when, _, ok := cameraDate(item.Path); ok {
-			year = strconv.Itoa(when.Year())
+		year, month := "", 0
+		when, ok := dates[item.Path]
+		if !ok {
+			when, _, ok = cameraDate(item.Path)
+		}
+		if ok {
+			year, month = strconv.Itoa(when.Year()), int(when.Month())
 		}
 		y := years[year]
 		if y == nil {
 			y = &ImportYear{Year: year}
 			years[year] = y
 		}
-		if IsVideo(item.Path) {
-			plan.Videos++
-			y.Videos++
-		} else {
-			plan.Photos++
-			y.Photos++
+		var m *ImportMonth
+		if month > 0 {
+			if len(y.Months) == 0 {
+				y.Months = make([]ImportMonth, 12)
+				for i := range y.Months {
+					y.Months[i].Month = i + 1
+				}
+			}
+			m = &y.Months[month-1]
+		}
+		video := IsVideo(item.Path)
+		count := func(photos, videos *int) {
+			if video {
+				*videos++
+			} else {
+				*photos++
+			}
+		}
+		count(&plan.Photos, &plan.Videos)
+		count(&y.Photos, &y.Videos)
+		if m != nil {
+			count(&m.Photos, &m.Videos)
 		}
 	}
 	for _, y := range years {
+		// The months nothing would go in are not said.
+		y.Months = slices.DeleteFunc(y.Months, func(m ImportMonth) bool { return m.Photos+m.Videos == 0 })
 		plan.Years = append(plan.Years, *y)
 	}
 	// Newest first, and the undated last.
