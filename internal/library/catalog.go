@@ -4,9 +4,11 @@
 package library
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -157,26 +159,51 @@ const clocksSince = 1
 // clockDates turns the instants an older catalog kept for Google's dates
 // into the clocks of this computer's zone, the one the photos were filed
 // by, once: a copy of the catalog as it was is kept beside it first.
+//
+// The window opens the catalog for several requests at once, and a command
+// in a terminal may too: the turn is made under the write lock, taken at
+// the start (BEGIN IMMEDIATE), and the version read again under it, so one
+// of them turns the dates and the others find it done. A deferred
+// transaction would read, then fail to write on a snapshot grown old.
 func clockDates(db *sql.DB, path string) error {
 	var version int
 	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version >= clocksSince {
 		return err
 	}
-	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar)).Scan(&n); err != nil {
-		return err
-	}
-	if n > 0 && !exists(path+".before-clocks") {
-		if _, err := db.Exec(`VACUUM INTO ?`, path+".before-clocks"); err != nil {
-			return err
-		}
-	}
-	tx, err := db.Begin()
+	ctx := context.Background()
+	backup, err := keepBefore(db, path)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
-	rows, err := tx.Query(`SELECT hash, taken FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar))
+	if backup != "" {
+		defer os.Remove(backup) // left only when it was not needed
+	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+		return err
+	}
+	done := false
+	defer func() {
+		if !done {
+			conn.ExecContext(ctx, `ROLLBACK`)
+		}
+	}()
+	if err := conn.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil || version >= clocksSince {
+		return err
+	}
+	// The copy taken before the lock is of the catalog as it still is: no
+	// one turned the dates since, or the version would say so. One kept by
+	// an earlier run that stopped halfway is as good, and stays.
+	if backup != "" && !exists(path+".before-clocks") {
+		if err := os.Rename(backup, path+".before-clocks"); err != nil {
+			return err
+		}
+	}
+	rows, err := conn.QueryContext(ctx, `SELECT hash, taken FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar))
 	if err != nil {
 		return err
 	}
@@ -192,14 +219,44 @@ func clockDates(db *sql.DB, path string) error {
 	}
 	rows.Close()
 	for hash, taken := range clocks {
-		if _, err := tx.Exec(`UPDATE photos SET taken = ? WHERE hash = ?`, taken, hash); err != nil {
+		if _, err := conn.ExecContext(ctx, `UPDATE photos SET taken = ? WHERE hash = ?`, taken, hash); err != nil {
 			return err
 		}
 	}
-	if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, clocksSince)); err != nil {
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA user_version = %d`, clocksSince)); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
+		return err
+	}
+	done = true
+	return nil
+}
+
+// keepBefore copies the catalog, when it has dates to turn and no copy is
+// kept yet, into a file of its own beside it: "" when none is needed. Each
+// opening writes its own, so two never write the same file, and a copy cut
+// short (a crash, a full disk) is never the one kept.
+func keepBefore(db *sql.DB, path string) (string, error) {
+	if exists(path + ".before-clocks") {
+		return "", nil
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar)).Scan(&n); err != nil || n == 0 {
+		return "", err
+	}
+	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".before-clocks-*")
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	// VACUUM INTO writes into an empty file, and reads one snapshot of the
+	// catalog: a copy as it was at one moment.
+	if _, err := db.Exec(`VACUUM INTO ?`, f.Name()); err != nil {
+		os.Remove(f.Name())
+		return "", err
+	}
+	return f.Name(), nil
 }
 
 // OpenCatalogReadOnly opens the index at path to look at it: no schema, no

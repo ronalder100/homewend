@@ -4,7 +4,9 @@
 package library
 
 import (
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -94,5 +96,71 @@ func TestGooglesDateIsKeptAsItsFoldersClock(t *testing.T) {
 	}
 	if got := photo.capture().Local(rome); !got.Equal(photo.Taken) {
 		t.Errorf("read back and moved again: %v", got)
+	}
+}
+
+// The window opens the catalog for several requests at once: the first
+// opening after an update turns the dates once, and none of them fails.
+func TestAnOlderCatalogOpenedManyTimesAtOnceTurnsOnce(t *testing.T) {
+	rome, err := time.LoadLocation("Europe/Rome")
+	if err != nil {
+		t.Skip(err)
+	}
+	was := time.Local
+	time.Local = rome
+	t.Cleanup(func() { time.Local = was })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "catalog.db")
+	catalog, err := OpenCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instant := time.Date(2019, 7, 14, 12, 0, 0, 0, time.UTC)
+	for i := range 200 {
+		name := fmt.Sprintf("%d.jpg", i)
+		if err := catalog.Put(Photo{Hash: name, Path: "2019/07/" + name, Name: name, Taken: instant, Source: FromSidecar}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := catalog.db.Exec(`PRAGMA user_version = 0`); err != nil {
+		t.Fatal(err)
+	}
+	catalog.Close()
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c, err := OpenCatalog(path)
+			if err != nil {
+				errs <- err
+				return
+			}
+			c.Close()
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Errorf("an opening failed: %v", err)
+	}
+	catalog, err = OpenCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	p, err := catalog.photo("7.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := asClock(instant.In(rome)); !p.Taken.Equal(want) {
+		t.Errorf("date %v, want %v: turned once", p.Taken, want)
+	}
+	copies, _ := filepath.Glob(path + ".before-clocks*")
+	if len(copies) != 1 || copies[0] != path+".before-clocks" {
+		t.Errorf("copies kept: %v, want the one", copies)
 	}
 }
