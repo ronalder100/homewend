@@ -83,12 +83,9 @@ func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit
 		if info, err := os.Stat(item.Path); err == nil {
 			plan.Bytes += info.Size()
 		}
-		// The camera's date; a video's is not read yet, so it has none.
 		year := ""
-		if !IsVideo(item.Path) {
-			if when, ok := exifDate(item.Path); ok {
-				year = strconv.Itoa(when.In(loc).Year())
-			}
+		if when, source, ok := CameraDate(item.Path); ok {
+			year = strconv.Itoa(Capture{When: when, Source: source}.Filed(loc).Year())
 		}
 		y := years[year]
 		if y == nil {

@@ -242,11 +242,11 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 	}
 
 	// Read in the user's own timezone, not UTC — see Options.Location.
-	local := capture.When.In(opt.location())
+	local := capture.Filed(opt.location())
 
 	var dir string
 	switch capture.Source {
-	case FromSidecar, FromEXIF:
+	case FromSidecar, FromEXIF, FromVideo:
 		dir = filepath.Join(base, local.Format("2006"), local.Format("01"))
 	case FromFolder:
 		// The year is Google's and the month is not known. Saying so in the

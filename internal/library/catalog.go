@@ -41,7 +41,7 @@ func (c Capture) Kind() DateKind {
 			return DateReceived
 		}
 		return DateTaken
-	case FromEXIF:
+	case FromEXIF, FromVideo:
 		return DateTaken
 	case FromFolder:
 		return DateGuessed
