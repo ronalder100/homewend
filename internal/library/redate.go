@@ -82,23 +82,27 @@ func given(redates []Redate, f Folder) (map[string]time.Time, error) {
 // the folder, in any case — a card's FAT keeps names as the camera wrote
 // them, and nobody types them so.
 func named(name string, f Folder) (string, error) {
-	// A path typed as the shell completes it — whole, or from where the
-	// command runs — names a file below the folder when it leads there.
-	if strings.ContainsAny(name, `/\`) {
-		if rel, ok := below(name, f.Root); ok {
-			name = rel
+	match := func(name string) []string {
+		want := filepath.ToSlash(filepath.Clean(name))
+		var found []string
+		for _, item := range f.Items {
+			rel, err := filepath.Rel(f.Root, item.Path)
+			if err != nil {
+				continue
+			}
+			rel = filepath.ToSlash(rel)
+			if strings.EqualFold(rel, want) || (!strings.Contains(want, "/") && strings.EqualFold(filepath.Base(item.Path), want)) {
+				found = append(found, item.Path)
+			}
 		}
+		return found
 	}
-	want := filepath.ToSlash(filepath.Clean(name))
-	var found []string
-	for _, item := range f.Items {
-		rel, err := filepath.Rel(f.Root, item.Path)
-		if err != nil {
-			continue
-		}
-		rel = filepath.ToSlash(rel)
-		if strings.EqualFold(rel, want) || (!strings.Contains(want, "/") && strings.EqualFold(filepath.Base(item.Path), want)) {
-			found = append(found, item.Path)
+	found := match(name)
+	// Not below the folder as typed: a path the shell completed — whole,
+	// or from where the command runs — when it leads into the folder.
+	if len(found) == 0 && strings.ContainsAny(name, `/\`) {
+		if rel, ok := below(name, f.Root); ok {
+			found = match(rel)
 		}
 	}
 	switch len(found) {
@@ -115,15 +119,20 @@ func named(name string, f Folder) (string, error) {
 	return "", e
 }
 
-// below is path, as typed, relative to root, when it leads into root. root
-// is whole and its links followed (see readFolder), and so is path made.
+// below is path, as typed, relative to root, when it leads into root: as
+// it is, or through the links of its folders. Its own name is kept as
+// typed, for the case to be matched as names are.
 func below(path, root string) (string, bool) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return "", false
 	}
-	if real, err := filepath.EvalSymlinks(path); err == nil {
-		path = real
+	if !within(path, root) {
+		dir, err := filepath.EvalSymlinks(filepath.Dir(path))
+		if err != nil {
+			return "", false
+		}
+		path = filepath.Join(dir, filepath.Base(path))
 	}
 	if !within(path, root) {
 		return "", false
@@ -154,13 +163,13 @@ func redateInLibrary(root string, catalog *Catalog, hash string, when time.Time,
 		return err
 	}
 	if to != from {
-		// The catalog first, as Organize does: the name is the photo's
-		// before anything moves. A move that fails gives the old one back.
+		// The catalog first: the new name is the photo's before anything
+		// moves, and a move that fails gives the old one back.
 		if err := catalog.setPath(hash, relativeTo(root, to), filepath.Base(to)); err != nil {
 			return err
 		}
 		if err := move(from, to); err != nil {
-			catalog.setPath(hash, record.Path, filepath.Base(from))
+			catalog.setPath(hash, record.Path, record.Name)
 			return err
 		}
 		// Google's sidecar, kept under the library's metadata folder by the

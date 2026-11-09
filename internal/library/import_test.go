@@ -585,4 +585,10 @@ func TestADryRunTakesAPathFromHereAndKnowsTheProfile(t *testing.T) {
 	if plan, err := PlanImport(card, folder, catalog, "bob", dates, nil); err != nil || plan.Redated != 0 || plan.NotRedated != 1 {
 		t.Errorf("from another profile: %+v, %v; want 1 left to its own", plan, err)
 	}
+	// Run from inside the folder, a path below it still names it.
+	t.Chdir(filepath.Join(card, "DCIM"))
+	dates = []Redate{{Names: []string{"DCIM/DSCF0004.JPG"}, When: time.Now()}}
+	if plan, err := PlanImport(card, folder, catalog, "ron", dates, nil); err != nil || plan.Redated != 1 {
+		t.Errorf("from inside the folder: %+v, %v; want 1 that would move", plan, err)
+	}
 }
