@@ -176,7 +176,7 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 		if len(items) > 0 {
 			// An import placing photos has the library: the download waits
 			// for its turn instead of moving files under it.
-			unlock, err := waitLibrary(ctx, f.Library)
+			unlock, err := waitLibrary(ctx, f.Library, emit)
 			if err != nil {
 				return err
 			}

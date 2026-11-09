@@ -88,6 +88,8 @@ func SetProfile(id, profile string) error {
 // ErrBadProfile is a profile name that cannot be a folder.
 var ErrBadProfile = errors.New("a profile is a name, without / or \\, and not . or ..")
 
+// ValidProfile is whether p can name a profile: a folder of the library,
+// so a plain name, never one that leads out of it or into its work folder.
 func ValidProfile(p string) bool {
 	return p != "" && p != "." && p != ".." && !strings.ContainsAny(p, "/\\") && !strings.HasPrefix(p, ".")
 }

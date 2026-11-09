@@ -182,6 +182,8 @@ func (p *printer) event(e progress.Event) {
 		p.now(going{said: text["copying"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
 	case progress.Read:
 		p.now(going{said: text["reading"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
+	case progress.Busy:
+		p.now(now(text["library waiting"], ""))
 	case progress.Update:
 		p.now(going{said: fmt.Sprintf(text["updating"], e.Name), bar: fraction(e.Done, e.Total),
 			details: fmt.Sprintf(text["download sizes"], size(e.Done), size(e.Total))})

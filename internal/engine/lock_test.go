@@ -39,11 +39,11 @@ func TestADownloadWaitsForItsTurn(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if _, err := waitLibrary(ctx, root); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := waitLibrary(ctx, root, nil); !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("waiting while held: %v, want the stop", err)
 	}
 	go func() { time.Sleep(200 * time.Millisecond); unlock() }()
-	turn, err := waitLibrary(context.Background(), root)
+	turn, err := waitLibrary(context.Background(), root, nil)
 	if err != nil {
 		t.Fatalf("waiting for the turn: %v", err)
 	}

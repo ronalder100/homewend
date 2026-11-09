@@ -16,7 +16,9 @@ import (
 // belong to the open file, so two in one program conflict too.
 func tryLock(file *os.File) error {
 	err := unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB)
-	if errors.Is(err, unix.EWOULDBLOCK) {
+	// A lock held elsewhere is EWOULDBLOCK on a local disk; a Linux SMB
+	// mount has the server's answer come back as EACCES.
+	if errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EACCES) {
 		return errLocked
 	}
 	return err

@@ -31,6 +31,7 @@ const (
 	Copy          = "copy"           // a file of a folder is being brought into the library; N of Of, Name the file
 	Unassigned    = "unassigned"     // photos that have arrived and wait for their date, shown in the library's unassigned folder: N of them
 	Year          = "year"           // one year of the export: Name is the year, Of the photos Google lists for it, N those that have arrived, filed or waiting in unassigned
+	Busy          = "busy"           // another run is placing photos in the library: this one waits for its turn
 	Update        = "update"         // a new homewend is arriving; Done and Total are bytes
 )
 

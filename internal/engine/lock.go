@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ronalder100/homewend/internal/library"
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // ErrLibraryBusy is another run placing photos in the library: an import,
@@ -47,11 +48,15 @@ func lockLibrary(root string) (unlock func(), err error) {
 // waitLibrary waits for the library's turn, asking again every few seconds,
 // or for ctx to end. A download in the background waits for an import to
 // finish placing rather than failing.
-func waitLibrary(ctx context.Context, root string) (unlock func(), err error) {
-	for {
+func waitLibrary(ctx context.Context, root string, emit progress.Func) (unlock func(), err error) {
+	for said := false; ; said = true {
 		unlock, err := lockLibrary(root)
 		if !errors.Is(err, ErrLibraryBusy) {
 			return unlock, err
+		}
+		// Said once, so the download does not look stuck.
+		if !said {
+			emit.Emit(progress.Event{Stage: progress.Busy})
 		}
 		select {
 		case <-ctx.Done():
