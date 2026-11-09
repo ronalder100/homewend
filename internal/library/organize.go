@@ -242,7 +242,7 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 	}
 
 	// Read in the user's own timezone, not UTC — see Options.Location.
-	local := capture.Filed(opt.location())
+	local := capture.Local(opt.location())
 
 	var dir string
 	switch capture.Source {

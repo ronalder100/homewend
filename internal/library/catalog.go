@@ -36,12 +36,14 @@ const (
 // Kind says what the date on this capture really is.
 func (c Capture) Kind() DateKind {
 	switch c.Source {
-	case FromSidecar:
+	case FromSidecar, FromVideo:
+		// A video sent through a chat is made again on the way: its header
+		// says when it was sent, not when it was filmed.
 		if c.Origin.FromMessaging() || c.Origin == OriginScreenshot {
 			return DateReceived
 		}
 		return DateTaken
-	case FromEXIF, FromVideo:
+	case FromEXIF:
 		return DateTaken
 	case FromFolder:
 		return DateGuessed

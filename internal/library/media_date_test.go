@@ -37,27 +37,23 @@ func TestAVideoIsDatedByItsHeader(t *testing.T) {
 	// started at 12:56:35 in Rome.
 	ended := time.Date(2026, 2, 18, 11, 57, 38, 0, time.UTC)
 	write(t, dir, "20260218_125635.mp4", movie(ended))
-	when, source, ok := CameraDate(filepath.Join(dir, "20260218_125635.mp4"))
-	if !ok || source != FromVideo || !when.Equal(ended) {
-		t.Fatalf("got %v %q %v, want %v from the video's header", when, source, ok, ended)
-	}
-	rome, err := time.LoadLocation("Europe/Rome")
-	if err != nil {
-		t.Skip("no timezone database")
-	}
-	if got := (Capture{When: when, Source: source}).Filed(rome); got.Hour() != 12 {
-		t.Errorf("filed at %v, want 12:57 in Rome: an instant is moved into the library's zone", got)
+	when, source, ok := cameraDate(filepath.Join(dir, "20260218_125635.mp4"))
+	// A camera's clock: the instant on this computer's clock.
+	local := ended.In(time.Local)
+	want := time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), local.Minute(), local.Second(), 0, time.UTC)
+	if !ok || source != FromVideo || !when.Equal(want) {
+		t.Fatalf("got %v %q %v, want %v from the video's header", when, source, ok, want)
 	}
 }
 
 func TestAVideoWithNoDateHasNone(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "clip.mov", movie(time.Time{}))
-	if when, _, ok := CameraDate(filepath.Join(dir, "clip.mov")); ok {
+	if when, _, ok := cameraDate(filepath.Join(dir, "clip.mov")); ok {
 		t.Errorf("dated %v, want none: zero is 1904, not a day anyone filmed", when)
 	}
 	write(t, dir, "broken.mp4", []byte("not a movie"))
-	if _, _, ok := CameraDate(filepath.Join(dir, "broken.mp4")); ok {
+	if _, _, ok := cameraDate(filepath.Join(dir, "broken.mp4")); ok {
 		t.Error("a file that is not a movie got a date")
 	}
 }
@@ -94,4 +90,35 @@ func TestNewYearsEveStaysInItsYear(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustExist(t, filepath.Join(out, "2018", "12", "IMG_1.JPG"))
+}
+
+// A damaged HEIC has no date; it does not bring the import down. Measured:
+// a meta box claiming more than the file holds made the decoder panic.
+func TestADamagedHEICHasNoDate(t *testing.T) {
+	dir := t.TempDir()
+	damaged := []byte("\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic" +
+		"\x00\x00\x00\x01meta\x7f\xff\xff\xff\xff\xff\xff\xff")
+	write(t, dir, "IMG_0001.HEIC", damaged)
+	if when, _, ok := cameraDate(filepath.Join(dir, "IMG_0001.HEIC")); ok {
+		t.Errorf("dated %v, want none", when)
+	}
+}
+
+// A JPEG saved under a .heic name keeps its EXIF where a JPEG keeps it.
+func TestAJPEGNamedHEICIsStillDated(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "IMG_0002.heic", exifPhoto("2024:07:22 08:14:30", "a jpeg"))
+	when, source, ok := cameraDate(filepath.Join(dir, "IMG_0002.heic"))
+	if !ok || source != FromEXIF || when.Year() != 2024 {
+		t.Errorf("got %v %q %v, want 2024 from its EXIF", when, source, ok)
+	}
+}
+
+// A video that came through a chat was made again on the way: its date is
+// when it was received.
+func TestAChatVideoWasReceived(t *testing.T) {
+	c := Capture{When: time.Now(), Source: FromVideo, Origin: OriginOf("", "VID-20190714-WA0001.mp4")}
+	if got := c.Kind(); got != DateReceived {
+		t.Errorf("kind %q, want %q", got, DateReceived)
+	}
 }

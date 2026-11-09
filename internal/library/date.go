@@ -25,7 +25,7 @@ type DateSource string
 const (
 	FromSidecar DateSource = "sidecar" // Google's own answer
 	FromEXIF    DateSource = "exif"    // the camera's answer: its clock, with no zone
-	FromVideo   DateSource = "video"   // a video's header: an instant, in UTC
+	FromVideo   DateSource = "video"   // a video's header, read as the camera's clock
 	FromFolder  DateSource = "folder"  // the year Takeout filed it under
 	NoDate      DateSource = "none"    // and we do not invent one
 )
@@ -39,17 +39,14 @@ type Capture struct {
 
 // Known reports whether there is a real date, as opposed to a year we inferred
 // or nothing at all.
-func (c Capture) Known() bool {
-	return c.Source == FromSidecar || c.Source == FromEXIF || c.Source == FromVideo
-}
-
-// Filed is the capture's time on the clock it is filed by, in loc. Google's
-// sidecar and a video's header are instants, moved into loc. A camera's EXIF
-// is already the clock of where it was taken, with no zone to move from: it
-// is kept, or a photo of 23:30 on New Year's Eve in Rome, read as UTC and
-// moved, lands in the next year. A folder's year has no clock at all.
-func (c Capture) Filed(loc *time.Location) time.Time {
-	if c.Source == FromSidecar || c.Source == FromVideo {
+// Local is the capture's time on the clock it is filed by, in loc. Google's
+// sidecar is an instant, moved into loc. A camera's clock — a photo's EXIF,
+// a video's header as read — is already the clock of where it was taken,
+// with no zone to move from: it is kept, or a photo of 23:30 on New Year's
+// Eve in Rome, read as UTC and moved, lands in the next year. A folder's
+// year has no clock at all.
+func (c Capture) Local(loc *time.Location) time.Time {
+	if c.Source == FromSidecar {
 		return c.When.In(loc)
 	}
 	return c.When
@@ -69,7 +66,7 @@ func DateOf(mediaPath string, folder string) Capture {
 	if ok {
 		return Capture{When: when, Source: FromSidecar, Origin: origin}
 	}
-	if when, source, ok := CameraDate(mediaPath); ok {
+	if when, source, ok := cameraDate(mediaPath); ok {
 		return Capture{When: when, Source: source, Origin: origin}
 	}
 	// "Photos from 2019" is not a date, but it is Google's own filing and it is
@@ -160,35 +157,44 @@ func sidecarCandidates(mediaPath string) []string {
 	return paths
 }
 
-// CameraDate is when the camera says the photo or video was taken, and
+// cameraDate is when the camera says the photo or video was taken, and
 // which kind of answer that is: the EXIF of a JPEG, a TIFF or a HEIC, the
 // header of an MP4 or a MOV. A card or a folder has no sidecar, so this is
 // all a file brought from one can say.
-func CameraDate(path string) (time.Time, DateSource, bool) {
-	var when time.Time
-	var ok bool
-	source := FromEXIF
-	switch {
-	case IsVideo(path):
-		when, ok = videoDate(path)
-		source = FromVideo
-	case strings.EqualFold(filepath.Ext(path), ".heic"), strings.EqualFold(filepath.Ext(path), ".heif"):
-		when, ok = heicDate(path)
-	default:
-		when, ok = exifDate(path)
+func cameraDate(path string) (time.Time, DateSource, bool) {
+	if IsVideo(path) {
+		when, ok := videoDate(path)
+		return when, FromVideo, ok
 	}
-	return when, source, ok
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == ".heic" || ext == ".heif" {
+		if when, ok := heicDate(path); ok {
+			return when, FromEXIF, true
+		}
+		// A JPEG saved with the wrong name still has its EXIF where a JPEG
+		// keeps it.
+	}
+	when, ok := exifDate(path)
+	return when, FromEXIF, ok
 }
 
 // heicDate reads DateTimeOriginal out of a HEIC. Its EXIF is an item the meta
 // box points at, not a block near the start as in a JPEG: the decoder the
 // thumbnails use already finds it.
-func heicDate(path string) (time.Time, bool) {
+func heicDate(path string) (when time.Time, ok bool) {
 	file, err := os.Open(path)
 	if err != nil {
 		return time.Time{}, false
 	}
 	defer file.Close()
+	// The decoder trusts the sizes a file declares: a damaged one can make it
+	// panic (measured 09/11, a meta box claiming more than the file holds).
+	// One damaged photo on a card has no date; it does not stop the rest.
+	defer func() {
+		if recover() != nil {
+			when, ok = time.Time{}, false
+		}
+	}()
 	exif, err := heic.DecodeExif(file)
 	if err != nil {
 		return time.Time{}, false
@@ -201,6 +207,11 @@ func heicDate(path string) (time.Time, bool) {
 // Samsung phone (11:57:38 for a file it named 125635, in Rome at +01:00) and
 // a Fujifilm X-T3 (17:23:15 against its EXIF's 18:22:47 at +01:00). It is
 // when the recording ended, not when it began: seconds later, the same day.
+//
+// It is returned as a camera's clock, like a photo's EXIF: the instant on
+// this computer's clock, which is the zone a library is filed in by default
+// (Options.Location). A video and the photos of the same minute then sort
+// together, and the grid, which shows a camera's clock, shows its hour.
 func videoDate(path string) (time.Time, bool) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -228,7 +239,8 @@ func videoDate(path string) (time.Time, bool) {
 	if when.Year() < 1970 {
 		return time.Time{}, false
 	}
-	return when, true
+	local := when.In(time.Local)
+	return time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), local.Minute(), local.Second(), 0, time.UTC), true
 }
 
 // exifDate reads DateTimeOriginal out of a JPEG or TIFF, and nothing else.
