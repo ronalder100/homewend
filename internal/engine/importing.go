@@ -60,8 +60,12 @@ var ErrImportRunning = errors.New("an import is already running")
 // Plan reads dir in the background, to say what importing it into profile
 // would bring.
 func (im *Importing) Plan(dir, profile string, redates []library.Redate) error {
+	// Said to the caller before the card is read, not after.
+	if !ValidProfile(profile) {
+		return ErrBadProfile
+	}
 	return im.start(dir, profile, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		plan, err := PlanImport(dir, profile, redates, emit)
+		plan, err := PlanImport(ctx, dir, profile, redates, emit)
 		if err == nil {
 			s.Plan = &plan
 		}
@@ -164,10 +168,15 @@ func importProblem(err error) (problem string, need, free int64) {
 	return "", 0, 0
 }
 
-// Stop ends the run going on between two files; what is in stays in.
+// Stop ends the run going on between two files; what is in stays in. A
+// copy waiting for its card is ended too: it is not carried on when the
+// card, or another with its name, comes back.
 func (im *Importing) Stop() <-chan struct{} {
 	im.mu.Lock()
 	defer im.mu.Unlock()
+	if !im.state.Running && im.state.Problem == "taken-out" {
+		im.state.Problem, im.state.Error, im.state.Stopped = "", "", true
+	}
 	if im.cancel == nil {
 		return ended
 	}

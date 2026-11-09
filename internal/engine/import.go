@@ -37,8 +37,12 @@ func readFolder(dir string) (string, library.Folder, error) {
 
 // PlanImport is what importing dir would bring into the library, read and
 // never written: dir, a card or the library are left as they are. profile,
-// when known, tells the dates it may give from those it may not.
-func PlanImport(dir, profile string, redates []library.Redate, emit progress.Func) (library.ImportPlan, error) {
+// when known, tells the dates it may give from those it may not. ctx stops
+// it between two files.
+func PlanImport(ctx context.Context, dir, profile string, redates []library.Redate, emit progress.Func) (library.ImportPlan, error) {
+	if profile != "" && !ValidProfile(profile) {
+		return library.ImportPlan{}, ErrBadProfile
+	}
 	dir, folder, err := readFolder(dir)
 	if err != nil {
 		return library.ImportPlan{}, err
@@ -50,7 +54,12 @@ func PlanImport(dir, profile string, redates []library.Redate, emit progress.Fun
 	if catalog != nil {
 		defer catalog.Close()
 	}
-	return library.PlanImport(dir, folder, catalog, profile, redates, emit)
+	plan, err := library.PlanImport(ctx, dir, folder, catalog, profile, redates, emit)
+	// A card taken out while it is read is said as during the copy.
+	if _, gone := os.Stat(dir); gone != nil && err != nil && !errors.Is(err, context.Canceled) {
+		return plan, FolderGoneError{Dir: dir}
+	}
+	return plan, err
 }
 
 // Import brings dir's photos and videos into the library, into profile:

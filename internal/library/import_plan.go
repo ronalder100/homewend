@@ -4,6 +4,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sort"
@@ -64,7 +65,7 @@ type ImportOther struct {
 // folder does not have is said here too, before the import. profile, when
 // not "", is whose import it would be: a photo another profile holds is not
 // its to date.
-func PlanImport(dir string, f Folder, catalog *Catalog, profile string, redates []Redate, emit progress.Func) (ImportPlan, error) {
+func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, profile string, redates []Redate, emit progress.Func) (ImportPlan, error) {
 	dates, err := given(redates, f)
 	if err != nil {
 		return ImportPlan{}, err
@@ -73,6 +74,10 @@ func PlanImport(dir string, f Folder, catalog *Catalog, profile string, redates 
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
 	for i, item := range f.Items {
+		// A card is minutes to read: a stop is heard between two files.
+		if err := ctx.Err(); err != nil {
+			return plan, err
+		}
 		emit.Emit(progress.Event{Stage: progress.Read, N: i + 1, Of: len(f.Items)})
 		hash, err := hashOf(item.Path)
 		if err != nil {

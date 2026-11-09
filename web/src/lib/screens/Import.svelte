@@ -9,6 +9,7 @@
 	import { CircleCheck, Folder, HardDrive, Loader, TriangleAlert } from '@lucide/svelte';
 	import { app } from '#lib/app.svelte.js';
 	import {
+		ApiError,
 		getCards,
 		getImport,
 		getLibrary,
@@ -29,8 +30,6 @@
 	// An import that ended before this window opened is not shown again: the
 	// screen starts at the choice. One under way, or a card out, is.
 	let choosing = $state(true);
-	// The person ended an import whose card was taken out: its end is shown.
-	let gaveUp = $state(false);
 
 	// Whose photos they are: the profiles of the accounts, or a name typed
 	// when there is no account yet.
@@ -54,9 +53,9 @@
 				? im.kind === 'plan'
 					? 'reading'
 					: 'copying'
-				: im.problem === 'taken-out' && !gaveUp
+				: im.problem === 'taken-out'
 					? 'taken-out'
-					: im.kind === 'import' && (im.imported && !im.error ? true : gaveUp)
+					: im.kind === 'import' && im.imported && !im.error
 						? im.stopped
 							? 'stopped'
 							: 'done'
@@ -96,26 +95,35 @@
 		return () => clearInterval(t);
 	});
 
-	// The card put back in: the copy carries on by itself. What is in already
-	// is found by content and not copied again.
+	// The card put back in: the look or the copy carries on by itself. What
+	// is in already is found by content and not copied again.
 	let restarting = false;
 	$effect(() => {
 		if (!restarting && view === 'taken-out' && im?.dir && im.profile && cards.some((c) => c.path === im?.dir)) {
 			restarting = true;
-			start(() => startImport(im!.dir!, im!.profile!)).finally(() => (restarting = false));
+			carryOn().finally(() => (restarting = false));
 		}
 	});
+	const carryOn = () =>
+		start(() => (im!.kind === 'plan' ? planImport(im!.dir!, im!.profile!) : startImport(im!.dir!, im!.profile!)));
 
 	async function start(call: () => Promise<ImportState>) {
 		choosing = false;
-		gaveUp = false;
 		try {
 			im = await call();
 		} catch (e) {
-			im = { running: false, n: 0, of: 0, done: 0, total: 0, error: (e as Error).message };
+			// A second click while the first one runs: that run is the one shown.
+			if (e instanceof ApiError && e.status === 409) return load();
+			const said = e instanceof ApiError && e.status === 400 ? text.importBadProfile : (e as Error).message;
+			im = { running: false, n: 0, of: 0, done: 0, total: 0, error: said };
 		}
 	}
-	const look = (dir: string) => profile && start(() => planImport(dir, profile));
+	function look(dir: string) {
+		if (!profile) return;
+		// The room left is read again for each card: an import before took some.
+		getLibrary().then((l) => (free = l.free), () => {});
+		start(() => planImport(dir, profile));
+	}
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
 		if (picked) look(picked);
@@ -218,7 +226,7 @@
 		<!-- I7: the card came out; put back, the copy carries on by itself. -->
 		<span class="pill warn">{text.importWaitingFor(name)}</span>
 		<h1>{text.importTakenOut(name)}</h1>
-		<p class="lead">{text.importTakenOutLead}</p>
+		<p class="lead">{im.kind === 'plan' ? text.importTakenOutReadingLead : text.importTakenOutLead}</p>
 		{#if im.imported}
 			<div class="numbers">
 				<div><b>{im.imported.placed.toLocaleString('en')}</b><span>{text.importPlaced}</span></div>
@@ -226,8 +234,8 @@
 		{/if}
 		<div class="actions">
 			<!-- A card is found again by itself; a disk or a share, once back, is carried on from here. -->
-			{#if !isCard}<PrimaryButton onclick={() => start(() => startImport(im!.dir!, im!.profile!))}>{text.carryOn}</PrimaryButton>{/if}
-			<SecondaryButton onclick={() => (gaveUp = true)}>{text.importEndWithout}</SecondaryButton>
+			{#if !isCard}<PrimaryButton onclick={carryOn}>{text.carryOn}</PrimaryButton>{/if}
+			<SecondaryButton onclick={() => stopImport().then((s) => (im = s))}>{text.importEndWithout}</SecondaryButton>
 		</div>
 		<p class="note">{text.importEndWithoutDesc}</p>
 	{:else if (view === 'done' || view === 'stopped') && im}

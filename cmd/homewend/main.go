@@ -802,7 +802,9 @@ func importCommand(args []string) int {
 	if profile == "" && len(redates) > 0 {
 		profile, _ = pickProfile(context.Background(), "", true)
 	}
-	plan, err := engine.PlanImport(dir, profile, redates, out.event)
+	ctx, stop := interrupted()
+	defer stop()
+	plan, err := engine.PlanImport(ctx, dir, profile, redates, out.event)
 	if err != nil {
 		return out.fail(err)
 	}

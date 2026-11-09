@@ -4,11 +4,15 @@
 package engine
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // importEnded waits for the import going on to end, and is where it stands.
@@ -73,5 +77,39 @@ func TestTheWindowNamesACardTakenOut(t *testing.T) {
 	}
 	if p, need, _ := importProblem(NoSpaceError{Need: 5, Free: 1}); p != "no-space" || need != 5 {
 		t.Errorf("problem %q, need %d", p, need)
+	}
+}
+
+// A copy waiting for its card, ended by the person, is stopped: the card,
+// or another with its name, coming back does not carry it on.
+func TestEndingACopyWaitingForItsCardStopsIt(t *testing.T) {
+	im := Importing{state: ImportState{Dir: "/media/EOS_DIGITAL", Kind: "import", Problem: "taken-out", Error: "taken out"}}
+	<-im.Stop()
+	s := im.State()
+	if s.Problem != "" || s.Error != "" || !s.Stopped {
+		t.Errorf("after the end: %+v", s)
+	}
+}
+
+// A stop is heard while a card is read, between two files.
+func TestALookAtACardStops(t *testing.T) {
+	config(t)
+	if err := SetDefaultLibrary(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	card := t.TempDir()
+	for i := range 50 {
+		if err := os.WriteFile(filepath.Join(card, fmt.Sprintf("IMG_%04d.JPG", i)), []byte{byte(i)}, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	_, err := PlanImport(ctx, card, "ron", nil, func(e progress.Event) {
+		if e.N == 3 {
+			cancel()
+		}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("err %v, want the look stopped", err)
 	}
 }
