@@ -137,6 +137,8 @@
 	}
 
 	const plan = $derived(im?.plan);
+	// Hard links rather than copies: asked each time, copy unless said.
+	let link = $state(false);
 	// The years opened to show their months.
 	let opened = $state(new Set<string>());
 	function toggle(year: string) {
@@ -224,10 +226,23 @@
 			{#if plan.unreadable > 0}<div class="warn"><b>{plan.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			{#if free}<div class:warn={!fits}><b>{bytes(free)}</b><span>{text.importFree}</span></div>{/if}
 		</div>
-		{#if !fits}<p class="problem"><TriangleAlert size={16} />{text.importNoRoom}</p>{/if}
+		{#if im.canLink && plan.photos + plan.videos > 0}
+			<!-- On the library's disk: a second name for each file instead of a copy. -->
+			<fieldset class="how">
+				<legend>{text.importHow}</legend>
+				<label class:on={!link}
+					><input type="radio" bind:group={link} value={false} /><b>{text.importHowCopy}</b><span>{text.importHowCopyDesc(bytes(plan.bytes))}</span></label
+				>
+				<label class:on={link}
+					><input type="radio" bind:group={link} value={true} /><b>{text.importHowLink}</b><span>{text.importHowLinkDesc}</span></label
+				>
+			</fieldset>
+		{/if}
+		{#if !fits && !link}<p class="problem"><TriangleAlert size={16} />{text.importNoRoom}</p>{/if}
 		<div class="actions">
-			<PrimaryButton disabled={!fits || plan.photos + plan.videos === 0} onclick={() => start(() => startImport(im!.dir!, profile))}
-				>{text.copyAndVerify}</PrimaryButton
+			<PrimaryButton
+				disabled={(!fits && !link) || plan.photos + plan.videos === 0}
+				onclick={() => start(() => startImport(im!.dir!, profile, link && !!im!.canLink))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
 			>
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
 		</div>
@@ -299,6 +314,8 @@
 		<p class="lead">
 			{im.problem === 'no-space'
 				? text.importNoRoom
+				: im.problem === 'no-link'
+					? text.importNoLink
 				: im.problem === 'busy'
 					? text.importBusy
 					: im.problem === 'library-gone'
@@ -464,6 +481,43 @@
 		height: 100%;
 		background: var(--accent);
 		transition: width 0.5s;
+	}
+	.how {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		border: 0;
+		padding: 0;
+	}
+	.how legend {
+		margin-bottom: 8px;
+		font-size: var(--text-callout);
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.how label {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		column-gap: 12px;
+		padding: 12px 16px;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		cursor: pointer;
+	}
+	.how label.on {
+		border-color: var(--accent);
+	}
+	.how input {
+		grid-row: span 2;
+		accent-color: var(--accent);
+	}
+	.how b {
+		color: var(--fg);
+	}
+	.how span {
+		color: var(--muted);
+		font-size: var(--text-callout);
 	}
 	.actions {
 		display: flex;

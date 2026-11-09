@@ -33,7 +33,8 @@ func importEnded(t *testing.T, im *Importing) ImportState {
 // beside what came in for the screen that shows both.
 func TestTheWindowPlansThenImports(t *testing.T) {
 	config(t)
-	if err := SetDefaultLibrary(t.TempDir()); err != nil {
+	root := t.TempDir()
+	if err := SetDefaultLibrary(root); err != nil {
 		t.Fatal(err)
 	}
 	card := filepath.Join(t.TempDir(), "card")
@@ -52,6 +53,14 @@ func TestTheWindowPlansThenImports(t *testing.T) {
 	s := importEnded(t, &im)
 	if s.Error != "" || s.Plan == nil || s.Plan.Photos != 2 {
 		t.Fatalf("plan: %+v", s)
+	}
+	// The card and the library share the test's disk: a link is offered,
+	// and the probe that found it out is not left behind.
+	if !s.CanLink {
+		t.Error("a folder on the library's disk is not offered a link")
+	}
+	if probes, _ := filepath.Glob(filepath.Join(root, ".homewend", "link-probe-*")); len(probes) > 0 {
+		t.Errorf("probes left: %v", probes)
 	}
 	if err := im.Import(card, "../out", false, nil); !errors.Is(err, ErrBadProfile) {
 		t.Errorf("a profile outside the library: %v", err)

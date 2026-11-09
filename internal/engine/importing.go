@@ -5,8 +5,12 @@ package engine
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"io/fs"
 	"log"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 
@@ -44,15 +48,19 @@ type ImportState struct {
 	Done  int64  `json:"done"`
 	Total int64  `json:"total"`
 
-	Plan     *library.ImportPlan `json:"plan,omitempty"`
-	Imported *library.Imported   `json:"imported,omitempty"`
-	Stopped  bool                `json:"stopped,omitempty"` // by the person
-	Error    string              `json:"error,omitempty"`
+	Plan *library.ImportPlan `json:"plan,omitempty"`
+	// CanLink is the folder on the library's disk: its photos can come in
+	// as hard links, taking no room. Known once the look has ended.
+	CanLink  bool              `json:"canLink,omitempty"`
+	Imported *library.Imported `json:"imported,omitempty"`
+	Stopped  bool              `json:"stopped,omitempty"` // by the person
+	Error    string            `json:"error,omitempty"`
 	// Problem names what stopped it when a person can act on it:
 	// "taken-out" (the folder went away: a card taken out), "no-space" (Need
 	// and Free say how much), "busy" (another run holds the library),
 	// "library-gone", "unknown-name" or "ambiguous-name" (a date given to a
-	// name the folder has not, or has twice).
+	// name the folder has not, or has twice), "no-link" (the disk refused a
+	// hard link).
 	Problem string `json:"problem,omitempty"`
 	Need    int64  `json:"need,omitempty"`
 	Free    int64  `json:"free,omitempty"`
@@ -72,6 +80,7 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate) error {
 		plan, err := PlanImport(ctx, dir, profile, redates, emit)
 		if err == nil {
 			s.Plan = &plan
+			s.CanLink = canLink(dir)
 		}
 		return err
 	})
@@ -131,7 +140,7 @@ func (im *Importing) start(dir, profile, kind string, run func(context.Context, 
 		s := &im.state
 		s.Running = false
 		if out.Plan != nil {
-			s.Plan = out.Plan
+			s.Plan, s.CanLink = out.Plan, out.CanLink
 		}
 		s.Imported = out.Imported
 		// Asked to carry on with the card still out: nothing new came in,
@@ -185,8 +194,42 @@ func importProblem(err error) (problem string, need, free int64) {
 		return "unknown-name", 0, 0
 	case errors.As(err, &ambiguous):
 		return "ambiguous-name", 0, 0
+	case errors.Is(err, library.ErrNoLink):
+		return "no-link", 0, 0
 	}
 	return "", 0, 0
+}
+
+// canLink is whether the disk lets a file of dir have a second name in the
+// library: tried on the first file found, the name taken away at once. The
+// disks' ids would say it on Linux and the Mac, not on Windows; the link
+// itself says it everywhere, a share included.
+func canLink(dir string) bool {
+	root, err := ChosenLibrary()
+	if err != nil {
+		return false
+	}
+	work := filepath.Join(root, library.WorkDir)
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		return false
+	}
+	var first string
+	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			first = path
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if first == "" {
+		return false
+	}
+	probe := filepath.Join(work, "link-probe-"+rand.Text())
+	if err := os.Link(first, probe); err != nil {
+		return false
+	}
+	os.Remove(probe)
+	return true
 }
 
 // Stop ends the run going on between two files; what is in stays in. A

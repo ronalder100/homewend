@@ -204,10 +204,12 @@ export interface ImportState {
 	done: number;
 	total: number;
 	plan?: ImportPlan;
+	/** The folder is on the library's disk: it can come in as hard links. */
+	canLink?: boolean;
 	imported?: Imported;
 	stopped?: boolean;
 	error?: string;
-	problem?: 'taken-out' | 'no-space' | 'busy' | 'library-gone' | 'unknown-name' | 'ambiguous-name';
+	problem?: 'no-link' | 'taken-out' | 'no-space' | 'busy' | 'library-gone' | 'unknown-name' | 'ambiguous-name';
 	need?: number;
 	free?: number;
 }
@@ -215,7 +217,7 @@ export interface ImportState {
 export const getCards = () => call<Card[]>('GET', '/api/cards');
 export const planImport = (dir: string, profile: string) =>
 	call<ImportState>('POST', '/api/import/plan', { dir, profile });
-export const startImport = (dir: string, profile: string) =>
-	call<ImportState>('POST', '/api/import', { dir, profile });
+export const startImport = (dir: string, profile: string, link = false) =>
+	call<ImportState>('POST', '/api/import', { dir, profile, link });
 export const getImport = () => call<ImportState>('GET', '/api/import');
 export const stopImport = () => call<ImportState>('POST', '/api/import/stop');
