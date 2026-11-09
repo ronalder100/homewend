@@ -289,6 +289,18 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 		err := importing.Import(body.Dir, body.Profile, body.Link, body.Redates)
 		reply(w, importing.State(), err)
 	})
+	// A file of the card looked at, small, for picking the ones with a
+	// wrong date. Asked again each time: another card in the same place
+	// has other photos under the same names.
+	mux.HandleFunc("GET /api/import/thumb", func(w http.ResponseWriter, r *http.Request) {
+		path, err := importing.Thumbnail(r.Context(), r.URL.Query().Get("file"))
+		if err != nil {
+			reply(w, nil, err)
+			return
+		}
+		w.Header().Set("Cache-Control", "private, no-cache")
+		http.ServeFile(w, r, path)
+	})
 	mux.HandleFunc("GET /api/import", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, importing.State(), nil)
 	})

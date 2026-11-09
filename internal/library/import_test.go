@@ -479,7 +479,7 @@ func TestADryRunCountsTheDatesGiven(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), card, folder, nil, "", []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}, nil)
+	plan, err := PlanImport(context.Background(), card, folder, nil, PlanOptions{Redates: []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}}, nil)
 	if err != nil || len(plan.Years) != 1 || plan.Years[0].Year != "2026" {
 		t.Errorf("%+v, %v; want 2026", plan.Years, err)
 	}
@@ -550,7 +550,7 @@ func TestADryRunSaysWhatADateWouldMove(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{filepath.Join(card, "DCIM", "DSCF0004.JPG"), "./DCIM/DSCF0004.JPG"} {
-		plan, err := PlanImport(context.Background(), card, folder, catalog, "", []Redate{{Names: []string{name}, When: time.Now()}}, nil)
+		plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Redates: []Redate{{Names: []string{name}, When: time.Now()}}}, nil)
 		if err != nil || plan.Redated != 1 {
 			t.Errorf("%s: %+v, %v; want 1 that would move", name, plan, err)
 		}
@@ -579,16 +579,16 @@ func TestADryRunTakesAPathFromHereAndKnowsTheProfile(t *testing.T) {
 	t.Chdir(filepath.Dir(card))
 	name := filepath.Join(filepath.Base(card), "DCIM", "DSCF0004.JPG")
 	dates := []Redate{{Names: []string{name}, When: time.Now()}}
-	if plan, err := PlanImport(context.Background(), card, folder, catalog, "ron", dates, nil); err != nil || plan.Redated != 1 {
+	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Profile: "ron", Redates: dates}, nil); err != nil || plan.Redated != 1 {
 		t.Errorf("%s from here: %+v, %v; want 1 that would move", name, plan, err)
 	}
-	if plan, err := PlanImport(context.Background(), card, folder, catalog, "bob", dates, nil); err != nil || plan.Redated != 0 || plan.NotRedated != 1 {
+	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Profile: "bob", Redates: dates}, nil); err != nil || plan.Redated != 0 || plan.NotRedated != 1 {
 		t.Errorf("from another profile: %+v, %v; want 1 left to its own", plan, err)
 	}
 	// Run from inside the folder, a path below it still names it.
 	t.Chdir(filepath.Join(card, "DCIM"))
 	dates = []Redate{{Names: []string{"DCIM/DSCF0004.JPG"}, When: time.Now()}}
-	if plan, err := PlanImport(context.Background(), card, folder, catalog, "ron", dates, nil); err != nil || plan.Redated != 1 {
+	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Profile: "ron", Redates: dates}, nil); err != nil || plan.Redated != 1 {
 		t.Errorf("from inside the folder: %+v, %v; want 1 that would move", plan, err)
 	}
 }

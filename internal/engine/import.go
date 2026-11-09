@@ -44,7 +44,9 @@ func readFolder(dir string) (string, library.Folder, error) {
 // never written: dir, a card or the library are left as they are. profile,
 // when known, tells the dates it may give from those it may not. ctx stops
 // it between two files.
-func PlanImport(ctx context.Context, dir, profile string, redates []library.Redate, emit progress.Func) (library.ImportPlan, error) {
+//
+// hashes, when not nil, keeps what was read for the next look at dir.
+func PlanImport(ctx context.Context, dir, profile string, redates []library.Redate, hashes library.Hashes, emit progress.Func) (library.ImportPlan, error) {
 	if profile != "" && !ValidProfile(profile) {
 		return library.ImportPlan{}, ErrBadProfile
 	}
@@ -59,7 +61,7 @@ func PlanImport(ctx context.Context, dir, profile string, redates []library.Reda
 	if catalog != nil {
 		defer catalog.Close()
 	}
-	plan, err := library.PlanImport(ctx, dir, folder, catalog, profile, redates, emit)
+	plan, err := library.PlanImport(ctx, dir, folder, catalog, library.PlanOptions{Profile: profile, Redates: redates, Hashes: hashes}, emit)
 	// A card taken out while it is read is said as during the copy: its
 	// files read after are only unreadable, not an error.
 	if _, gone := os.Stat(dir); gone != nil && !errors.Is(err, context.Canceled) {

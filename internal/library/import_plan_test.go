@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
+	"time"
 )
 
 // exifPhoto is the smallest file the date reader takes for a camera's JPEG:
@@ -74,7 +76,7 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), card, folder, catalog, "", nil, nil)
+	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +105,7 @@ func TestAnEmptyLibraryTakesEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), card, folder, nil, "", nil, nil)
+	plan, err := PlanImport(context.Background(), card, folder, nil, PlanOptions{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +131,7 @@ func TestAFileThatCannotBeReadIsPassedOver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), card, folder, nil, "", nil, nil)
+	plan, err := PlanImport(context.Background(), card, folder, nil, PlanOptions{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +149,7 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), dir, folder, nil, "", nil, nil)
+	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,5 +221,46 @@ func TestTheCatalogIsOnlyRead(t *testing.T) {
 		if _, err := os.Stat(path + beside); err == nil {
 			t.Errorf("%s left beside the catalog by a look", beside)
 		}
+	}
+}
+
+// A second look at the same card, with dates given, reads no file again: a
+// file's content is taken from the first look while it has not changed.
+// The files are listed with their camera's dates.
+func TestASecondLookReadsNothingAgain(t *testing.T) {
+	card := cameraCard(t)
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hashes := Hashes{}
+	plan, err := PlanImport(context.Background(), card, folder, nil, PlanOptions{Hashes: hashes}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hashes) != 3 || len(plan.Files) != 3 {
+		t.Fatalf("%d read, %d listed; want the 3 photos and video", len(hashes), len(plan.Files))
+	}
+	one := ImportFile{Path: "DCIM/100_FUJI/DSCF0001.JPG", Taken: time.Date(2026, 8, 15, 18, 23, 12, 0, time.UTC)}
+	if !slices.ContainsFunc(plan.Files, func(f ImportFile) bool { return f.Path == one.Path && f.Taken.Equal(one.Taken) }) {
+		t.Errorf("files %+v, want %+v among them", plan.Files, one)
+	}
+	// The library holds what the first look said one file is: the second
+	// look finds it there without reading the file.
+	path := filepath.Join(card, "DCIM", "100_FUJI", "DSCF0001.JPG")
+	known := hashes[path]
+	known.hash = "said by the first look"
+	hashes[path] = known
+	catalog, err := OpenCatalog(filepath.Join(t.TempDir(), "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	if err := catalog.Put(Photo{Hash: known.hash, Path: "2026/08/DSCF0001.JPG", Name: "DSCF0001.JPG"}); err != nil {
+		t.Fatal(err)
+	}
+	plan, err = PlanImport(context.Background(), card, folder, catalog, PlanOptions{Hashes: hashes}, nil)
+	if err != nil || plan.InLibrary != 1 {
+		t.Errorf("second look: %d in the library, %v; want the one the first look read", plan.InLibrary, err)
 	}
 }

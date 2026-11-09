@@ -4,9 +4,13 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -114,7 +118,7 @@ func TestALookAtACardStops(t *testing.T) {
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	_, err := PlanImport(ctx, card, "ron", nil, func(e progress.Event) {
+	_, err := PlanImport(ctx, card, "ron", nil, nil, func(e progress.Event) {
 		if e.N == 3 {
 			cancel()
 		}
@@ -140,7 +144,7 @@ func TestACardTakenOutWhileReadIsSaid(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	_, err := PlanImport(context.Background(), card, "ron", nil, func(e progress.Event) {
+	_, err := PlanImport(context.Background(), card, "ron", nil, nil, func(e progress.Event) {
 		if e.N == 3 {
 			os.RemoveAll(card)
 		}
@@ -149,7 +153,7 @@ func TestACardTakenOutWhileReadIsSaid(t *testing.T) {
 	if !errors.As(err, &gone) {
 		t.Errorf("taken out while read: %v", err)
 	}
-	if _, err := PlanImport(context.Background(), card, "ron", nil, nil); !errors.As(err, &gone) {
+	if _, err := PlanImport(context.Background(), card, "ron", nil, nil, nil); !errors.As(err, &gone) {
 		t.Errorf("gone before: %v", err)
 	}
 	if _, err := Import(context.Background(), card, "ron", false, nil, nil); !errors.As(err, &gone) {
@@ -184,5 +188,45 @@ func TestACopyCarriedOnWithTheCardOutKeepsWhatCameIn(t *testing.T) {
 	}
 	if s := importEnded(t, &im); s.Plan != nil {
 		t.Errorf("an old plan shown for a new look: %+v", s.Plan)
+	}
+}
+
+// A photo of the card looked at has its thumbnail; a path the look did not
+// read has none, whatever it names.
+func TestTheWindowShowsACardsPhotosSmall(t *testing.T) {
+	config(t)
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	if err := SetDefaultLibrary(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	card := t.TempDir()
+	var b bytes.Buffer
+	if err := jpeg.Encode(&b, image.NewRGBA(image.Rect(0, 0, 64, 48)), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(card, "DCIM"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(card, "DCIM", "IMG_0001.JPG"), b.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var im Importing
+	if err := im.Plan(card, "ron", nil); err != nil {
+		t.Fatal(err)
+	}
+	if s := importEnded(t, &im); s.Plan == nil || len(s.Plan.Files) != 1 || s.Plan.Files[0].Path != "DCIM/IMG_0001.JPG" {
+		t.Fatalf("files: %+v", s.Plan)
+	}
+	path, err := im.Thumbnail(context.Background(), "DCIM/IMG_0001.JPG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("no thumbnail made: %v", err)
+	}
+	for _, other := range []string{"../../etc/passwd", "DCIM/IMG_0002.JPG"} {
+		if _, err := im.Thumbnail(context.Background(), other); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("%s: %v, want none", other, err)
+		}
 	}
 }

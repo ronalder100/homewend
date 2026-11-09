@@ -79,6 +79,30 @@ var thumbSlots = make(chan struct{}, max(1, runtime.NumCPU()-1))
 
 // Thumbnail returns the file of a photo's thumbnail, making it the first time.
 func Thumbnail(ctx context.Context, hash string) (string, error) {
+	return thumbnailOf(ctx, hash, func() (string, error) {
+		c, root, err := openLibrary()
+		if err != nil {
+			return "", err
+		}
+		if c == nil {
+			return "", fs.ErrNotExist
+		}
+		rel, ok, err := c.PathOf(hash)
+		c.Close()
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", fs.ErrNotExist
+		}
+		return filepath.Join(root, rel), nil
+	})
+}
+
+// thumbnailOf is the thumbnail of the content hash, kept by it: made the
+// first time from the file source finds, a photo of the library or one on
+// a card being looked at.
+func thumbnailOf(ctx context.Context, hash string, source func() (string, error)) (string, error) {
 	cache, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
@@ -87,20 +111,9 @@ func Thumbnail(ctx context.Context, hash string) (string, error) {
 	if _, err := os.Stat(dst); err == nil {
 		return dst, nil
 	}
-	c, root, err := openLibrary()
+	src, err := source()
 	if err != nil {
 		return "", err
-	}
-	if c == nil {
-		return "", fs.ErrNotExist
-	}
-	rel, ok, err := c.PathOf(hash)
-	c.Close()
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return "", fs.ErrNotExist
 	}
 	select {
 	case thumbSlots <- struct{}{}:
@@ -111,7 +124,7 @@ func Thumbnail(ctx context.Context, hash string) (string, error) {
 	if _, err := os.Stat(dst); err == nil { // made while this one waited
 		return dst, nil
 	}
-	return dst, thumb.Make(ctx, filepath.Join(root, rel), dst)
+	return dst, thumb.Make(ctx, src, dst)
 }
 
 // Original is the file of a photo in the library.

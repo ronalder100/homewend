@@ -27,14 +27,20 @@ type Importing struct {
 	// cancel stops the run going on; done closes when it has returned.
 	cancel context.CancelFunc
 	done   chan struct{}
+	// hashes are the files of hashesOf as the last look read them: a look
+	// again, with dates given, reads nothing twice, and a file's thumbnail
+	// is found by its content.
+	hashes   library.Hashes
+	hashesOf string
 }
 
 // ImportState is where the window's import stands.
 type ImportState struct {
 	Running bool   `json:"running"`
 	Dir     string `json:"dir,omitempty"`
-	// whose photos they are, for a copy taken up again
-	Profile string `json:"profile,omitempty"`
+	// whose photos they are, and the dates given, for a copy taken up again
+	Profile string           `json:"profile,omitempty"`
+	Redates []library.Redate `json:"redates,omitempty"`
 	// Card is whether Dir was a card when the run began: one taken out is
 	// waited for, and carries on by itself when it is back.
 	Card bool `json:"card,omitempty"`
@@ -76,8 +82,14 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate) error {
 	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
-	return im.start(dir, profile, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		plan, err := PlanImport(ctx, dir, profile, redates, emit)
+	im.mu.Lock()
+	if im.hashesOf != dir {
+		im.hashes, im.hashesOf = library.Hashes{}, dir
+	}
+	hashes := im.hashes
+	im.mu.Unlock()
+	return im.start(dir, profile, redates, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+		plan, err := PlanImport(ctx, dir, profile, redates, hashes, emit)
 		if err == nil {
 			s.Plan = &plan
 			s.CanLink = canLink(dir)
@@ -93,14 +105,14 @@ func (im *Importing) Import(dir, profile string, link bool, redates []library.Re
 	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
-	return im.start(dir, profile, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+	return im.start(dir, profile, redates, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
 		done, err := Import(ctx, dir, profile, link, redates, emit)
 		s.Imported = &done
 		return err
 	})
 }
 
-func (im *Importing) start(dir, profile, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+func (im *Importing) start(dir, profile string, redates []library.Redate, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
 	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
@@ -124,7 +136,7 @@ func (im *Importing) start(dir, profile, kind string, run func(context.Context, 
 			before = im.state.Imported
 		}
 	}
-	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Kind: kind, Plan: plan, Card: card}
+	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {
@@ -198,6 +210,26 @@ func importProblem(err error) (problem string, need, free int64) {
 		return "no-link", 0, 0
 	}
 	return "", 0, 0
+}
+
+// Thumbnail is the thumbnail of a file of the folder last looked at, by
+// its path below it: made from the card's file, kept as the library's are,
+// by content, so a photo that comes in has it already. Only a file the
+// look read is shown: no other path of the disk is reached from here.
+func (im *Importing) Thumbnail(ctx context.Context, path string) (string, error) {
+	im.mu.Lock()
+	// The hashes are written by a look while it runs.
+	if im.state.Running && im.state.Kind == "plan" {
+		im.mu.Unlock()
+		return "", fs.ErrNotExist
+	}
+	src := filepath.Join(im.hashesOf, filepath.FromSlash(path))
+	hash, ok := im.hashes.Hash(src)
+	im.mu.Unlock()
+	if !ok {
+		return "", fs.ErrNotExist
+	}
+	return thumbnailOf(ctx, hash, func() (string, error) { return src, nil })
 }
 
 // canLink is whether the disk lets a file of dir have a second name in the

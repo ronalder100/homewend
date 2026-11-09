@@ -804,7 +804,7 @@ func importCommand(args []string) int {
 	}
 	ctx, stop := interrupted()
 	defer stop()
-	plan, err := engine.PlanImport(ctx, dir, profile, redates, out.event)
+	plan, err := engine.PlanImport(ctx, dir, profile, redates, nil, out.event)
 	if err != nil {
 		return out.fail(err)
 	}

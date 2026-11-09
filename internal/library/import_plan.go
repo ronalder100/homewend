@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -37,6 +38,9 @@ type ImportPlan struct {
 
 	// Years, newest first; "" is the photos with no date.
 	Years []ImportYear `json:"years"`
+	// Every photo and video read, by the date its camera wrote: where a
+	// person finds the ones a reset clock dated wrong.
+	Files []ImportFile `json:"files"`
 	// What is not a photo or a video, by the folder it sits in.
 	Others []ImportOther `json:"others"`
 }
@@ -57,6 +61,58 @@ type ImportMonth struct {
 	Videos int `json:"videos"`
 }
 
+// ImportFile is a photo or a video of the folder, as its camera dated it.
+type ImportFile struct {
+	Path  string    `json:"path"`            // below the folder, with /
+	Taken time.Time `json:"taken,omitzero"`  // the camera's clock; none, no date
+	Video bool      `json:"video,omitempty"` // else a photo
+}
+
+// PlanOptions are what a look is for.
+type PlanOptions struct {
+	// Profile, when not "", is whose import it would be: a photo another
+	// profile holds is not its to date.
+	Profile string
+	// Redates are dates given to photos whose camera had them wrong.
+	Redates []Redate
+	// Hashes, when not nil, keeps each file's content as read, for the
+	// next look at the same folder: one with dates given reads nothing
+	// again.
+	Hashes Hashes
+}
+
+// Hashes are the contents of a folder's files, by path, as a look read
+// them. A file changed since, in size or time, is read again.
+type Hashes map[string]readHash
+
+type readHash struct {
+	size int64
+	mod  time.Time
+	hash string
+}
+
+// of is the content of path, read only when not known.
+func (h Hashes) of(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if k, ok := h[path]; ok && k.size == info.Size() && k.mod.Equal(info.ModTime()) {
+		return k.hash, nil
+	}
+	hash, err := hashOf(path)
+	if err == nil && h != nil {
+		h[path] = readHash{size: info.Size(), mod: info.ModTime(), hash: hash}
+	}
+	return hash, err
+}
+
+// Hash is the content of path as a look read it, if it did.
+func (h Hashes) Hash(path string) (string, bool) {
+	k, ok := h[path]
+	return k.hash, ok
+}
+
 // ImportOther is a folder's files that stay out.
 type ImportOther struct {
 	Folder string `json:"folder"` // relative to the folder imported, "." for its top
@@ -72,15 +128,14 @@ type ImportOther struct {
 // long part: emit hears each file, N of Of.
 //
 // Dates given are counted as the import would file the photos: a name the
-// folder does not have is said here too, before the import. profile, when
-// not "", is whose import it would be: a photo another profile holds is not
-// its to date.
-func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, profile string, redates []Redate, emit progress.Func) (ImportPlan, error) {
-	dates, err := given(redates, f)
+// folder does not have is said here too, before the import.
+func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt PlanOptions, emit progress.Func) (ImportPlan, error) {
+	profile := opt.Profile
+	dates, err := given(opt.Redates, f)
 	if err != nil {
 		return ImportPlan{}, err
 	}
-	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Others: []ImportOther{}}
+	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
 	for i, item := range f.Items {
@@ -89,11 +144,17 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, pro
 			return plan, err
 		}
 		emit.Emit(progress.Event{Stage: progress.Read, N: i + 1, Of: len(f.Items)})
-		hash, err := hashOf(item.Path)
+		hash, err := opt.Hashes.of(item.Path)
 		if err != nil {
 			plan.Unreadable++
 			continue
 		}
+		camera, _, hasDate := cameraDate(item.Path)
+		file := ImportFile{Path: relativeTo(dir, item.Path), Video: IsVideo(item.Path)}
+		if hasDate {
+			file.Taken = camera
+		}
+		plan.Files = append(plan.Files, file)
 		_, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
 		// the folder has it.
@@ -128,7 +189,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, pro
 		year, month := "", 0
 		when, ok := dates[item.Path]
 		if !ok {
-			when, _, ok = cameraDate(item.Path)
+			when, ok = camera, hasDate
 		}
 		if ok {
 			year, month = strconv.Itoa(when.Year()), int(when.Month())
