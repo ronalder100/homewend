@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/progress"
@@ -39,7 +38,7 @@ func PlanImport(dir string, emit progress.Func) (library.ImportPlan, error) {
 	if catalog != nil {
 		defer catalog.Close()
 	}
-	return library.PlanImport(dir, folder, catalog, time.Local, emit)
+	return library.PlanImport(dir, folder, catalog, emit)
 }
 
 // lookAtLibrary opens the chosen library's catalog to read it, or nil when

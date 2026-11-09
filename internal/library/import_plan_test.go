@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 // exifPhoto is the smallest file the date reader takes for a camera's JPEG:
@@ -73,7 +72,7 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, catalog, time.UTC, nil)
+	plan, err := PlanImport(card, folder, catalog, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +100,7 @@ func TestAnEmptyLibraryTakesEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, nil, time.UTC, nil)
+	plan, err := PlanImport(card, folder, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +126,7 @@ func TestAFileThatCannotBeReadIsPassedOver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, nil, time.UTC, nil)
+	plan, err := PlanImport(card, folder, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +144,7 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(dir, folder, nil, time.UTC, nil)
+	plan, err := PlanImport(dir, folder, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

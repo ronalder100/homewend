@@ -241,7 +241,8 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 		base = filepath.Join(base, "messaging")
 	}
 
-	// Read in the user's own timezone, not UTC — see Options.Location.
+	// Google's instants are read in the user's own timezone, not UTC — see
+	// Options.Location and Capture.Local.
 	local := capture.Local(opt.location())
 
 	var dir string

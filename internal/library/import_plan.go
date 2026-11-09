@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -52,9 +51,9 @@ type ImportOther struct {
 // content, and tells what would come in. The catalog, when there is one,
 // says what the library already holds; nil is an empty library.
 //
-// Dates are read in loc, as Organize files them. Reading is the long part:
-// emit hears each file, N of Of.
-func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit progress.Func) (ImportPlan, error) {
+// A date is the camera's clock, the year it is filed under. Reading is the
+// long part: emit hears each file, N of Of.
+func PlanImport(dir string, f Folder, catalog *Catalog, emit progress.Func) (ImportPlan, error) {
 	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Others: []ImportOther{}}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
@@ -84,8 +83,8 @@ func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit
 			plan.Bytes += info.Size()
 		}
 		year := ""
-		if when, source, ok := cameraDate(item.Path); ok {
-			year = strconv.Itoa(Capture{When: when, Source: source}.Local(loc).Year())
+		if when, _, ok := cameraDate(item.Path); ok {
+			year = strconv.Itoa(when.Year())
 		}
 		y := years[year]
 		if y == nil {

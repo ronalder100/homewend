@@ -37,8 +37,6 @@ type Capture struct {
 	Origin Origin
 }
 
-// Known reports whether there is a real date, as opposed to a year we inferred
-// or nothing at all.
 // Local is the capture's time on the clock it is filed by, in loc. Google's
 // sidecar is an instant, moved into loc. A camera's clock — a photo's EXIF,
 // a video's header as read — is already the clock of where it was taken,
@@ -277,7 +275,7 @@ func exifDate(path string) (time.Time, bool) {
 
 // cameraClock reads EXIF's "2019:07:14 18:22:05". It has no zone: the
 // wall-clock time is all there is, kept in a UTC time and never moved (see
-// Capture.Filed).
+// Capture.Local).
 func cameraClock(raw string) (time.Time, bool) {
 	when, err := time.Parse("2006:01:02 15:04:05", strings.TrimRight(raw, "\x00 "))
 	if err != nil || when.Year() < 1900 {
