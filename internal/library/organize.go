@@ -188,11 +188,13 @@ func Organize(items []Item, root string, catalog *Catalog, opt Options, emit pro
 			}
 			size := sizeOf(item.Path)
 			record := Photo{
-				Hash:   hash,
-				Path:   relativeTo(root, home),
-				Name:   filepath.Base(home),
-				Bytes:  size,
-				Taken:  capture.When,
+				Hash:  hash,
+				Path:  relativeTo(root, home),
+				Name:  filepath.Base(home),
+				Bytes: size,
+				// A clock, whatever the source: Google's instant in the
+				// user's zone, as its folder says.
+				Taken:  capture.Local(opt.location()),
 				Source: capture.Source,
 				Kind:   capture.Kind(),
 				Origin: capture.Origin,

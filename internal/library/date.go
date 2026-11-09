@@ -36,6 +36,9 @@ type Capture struct {
 	When   time.Time
 	Source DateSource
 	Origin Origin
+	// clock: When is already a clock, as the catalog keeps every date; a
+	// date read back from it is not moved again.
+	clock bool
 }
 
 // Local is the capture's time on the clock it is filed by, in loc. Google's
@@ -45,10 +48,16 @@ type Capture struct {
 // Eve in Rome, read as UTC and moved, lands in the next year. A folder's
 // year has no clock at all.
 func (c Capture) Local(loc *time.Location) time.Time {
-	if c.Source == FromSidecar {
-		return c.When.In(loc)
+	if c.Source == FromSidecar && !c.clock {
+		return asClock(c.When.In(loc))
 	}
 	return c.When
+}
+
+// asClock is t's wall-clock time held in a UTC time: how the catalog keeps a
+// date, and how the grid, its counts and the folders read it.
+func asClock(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
 }
 
 // DateOf answers "when was this taken?" in the order of how much the answer can
@@ -238,8 +247,7 @@ func videoDate(path string) (time.Time, bool) {
 	if when.Year() < 1970 {
 		return time.Time{}, false
 	}
-	local := when.In(time.Local)
-	return time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), local.Minute(), local.Second(), 0, time.UTC), true
+	return asClock(when.In(time.Local)), true
 }
 
 // exifDate reads DateTimeOriginal out of a JPEG or TIFF, and nothing else.

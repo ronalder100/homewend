@@ -141,7 +141,65 @@ UPDATE OR IGNORE album_owners SET account = 'google/' || account WHERE instr(acc
 		db.Close()
 		return nil, fmt.Errorf("naming the catalog's sources: %w", err)
 	}
+	if err := clockDates(db, path); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("turning the catalog's dates into clocks: %w", err)
+	}
 	return &Catalog{db: db}, nil
+}
+
+// clocksSince is the catalog's user_version from which every date in it is
+// a clock. Before, Google's dates were kept as instants in UTC while the
+// camera's were clocks, and the grid, which reads a clock, showed a photo
+// from Takeout one or two hours off, near midnight on the wrong day.
+const clocksSince = 1
+
+// clockDates turns the instants an older catalog kept for Google's dates
+// into the clocks of this computer's zone, the one the photos were filed
+// by, once: a copy of the catalog as it was is kept beside it first.
+func clockDates(db *sql.DB, path string) error {
+	var version int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version >= clocksSince {
+		return err
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar)).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 && !exists(path+".before-clocks") {
+		if _, err := db.Exec(`VACUUM INTO ?`, path+".before-clocks"); err != nil {
+			return err
+		}
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.Query(`SELECT hash, taken FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar))
+	if err != nil {
+		return err
+	}
+	clocks := map[string]int64{}
+	for rows.Next() {
+		var hash string
+		var taken int64
+		if err := rows.Scan(&hash, &taken); err != nil {
+			rows.Close()
+			return err
+		}
+		clocks[hash] = asClock(time.Unix(taken, 0).In(time.Local)).Unix()
+	}
+	rows.Close()
+	for hash, taken := range clocks {
+		if _, err := tx.Exec(`UPDATE photos SET taken = ? WHERE hash = ?`, taken, hash); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, clocksSince)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // OpenCatalogReadOnly opens the index at path to look at it: no schema, no
@@ -352,7 +410,9 @@ func (c *Catalog) photo(hash string) (Photo, error) {
 }
 
 // capture is what the record knows of when the photo was taken.
-func (p Photo) capture() Capture { return Capture{When: p.Taken, Source: p.Source, Origin: p.Origin} }
+func (p Photo) capture() Capture {
+	return Capture{When: p.Taken, Source: p.Source, Origin: p.Origin, clock: true}
+}
 
 // scanPhotos reads the rows of a SELECT of the photos' columns, in order.
 func scanPhotos(rows *sql.Rows) ([]Photo, error) {
