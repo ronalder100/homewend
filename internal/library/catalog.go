@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -203,23 +204,16 @@ func clockDates(db *sql.DB, path string) error {
 			return err
 		}
 	}
-	rows, err := conn.QueryContext(ctx, `SELECT hash, taken FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar))
-	if err != nil {
+	// One statement, run inside SQLite: a library of a hundred thousand
+	// photos turned row by row from here held the lock for seconds, longer
+	// than the others wait for it. The zone's offset changes a few times a
+	// year; each span between two changes is one branch of the CASE.
+	var first, last sql.NullInt64
+	if err := conn.QueryRowContext(ctx, `SELECT MIN(taken), MAX(taken) FROM photos WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar)).Scan(&first, &last); err != nil {
 		return err
 	}
-	clocks := map[string]int64{}
-	for rows.Next() {
-		var hash string
-		var taken int64
-		if err := rows.Scan(&hash, &taken); err != nil {
-			rows.Close()
-			return err
-		}
-		clocks[hash] = asClock(time.Unix(taken, 0).In(time.Local)).Unix()
-	}
-	rows.Close()
-	for hash, taken := range clocks {
-		if _, err := conn.ExecContext(ctx, `UPDATE photos SET taken = ? WHERE hash = ?`, taken, hash); err != nil {
+	if first.Valid {
+		if _, err := conn.ExecContext(ctx, `UPDATE photos SET taken = taken + `+offsets(first.Int64, last.Int64, time.Local)+` WHERE source = ? AND taken IS NOT NULL`, string(FromSidecar)); err != nil {
 			return err
 		}
 	}
@@ -231,6 +225,31 @@ func clockDates(db *sql.DB, path string) error {
 	}
 	done = true
 	return nil
+}
+
+// offsets is an SQL expression of taken, an instant in Unix seconds between
+// first and last: the seconds that turn it into the clock of zone, as
+// asClock does. Only numbers made here go in it.
+func offsets(first, last int64, zone *time.Location) string {
+	var b strings.Builder
+	at := time.Unix(first, 0).In(zone)
+	for {
+		_, offset := at.Zone()
+		_, end := at.ZoneBounds()
+		if end.IsZero() || end.Unix() > last {
+			// One offset over them all, as in UTC: no CASE to choose.
+			if b.Len() == 0 {
+				return strconv.Itoa(offset)
+			}
+			fmt.Fprintf(&b, " ELSE %d END", offset)
+			return b.String()
+		}
+		if b.Len() == 0 {
+			b.WriteString("CASE")
+		}
+		fmt.Fprintf(&b, " WHEN taken < %d THEN %d", end.Unix(), offset)
+		at = end
+	}
 }
 
 // keepBefore copies the catalog, when it has dates to turn and no copy is

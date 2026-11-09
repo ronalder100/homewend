@@ -4,8 +4,10 @@
 package library
 
 import (
+	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -162,5 +164,39 @@ func TestAnOlderCatalogOpenedManyTimesAtOnceTurnsOnce(t *testing.T) {
 	copies, _ := filepath.Glob(path + ".before-clocks*")
 	if len(copies) != 1 || copies[0] != path+".before-clocks" {
 		t.Errorf("copies kept: %v, want the one", copies)
+	}
+}
+
+// The one statement that turns an older catalog gives each instant what
+// asClock gives it: across summer time, and at the very second it changes.
+func TestTheOffsetsAreAsClocksAre(t *testing.T) {
+	rome, err := time.LoadLocation("Europe/Rome")
+	if err != nil {
+		t.Skip(err)
+	}
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	first := time.Date(2003, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	last := time.Date(2026, 11, 9, 0, 0, 0, 0, time.UTC).Unix()
+	expr := strings.ReplaceAll(offsets(first, last, rome), "taken", "?1")
+	check := func(at int64) {
+		var got int64
+		if err := db.QueryRow(`SELECT ?1 + `+expr, at).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		if want := asClock(time.Unix(at, 0).In(rome)).Unix(); got != want {
+			t.Errorf("%v: %d, want %d", time.Unix(at, 0).UTC(), got, want)
+		}
+	}
+	for at := first; at <= last; at += 86400*3 + 3607 {
+		check(at)
+	}
+	// The change to summer time on 30 March 2025, 01:00 UTC.
+	change := time.Date(2025, 3, 30, 1, 0, 0, 0, time.UTC).Unix()
+	for _, at := range []int64{change - 1, change, change + 1, first, last} {
+		check(at)
 	}
 }
