@@ -88,9 +88,9 @@
 		getLibrary().then((l) => (free = l.free), () => {});
 		const t = setInterval(() => {
 			if (im?.running) load();
-			// The cards come and go: looked at while choosing, and while one
-			// is waited for.
-			if (view === 'choose' || view === 'taken-out') lookCards();
+			// The cards come and go, during a copy too: the one taken out must
+			// be seen gone before it can be seen back.
+			lookCards();
 		}, 1000);
 		return () => clearInterval(t);
 	});
@@ -235,9 +235,11 @@
 		<div class="actions">
 			<!-- A card is found again by itself; a disk or a share, once back, is carried on from here. -->
 			{#if !isCard}<PrimaryButton onclick={carryOn}>{text.carryOn}</PrimaryButton>{/if}
-			<SecondaryButton onclick={() => stopImport().then((s) => (im = s))}>{text.importEndWithout}</SecondaryButton>
+			<SecondaryButton onclick={() => stopImport().then((s) => (im = s))}
+				>{im.kind === 'plan' ? text.importStop : text.importEndWithout}</SecondaryButton
+			>
 		</div>
-		<p class="note">{text.importEndWithoutDesc}</p>
+		{#if im.kind !== 'plan'}<p class="note">{text.importEndWithoutDesc}</p>{/if}
 	{:else if (view === 'done' || view === 'stopped') && im}
 		<!-- I8: what came in; the card can go. -->
 		{@const done = im.imported}

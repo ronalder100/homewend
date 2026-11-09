@@ -6,6 +6,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -22,11 +23,15 @@ func (e LibraryGoneError) Error() string { return "the library folder " + e.Root
 
 // readFolder is what is under dir, a link to a folder followed. The folder
 // is made whole: a name given as the shell completes it, from here or from
-// /, is found below it.
+// /, is found below it. A folder not there is a card taken out: the window
+// asks for a card it saw a moment before.
 func readFolder(dir string) (string, library.Folder, error) {
 	dir, err := filepath.Abs(dir)
 	if err == nil {
 		dir, err = filepath.EvalSymlinks(dir)
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", library.Folder{}, FolderGoneError{Dir: dir}
 	}
 	if err != nil {
 		return "", library.Folder{}, err
@@ -55,8 +60,9 @@ func PlanImport(ctx context.Context, dir, profile string, redates []library.Reda
 		defer catalog.Close()
 	}
 	plan, err := library.PlanImport(ctx, dir, folder, catalog, profile, redates, emit)
-	// A card taken out while it is read is said as during the copy.
-	if _, gone := os.Stat(dir); gone != nil && err != nil && !errors.Is(err, context.Canceled) {
+	// A card taken out while it is read is said as during the copy: its
+	// files read after are only unreadable, not an error.
+	if _, gone := os.Stat(dir); gone != nil && !errors.Is(err, context.Canceled) {
 		return plan, FolderGoneError{Dir: dir}
 	}
 	return plan, err
