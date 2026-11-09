@@ -65,11 +65,8 @@ func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit
 			plan.Unreadable++
 			continue
 		}
-		if seen[hash] {
-			plan.Twins++
-			continue
-		}
-		seen[hash] = true
+		// The library first: a photo it holds is in it however many times
+		// the folder has it.
 		if catalog != nil {
 			if _, known, err := catalog.PathOf(hash); err != nil {
 				return plan, err
@@ -78,6 +75,11 @@ func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit
 				continue
 			}
 		}
+		if seen[hash] {
+			plan.Twins++
+			continue
+		}
+		seen[hash] = true
 		if info, err := os.Stat(item.Path); err == nil {
 			plan.Bytes += info.Size()
 		}

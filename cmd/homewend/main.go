@@ -99,7 +99,7 @@ func typed() string {
 // shellWord is w as it must be typed: in single quotes when it holds
 // anything a shell would read, so a pasted hint does what it says.
 func shellWord(w string) string {
-	if !strings.ContainsAny(w, " \t$`\"'\\!*?;&|<>(){}[]#~") {
+	if !strings.ContainsAny(w, " \t\n$`\"'\\!*?;&|<>(){}[]#~") {
 		return w
 	}
 	return "'" + strings.ReplaceAll(w, "'", `'\''`) + "'"
@@ -817,6 +817,8 @@ func importCommand(args []string) int {
 	switch {
 	case plan.Photos+plan.Videos > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
+	case plan.InLibrary+plan.Twins > 0 && plan.Unreadable > 0:
+		out.say(out.out.summary(text["result import none read"]))
 	case plan.InLibrary+plan.Twins > 0:
 		out.say(out.out.result(text["result import none"]))
 	case plan.Unreadable > 0:
