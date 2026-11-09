@@ -305,6 +305,8 @@ Examples:
 	"import whose hint":       "name one: **%s --profile NAME**",
 	"no link":                 "the disk refused a hard link: is the folder on the library's disk?",
 	"no link hint":            "to copy it instead, run the same command without --link",
+	"library busy":            "another import or download is placing photos in this library",
+	"library busy hint":       "when it is done, run: **%s**",
 	"bad profile":             "a profile is a name: no / or \\, and not starting with a dot",
 	"folder gone":             "%s was taken out before the end: what was copied is in the library",
 	"folder gone hint":        "put it back, then run: **%s**",

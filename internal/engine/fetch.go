@@ -174,7 +174,14 @@ func (f Fetch) Run(ctx context.Context, g download.Getter, emit progress.Func) (
 			items = ready
 		}
 		if len(items) > 0 {
+			// An import placing photos has the library: the download waits
+			// for its turn instead of moving files under it.
+			unlock, err := waitLibrary(ctx, f.Library)
+			if err != nil {
+				return err
+			}
 			placed, err := library.Organize(items, f.Library, catalog, library.Options{Location: f.Location, Account: f.Account, Profile: profile, SeparateMessaging: true}, emit)
+			unlock()
 			organized.Add(placed)
 			if err != nil {
 				return err

@@ -1158,6 +1158,8 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
+	case errors.Is(err, engine.ErrLibraryBusy):
+		return exitError, text["library busy"], nil, []string{fmt.Sprintf(text["library busy hint"], again)}
 	case errors.Is(err, engine.ErrBadProfile):
 		return exitError, text["bad profile"], nil, nil
 	case errors.Is(err, library.ErrNoLink):

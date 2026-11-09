@@ -67,9 +67,11 @@ func Import(ctx context.Context, dir, profile string, link bool, emit progress.F
 	if _, err := os.Stat(root); err != nil {
 		return library.Imported{}, LibraryGoneError{Root: root}
 	}
-	if err := os.MkdirAll(filepath.Join(root, library.WorkDir), 0o755); err != nil {
+	unlock, err := lockLibrary(root)
+	if err != nil {
 		return library.Imported{}, err
 	}
+	defer unlock()
 	catalog, err := library.OpenCatalog(catalogPath(root))
 	if err != nil {
 		return library.Imported{}, err
