@@ -263,6 +263,11 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 	// when the catalog has promised it to a photo whose move was interrupted.
 	target := filepath.Join(dir, filepath.Base(src))
 	for {
+		// Already a name of this very file, from a run before: it is its
+		// place, not a reason for another name.
+		if sameFile(target, src) {
+			return target, nil
+		}
 		promised, err := catalog.PathTaken(relativeTo(root, target))
 		if err != nil {
 			return "", err
@@ -315,17 +320,31 @@ func sizeOf(path string) int64 {
 }
 
 func withSuffix(path string) string {
-	ext := filepath.Ext(path)
-	stem := strings.TrimSuffix(path, ext)
+	// The file's name only: a folder above it named "Disk-2" is not a
+	// suffix to count up, and counting it moved the photo out of the
+	// library (measured 09/11, under /tmp/claude-1000).
+	dir, name := filepath.Split(path)
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
 
 	// "name-2.jpg", then "name-3.jpg", rather than "name-2-2.jpg".
 	if at := strings.LastIndex(stem, "-"); at > 0 {
 		var n int
 		if _, err := fmt.Sscanf(stem[at+1:], "%d", &n); err == nil {
-			return fmt.Sprintf("%s-%d%s", stem[:at], n+1, ext)
+			return filepath.Join(dir, fmt.Sprintf("%s-%d%s", stem[:at], n+1, ext))
 		}
 	}
-	return stem + "-2" + ext
+	return filepath.Join(dir, stem+"-2"+ext)
+}
+
+// sameFile is whether a and b are two names of one file.
+func sameFile(a, b string) bool {
+	x, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	y, err := os.Stat(b)
+	return err == nil && os.SameFile(x, y)
 }
 
 // linkInto makes path a second name for src. Reports whether a hardlink worked;

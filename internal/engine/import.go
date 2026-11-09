@@ -56,7 +56,7 @@ func Import(ctx context.Context, dir, profile string, link bool, emit progress.F
 	if !validProfile(profile) {
 		return library.Imported{}, ErrBadProfile
 	}
-	_, folder, err := readFolder(dir)
+	dir, folder, err := readFolder(dir)
 	if err != nil {
 		return library.Imported{}, err
 	}
@@ -88,8 +88,20 @@ func Import(ctx context.Context, dir, profile string, link bool, emit progress.F
 		}
 		return nil
 	}
-	return library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, link, fits, emit)
+	done, err := library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, link, fits, emit)
+	// A card taken out halfway makes every file after it unreadable: that
+	// is not a run that ended, it is one to resume.
+	if _, gone := os.Stat(dir); err == nil && gone != nil {
+		return done, FolderGoneError{Dir: dir}
+	}
+	return done, err
 }
+
+// FolderGoneError is the folder being imported gone before the end: a card
+// taken out, a disk unplugged. What was in stays in.
+type FolderGoneError struct{ Dir string }
+
+func (e FolderGoneError) Error() string { return e.Dir + " was taken out before the end" }
 
 // lookAtLibrary opens the chosen library's catalog to read it, or nil when
 // no library was chosen or nothing is in it yet.

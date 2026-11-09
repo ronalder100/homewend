@@ -197,3 +197,49 @@ func TestALinkToALinkIsTheFile(t *testing.T) {
 		t.Error("the library holds a symbolic link, want the file")
 	}
 }
+
+// A suffix counts up the file's name, never a folder above it: under a
+// folder named Disk-2, a second DSCF0001 stays in the library.
+func TestASuffixIsTheNamesOnly(t *testing.T) {
+	for in, want := range map[string]string{
+		"/media/Disk-2/lib/2018/01/DSCF0001.JPG":   "/media/Disk-2/lib/2018/01/DSCF0001-2.JPG",
+		"/media/Disk-2/lib/2018/01/DSCF0001-2.JPG": "/media/Disk-2/lib/2018/01/DSCF0001-3.JPG",
+		"/home/u/Photos-2024/IMG_1.JPG":            "/home/u/Photos-2024/IMG_1-2.JPG",
+	} {
+		if got := withSuffix(filepath.FromSlash(in)); got != filepath.FromSlash(want) {
+			t.Errorf("withSuffix(%s) = %s, want %s", in, got, want)
+		}
+	}
+}
+
+// A card brought into a second profile, then again, gives each photo one
+// name there, not one more each time.
+func TestASecondProfileGetsOneNameEach(t *testing.T) {
+	card := cameraCard(t)
+	root := t.TempDir()
+	importCard(t, card, root, false)
+	for run := 0; run < 2; run++ {
+		catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		folder, err := ReadFolder(card)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, false, func(int64) error { return nil }, nil); err != nil {
+			t.Fatal(err)
+		}
+		catalog.Close()
+	}
+	var names []string
+	filepath.Walk(filepath.Join(root, "anna"), func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			names = append(names, path)
+		}
+		return nil
+	})
+	if len(names) != 3 {
+		t.Errorf("%d names in the second profile, want 3: %v", len(names), names)
+	}
+}

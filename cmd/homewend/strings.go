@@ -304,6 +304,8 @@ Examples:
 	"no link":                 "the disk refused a hard link: is the folder on the library's disk?",
 	"no link hint":            "to copy it instead, run the same command without --link",
 	"bad profile":             "a profile is a name: no / or \\, and not starting with a dot",
+	"folder gone":             "%s was taken out before the end: what was copied is in the library",
+	"folder gone hint":        "put it back, then run: **%s**",
 	"import top":              "at the top",
 	"import no date":          "no date",
 	"import others":           "%s, %s · not photos or videos, they stay out",

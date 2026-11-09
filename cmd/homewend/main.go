@@ -869,6 +869,10 @@ func importCopy(w importWords, args []string) int {
 	if errors.Is(err, errNoProfile) {
 		// No Google account, no profile yet: a card needs no sign-in, only
 		// a name for whose photos these are.
+		if w.json {
+			json.NewEncoder(os.Stdout).Encode(map[string]any{"error": text["import whose"], "exit": exitError})
+			return exitError
+		}
 		return failed(text["import whose"], nil, fmt.Sprintf(text["import whose hint"], typed()))
 	}
 	if err != nil {
@@ -1064,6 +1068,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	var space engine.NoSpaceError
 	var notOffered *takeout.NotOfferedError
 	var gone engine.LibraryGoneError
+	var folderGone engine.FolderGoneError
 	switch {
 	case errors.As(err, &notOffered):
 		var years []string
@@ -1103,6 +1108,8 @@ func explain(err error) (code int, said string, causes, hints []string) {
 		return exitError, text["bad profile"], nil, nil
 	case errors.Is(err, library.ErrNoLink):
 		return exitError, text["no link"], nil, []string{text["no link hint"]}
+	case errors.As(err, &folderGone):
+		return exitIncomplete, fmt.Sprintf(text["folder gone"], folderGone.Dir), nil, []string{fmt.Sprintf(text["folder gone hint"], again)}
 	case errors.As(err, &gone):
 		return exitError, fmt.Sprintf(text["library gone"], gone.Root), nil, []string{fmt.Sprintf(text["library gone hint"], again)}
 	case errors.Is(err, errNoSuchAccount):
