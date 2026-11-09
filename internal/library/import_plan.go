@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // ImportPlan is what importing a folder would do, worked out without
@@ -23,6 +25,8 @@ type ImportPlan struct {
 	InLibrary int `json:"in_library"`
 	// The same photo twice in the folder: it is copied once.
 	Twins int `json:"twins"`
+	// Files and folders that could not be read, passed over.
+	Unreadable int `json:"unreadable"`
 
 	// Years, newest first; "" is the photos with no date.
 	Years []ImportYear `json:"years"`
@@ -44,19 +48,22 @@ type ImportOther struct {
 	Bytes  int64  `json:"bytes"`
 }
 
-// PlanImport reads every item through once, to know its content, and tells
-// what would come in. The catalog, when there is one, says what the library
-// already holds; nil is an empty library.
+// PlanImport reads every photo and video of f through once, to know its
+// content, and tells what would come in. The catalog, when there is one,
+// says what the library already holds; nil is an empty library.
 //
-// Dates are read in loc, as Organize files them.
-func PlanImport(dir string, items []Item, others []string, catalog *Catalog, loc *time.Location) (ImportPlan, error) {
-	var plan ImportPlan
+// Dates are read in loc, as Organize files them. Reading is the long part:
+// emit hears each file, N of Of.
+func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit progress.Func) (ImportPlan, error) {
+	plan := ImportPlan{Unreadable: len(f.Unreadable), Years: []ImportYear{}, Others: []ImportOther{}}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
-	for _, item := range items {
+	for i, item := range f.Items {
+		emit.Emit(progress.Event{Stage: progress.Read, N: i + 1, Of: len(f.Items)})
 		hash, err := hashOf(item.Path)
 		if err != nil {
-			return plan, err
+			plan.Unreadable++
+			continue
 		}
 		if seen[hash] {
 			plan.Twins++
@@ -71,11 +78,9 @@ func PlanImport(dir string, items []Item, others []string, catalog *Catalog, loc
 				continue
 			}
 		}
-		info, err := os.Stat(item.Path)
-		if err != nil {
-			return plan, err
+		if info, err := os.Stat(item.Path); err == nil {
+			plan.Bytes += info.Size()
 		}
-		plan.Bytes += info.Size()
 		year := ""
 		if item.Capture.Source != NoDate {
 			year = strconv.Itoa(item.Capture.When.In(loc).Year())
@@ -106,7 +111,7 @@ func PlanImport(dir string, items []Item, others []string, catalog *Catalog, loc
 	})
 
 	byFolder := map[string]*ImportOther{}
-	for _, path := range others {
+	for _, path := range f.Others {
 		folder, err := filepath.Rel(dir, filepath.Dir(path))
 		if err != nil {
 			return plan, err
@@ -118,7 +123,8 @@ func PlanImport(dir string, items []Item, others []string, catalog *Catalog, loc
 			byFolder[folder] = o
 		}
 		o.Files++
-		if info, err := os.Stat(path); err == nil {
+		// Lstat: a link is counted as itself, not as what it points at.
+		if info, err := os.Lstat(path); err == nil {
 			o.Bytes += info.Size()
 		}
 	}

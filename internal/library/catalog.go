@@ -108,9 +108,10 @@ CREATE INDEX IF NOT EXISTS photos_by_origin ON photos(origin, taken DESC);
 CREATE INDEX IF NOT EXISTS photos_by_path   ON photos(path);
 `
 
-// OpenCatalog opens, and creates if needed, the index at path.
-func OpenCatalog(path string) (*Catalog, error) {
-	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+// catalogDSN is how the index at path is opened, with options after the
+// path's "?".
+func catalogDSN(path, options string) string {
+	dsn := "file:" + path + "?" + options
 	// On macOS SQLite picks its locking by filesystem, and on an SMB share it
 	// picks AFP-style locks, which the Go SQLite cannot do: it panics on
 	// fsctl. flock locks work there and on local disks alike, and go with the
@@ -118,7 +119,12 @@ func OpenCatalog(path string) (*Catalog, error) {
 	if runtime.GOOS == "darwin" {
 		dsn += "&vfs=unix-flock"
 	}
-	db, err := sql.Open("sqlite", dsn)
+	return dsn
+}
+
+// OpenCatalog opens, and creates if needed, the index at path.
+func OpenCatalog(path string) (*Catalog, error) {
+	db, err := sql.Open("sqlite", catalogDSN(path, "_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"))
 	if err != nil {
 		return nil, fmt.Errorf("opening the catalog: %w", err)
 	}
@@ -132,6 +138,21 @@ func OpenCatalog(path string) (*Catalog, error) {
 UPDATE OR IGNORE album_owners SET account = 'google/' || account WHERE instr(account, '/') = 0;`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("naming the catalog's sources: %w", err)
+	}
+	return &Catalog{db: db}, nil
+}
+
+// OpenCatalogReadOnly opens the index at path to look at it: no schema, no
+// migration, nothing written. A look before an import changes nothing in the
+// library, and a library on a read-only share can still be looked at.
+func OpenCatalogReadOnly(path string) (*Catalog, error) {
+	db, err := sql.Open("sqlite", catalogDSN(path, "mode=ro&_pragma=busy_timeout(5000)"))
+	if err != nil {
+		return nil, fmt.Errorf("opening the catalog: %w", err)
+	}
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("opening the catalog: %w", err)
 	}
 	return &Catalog{db: db}, nil
 }

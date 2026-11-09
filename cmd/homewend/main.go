@@ -96,12 +96,13 @@ func typed() string {
 	return strings.Join(words, " ")
 }
 
-// shellWord is w as it must be typed: quoted when it holds a space.
+// shellWord is w as it must be typed: in single quotes when it holds
+// anything a shell would read, so a pasted hint does what it says.
 func shellWord(w string) string {
-	if strings.ContainsAny(w, " \t") {
-		return strconv.Quote(w)
+	if !strings.ContainsAny(w, " \t$`\"'\\!*?;&|<>(){}[]#~") {
+		return w
 	}
-	return w
+	return "'" + strings.ReplaceAll(w, "'", `'\''`) + "'"
 }
 
 // sayNewer ends a command with a hint when a newer release is out. Only for
@@ -770,12 +771,17 @@ func importCommand(args []string) int {
 	if dir == "" {
 		return failed(text["import no dir"], nil, text["import no dir hint"])
 	}
+	if info, err := os.Stat(dir); err != nil {
+		return failed(fmt.Sprintf(text["import not found"], dir), nil)
+	} else if !info.IsDir() {
+		return failed(fmt.Sprintf(text["import not a folder"], dir), nil)
+	}
 	if !*dryRun {
 		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], shellWord(dir)))
 	}
 	out := begin(args)
 	defer out.close()
-	plan, err := engine.PlanImport(dir)
+	plan, err := engine.PlanImport(dir, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -803,11 +809,17 @@ func importCommand(args []string) int {
 	if plan.Twins > 0 {
 		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))
 	}
+	if plan.Unreadable > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["import unreadable"], counted(plan.Unreadable, "files")), warnColour, false))
+	}
 	out.say("")
-	if plan.Photos+plan.Videos == 0 {
-		out.say(out.out.result(text["result import none"]))
-	} else {
+	switch {
+	case plan.Photos+plan.Videos > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
+	case plan.InLibrary+plan.Twins > 0:
+		out.say(out.out.result(text["result import none"]))
+	default:
+		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
 	}
 	return exitOK
 }
@@ -996,6 +1008,8 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
+	case errors.Is(err, engine.ErrLibraryGone):
+		return exitError, fmt.Sprintf(text["library gone"], err), nil, []string{text["library gone hint"]}
 	case errors.Is(err, errNoSuchAccount):
 		return exitError, fmt.Sprintf(text["no such account"], err), nil, []string{text["accounts hint"]}
 	case errors.Is(err, errWhichAccount):

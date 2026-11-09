@@ -6,7 +6,6 @@ package library
 import (
 	"io/fs"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -45,15 +44,29 @@ var systemNames = map[string]bool{
 
 func isSystem(name string) bool { return strings.HasPrefix(name, ".") || systemNames[name] }
 
-// ReadFolder lists the photos and videos under dir as items for Organize,
-// and the other files, so that what stays out can be said.
+// Folder is what is under a folder: the photos and videos as items for
+// Organize, the other files, and what could not be read.
+type Folder struct {
+	Items      []Item
+	Others     []string
+	Unreadable []string
+}
+
+// ReadFolder lists what is under dir. A file or folder that cannot be read
+// is noted and passed over: one damaged file on a card must not hide the
+// rest of it.
 //
-// A folder's own conventions are not Takeout's: there is no sidecar, and no
-// folder is an album unless the person says so.
-func ReadFolder(dir string) (items []Item, others []string, err error) {
-	err = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+// A folder's conventions are not Takeout's: there is no sidecar, and no
+// folder name is a year. The date is the camera's, or none.
+func ReadFolder(dir string) (Folder, error) {
+	var f Folder
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			if path == dir {
+				return err
+			}
+			f.Unreadable = append(f.Unreadable, path)
+			return nil
 		}
 		if path != dir && isSystem(entry.Name()) {
 			if entry.IsDir() {
@@ -65,14 +78,20 @@ func ReadFolder(dir string) (items []Item, others []string, err error) {
 			return nil
 		}
 		if !isMedia(path) {
-			others = append(others, path)
+			f.Others = append(f.Others, path)
 			return nil
 		}
-		items = append(items, Item{Path: path, Capture: DateOf(path, filepath.Base(filepath.Dir(path)))})
+		f.Items = append(f.Items, Item{Path: path, Capture: cameraDate(path)})
 		return nil
 	})
-	// A stable order: two runs plan the same thing.
-	sort.Slice(items, func(i, j int) bool { return items[i].Path < items[j].Path })
-	sort.Strings(others)
-	return items, others, err
+	return f, err
+}
+
+// cameraDate is the date the camera wrote in the file, or none.
+func cameraDate(path string) Capture {
+	origin := OriginOf("", filepath.Base(path))
+	if when, ok := exifDate(path); ok {
+		return Capture{When: when, Source: FromEXIF, Origin: origin}
+	}
+	return Capture{Source: NoDate, Origin: origin}
 }

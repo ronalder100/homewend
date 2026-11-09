@@ -4,6 +4,8 @@
 package library
 
 import (
+	"bytes"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -36,16 +38,16 @@ func cameraCard(t *testing.T) string {
 
 func TestAFolderListsItsMediaAndWhatElseIsThere(t *testing.T) {
 	card := cameraCard(t)
-	items, others, err := ReadFolder(card)
+	folder, err := ReadFolder(card)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 3 {
-		t.Errorf("%d photos and videos, want 3: %v", len(items), items)
+	if len(folder.Items) != 3 {
+		t.Errorf("%d photos and videos, want 3: %v", len(folder.Items), folder.Items)
 	}
 	want := []string{filepath.Join(card, "FFDB", "FFXFER.DAT"), filepath.Join(card, "FWUP0013.DAT")}
-	if len(others) != len(want) || others[0] != want[0] || others[1] != want[1] {
-		t.Errorf("others %v, want %v: the system's files are no one's", others, want)
+	if len(folder.Others) != len(want) || folder.Others[0] != want[0] || folder.Others[1] != want[1] {
+		t.Errorf("others %v, want %v: the system's files are no one's", folder.Others, want)
 	}
 }
 
@@ -67,11 +69,11 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	// And the card holds one photo twice.
 	write(t, card, "DCIM/101_FUJI/DSCF0002.JPG", exifPhoto("2018:01:01 00:01:36", "two"))
 
-	items, others, err := ReadFolder(card)
+	folder, err := ReadFolder(card)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, items, others, catalog, time.UTC)
+	plan, err := PlanImport(card, folder, catalog, time.UTC, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,15 +97,91 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 
 func TestAnEmptyLibraryTakesEverything(t *testing.T) {
 	card := cameraCard(t)
-	items, others, err := ReadFolder(card)
+	folder, err := ReadFolder(card)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, items, others, nil, time.UTC)
+	plan, err := PlanImport(card, folder, nil, time.UTC, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if plan.Photos != 2 || plan.Videos != 1 || plan.InLibrary != 0 {
 		t.Errorf("plan %+v, want 2 photos, 1 video, none in the library", plan)
+	}
+}
+
+// A card with one damaged file still says what the rest holds.
+func TestAFileThatCannotBeReadIsPassedOver(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every file")
+	}
+	card := cameraCard(t)
+	locked := filepath.Join(card, "DCIM", "100_FUJI", "DSCF0009.JPG")
+	write(t, card, "DCIM/100_FUJI/DSCF0009.JPG", exifPhoto("2026:08:16 10:00:00", "nine"))
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(locked, 0o644) })
+
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanImport(card, folder, nil, time.UTC, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Unreadable != 1 || plan.Photos != 2 || plan.Videos != 1 {
+		t.Errorf("plan %+v, want 1 unreadable and the other 3 counted", plan)
+	}
+}
+
+// A folder copied out of a Takeout is not read by Takeout's rules: a folder
+// named for a year is not a date.
+func TestAFolderNameIsNotADate(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "Photos from 2019/IMG_1.jpg", []byte("no camera date"))
+	folder, err := ReadFolder(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := folder.Items[0].Capture.Source; got != NoDate {
+		t.Errorf("date from %q, want none", got)
+	}
+}
+
+// Looking at the library before an import writes nothing into it.
+func TestTheCatalogIsOnlyRead(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.db")
+	catalog, err := OpenCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := catalog.Put(Photo{Hash: "h", Path: "2026/08/a.jpg", Name: "a.jpg"}); err != nil {
+		t.Fatal(err)
+	}
+	catalog.Close()
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	look, err := OpenCatalogReadOnly(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, known, err := look.PathOf("h"); err != nil || !known {
+		t.Errorf("known %v, %v: the photo should be found", known, err)
+	}
+	if err := look.Put(Photo{Hash: "x", Path: "x", Name: "x"}); err == nil {
+		t.Error("a write went through a catalog opened to read")
+	}
+	look.Close()
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Error("the catalog changed while it was only looked at")
 	}
 }

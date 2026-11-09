@@ -69,17 +69,9 @@ func Photos(s Settings, year, album string, noDate bool, offset, limit int) ([]G
 	}
 	out := make([]GridPhoto, len(page))
 	for i, p := range page {
-		out[i] = GridPhoto{Hash: p.Hash, Name: p.Name, Taken: p.Taken, Video: isVideo(p.Name)}
+		out[i] = GridPhoto{Hash: p.Hash, Name: p.Name, Taken: p.Taken, Video: library.IsVideo(p.Name)}
 	}
 	return out, nil
-}
-
-func isVideo(name string) bool {
-	switch filepath.Ext(name) {
-	case ".mp4", ".MP4", ".mov", ".MOV", ".m4v", ".M4V", ".3gp", ".avi", ".mkv", ".webm":
-		return true
-	}
-	return false
 }
 
 // thumbSlots keeps thumbnails from taking every core while a grid scrolls.
@@ -202,7 +194,7 @@ func Latest(n int) ([]GridPhoto, error) {
 	list, err := c.Latest(n)
 	out := make([]GridPhoto, len(list))
 	for i, p := range list {
-		out[i] = GridPhoto{Hash: p.Hash, Name: p.Name, Video: isVideo(p.Name)}
+		out[i] = GridPhoto{Hash: p.Hash, Name: p.Name, Video: library.IsVideo(p.Name)}
 	}
 	return out, err
 }
