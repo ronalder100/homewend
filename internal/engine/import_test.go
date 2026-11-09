@@ -17,7 +17,7 @@ import (
 // before anything is read or copied.
 func TestAnImportRefusesAProfileOutsideTheLibrary(t *testing.T) {
 	for _, profile := range []string{"../escaped", ".homewend", "a/b", ""} {
-		if _, err := Import(context.Background(), t.TempDir(), profile, false, nil); !errors.Is(err, ErrBadProfile) {
+		if _, err := Import(context.Background(), t.TempDir(), profile, false, nil, nil); !errors.Is(err, ErrBadProfile) {
 			t.Errorf("profile %q: %v, want ErrBadProfile", profile, err)
 		}
 	}
@@ -45,7 +45,7 @@ func TestACardTakenOutHalfwayIsSaid(t *testing.T) {
 			os.RemoveAll(card) // taken out
 		}
 	}
-	done, err := Import(context.Background(), card, "ruvido", false, out)
+	done, err := Import(context.Background(), card, "ruvido", false, nil, out)
 	var gone FolderGoneError
 	if !errors.As(err, &gone) {
 		t.Fatalf("err %v, want the folder said gone", err)

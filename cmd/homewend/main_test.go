@@ -364,3 +364,19 @@ func TestImportReadsItsFolderWhereverTheFlagsAre(t *testing.T) {
 		}
 	}
 }
+
+// A date is NAMES=WHEN, with or without a time; anything else is said.
+func TestADateIsReadAsTyped(t *testing.T) {
+	r, err := dateFlags{"DSCF0004.JPG, DSCF0005.JPG=2026-09-14T10:20"}.redates()
+	if err != nil || len(r) != 1 || len(r[0].Names) != 2 || r[0].When.Hour() != 10 || r[0].When.Minute() != 20 {
+		t.Errorf("%+v, %v", r, err)
+	}
+	if r, err := (dateFlags{"IMG_1.JPG=2019-07-14"}).redates(); err != nil || r[0].When.Day() != 14 {
+		t.Errorf("a day alone: %+v, %v", r, err)
+	}
+	for _, bad := range []string{"DSCF0004.JPG", "=2026-09-14", "IMG_1.JPG=yesterday"} {
+		if _, err := (dateFlags{bad}).redates(); !errors.Is(err, errBadDate) {
+			t.Errorf("%q: %v, want errBadDate", bad, err)
+		}
+	}
+}

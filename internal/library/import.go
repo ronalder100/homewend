@@ -26,8 +26,25 @@ type Imported struct {
 	Undated   int   `json:"undated"`    // of them, with no date the camera wrote
 	InLibrary int   `json:"in_library"` // already there before: nothing copied
 	Twins     int   `json:"twins"`      // the same photo twice in the folder: brought in once
+	Redated   int   `json:"redated"`    // of the placed, with a date given before the import
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
+}
+
+// UnknownNameError is a photo given a date that is not in the folder.
+type UnknownNameError struct{ Name string }
+
+func (e UnknownNameError) Error() string { return e.Name + " is not in the folder" }
+
+// ImportOptions are how an import brings files in.
+type ImportOptions struct {
+	// Link gives each file a second name in the library instead of a copy:
+	// no space, the same disk needed.
+	Link bool
+	// Fits is asked before each copy whether the library's disk has room.
+	Fits func(size int64) error
+	// Redates are dates given to photos whose camera had them wrong.
+	Redates []Redate
 }
 
 // arrivals is where a file from a folder waits, copied and read back, for
@@ -45,8 +62,22 @@ func arrivals(root string) string { return filepath.Join(root, WorkDir, "import"
 // ctx, leaves in the library every photo already in, and the next run brings
 // the rest. fits is asked before each copy whether the library's disk has
 // room for it.
-func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error, emit progress.Func) (Imported, error) {
+func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Options, how ImportOptions, emit progress.Func) (Imported, error) {
 	done := Imported{Unreadable: f.Unreadable}
+	// A name given a date that is not in the folder is a typing mistake:
+	// said before anything is copied.
+	present := map[string]bool{}
+	for _, item := range f.Items {
+		present[filepath.Base(item.Path)] = true
+	}
+	for _, r := range how.Redates {
+		for _, name := range r.Names {
+			if !present[name] {
+				return done, UnknownNameError{Name: name}
+			}
+		}
+	}
+	dates := given(how.Redates, f.Items)
 	// What a stopped run left here was never placed: it starts again.
 	if err := os.RemoveAll(arrivals(root)); err != nil {
 		return done, err
@@ -106,9 +137,19 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path), Done: n, Total: size})
 			}
 		}
-		placed, err := bringIn(item.Path, i, root, catalog, opt, link, fits, copied)
+		placed, err := bringIn(item.Path, i, root, catalog, opt, how, dates, copied)
 		if err != nil {
 			return done, err
+		}
+		// A date given by the person goes beside the copy too, for the
+		// photo apps that read it there.
+		if when, ok := dates[item.Path]; ok {
+			if relative, known, err := catalog.PathOf(hash); err == nil && known {
+				if err := writeXMP(filepath.Join(root, filepath.FromSlash(relative)), when); err != nil {
+					return done, err
+				}
+				done.Redated++
+			}
 		}
 		done.Placed += placed.Placed
 		done.Bytes += placed.Bytes
@@ -118,7 +159,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 }
 
 // bringIn copies or links one file into the arrivals and places it.
-func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error, copied func(int64)) (Organized, error) {
+func bringIn(src string, i int, root string, catalog *Catalog, opt Options, how ImportOptions, dates map[string]time.Time, copied func(int64)) (Organized, error) {
 	// A folder of its own for each file: two cameras both name a photo
 	// DSCF0001.JPG. Emptied once the file is placed.
 	arrived := filepath.Join(arrivals(root), fmt.Sprint(i), filepath.Base(src))
@@ -126,7 +167,7 @@ func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link
 	if err := os.MkdirAll(filepath.Dir(arrived), 0o755); err != nil {
 		return Organized{}, err
 	}
-	if link {
+	if how.Link {
 		// The file a link points at, not the link: a second name for a
 		// link would be a link into the folder.
 		target, err := filepath.EvalSymlinks(src)
@@ -137,7 +178,7 @@ func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link
 			return Organized{}, fmt.Errorf("%w: %v", ErrNoLink, err)
 		}
 	} else {
-		if err := fits(sizeOf(src)); err != nil {
+		if err := how.Fits(sizeOf(src)); err != nil {
 			return Organized{}, err
 		}
 		if _, err := copyFile(src, arrived, copied); err != nil {
@@ -145,7 +186,9 @@ func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link
 		}
 	}
 	capture := Capture{Source: NoDate, Origin: OriginOf("", filepath.Base(src))}
-	if when, source, ok := cameraDate(arrived); ok {
+	if when, ok := dates[src]; ok {
+		capture.When, capture.Source = when, FromGiven
+	} else if when, source, ok := cameraDate(arrived); ok {
 		capture.When, capture.Source = when, source
 	}
 	return Organize([]Item{{Path: arrived, Capture: capture}}, root, catalog, opt, nil)

@@ -144,13 +144,20 @@ Flags:
   --link          give each file a second name in the library instead of a
                   copy: no space used, but only for a folder on the library's
                   disk, and a change to one is a change to both
+  --date NAMES=WHEN
+                  the right date of photos whose camera had it wrong, a
+                  clock reset to 1 January: the first of NAMES takes WHEN,
+                  the others keep their distance from it. The photos are
+                  not changed: the date goes in a NAME.xmp beside each copy,
+                  which Immich, digiKam and darktable read. Repeatable
   --json          one JSON object per line, for scripts
 
 Examples:
   homewend import
   homewend import --dry-run
   homewend import /media/card
-  homewend import ~/Pictures/old-laptop --link`,
+  homewend import ~/Pictures/old-laptop --link
+  homewend import --date DSCF0004.JPG,DSCF0005.JPG=2026-09-14T10:20`,
 
 	"help verify": `homewend verify — count a library again
 
@@ -305,6 +312,9 @@ Examples:
 	"import whose hint":       "name one: **%s --profile NAME**",
 	"no link":                 "the disk refused a hard link: is the folder on the library's disk?",
 	"no link hint":            "to copy it instead, run the same command without --link",
+	"imported redated":        "%d with the date you gave, written in a .xmp beside each",
+	"no such photo":           "%s is not among the photos and videos of the folder",
+	"date hint":               "give it as: **--date DSCF0004.JPG,DSCF0005.JPG=2026-09-14T10:20**",
 	"library waiting":         "Waiting for another import to finish placing photos",
 	"library busy":            "another import or download is placing photos in this library",
 	"library busy hint":       "when it is done, run: **%s**",

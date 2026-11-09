@@ -8,7 +8,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -32,7 +35,7 @@ func importWith(t *testing.T, card, root string, link bool, ctx context.Context,
 	if err != nil {
 		t.Fatal(err)
 	}
-	done, err := Import(ctx, folder, root, catalog, Options{Profile: "ruvido"}, link, fits, nil)
+	done, err := Import(ctx, folder, root, catalog, Options{Profile: "ruvido"}, ImportOptions{Link: link, Fits: fits}, nil)
 	if err != nil && ctx.Err() == nil && !errors.Is(err, errFull) {
 		t.Fatal(err)
 	}
@@ -234,7 +237,7 @@ func TestASecondProfileGetsOneNameEach(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, false, func(int64) error { return nil }, nil); err != nil {
+		if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, nil); err != nil {
 			t.Fatal(err)
 		}
 		catalog.Close()
@@ -270,7 +273,7 @@ func TestAPhotoDeletedFromTheLibraryComesBackAsNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, false, func(int64) error { return nil }, nil)
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,10 +320,74 @@ func TestACopyTellsItsBytes(t *testing.T) {
 			whole[e.Name] = true
 		}
 	}
-	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, false, func(int64) error { return nil }, emit); err != nil {
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, emit); err != nil {
 		t.Fatal(err)
 	}
 	if len(whole) != len(folder.Items) {
 		t.Errorf("%d files told whole, want %d: %v", len(whole), len(folder.Items), whole)
+	}
+}
+
+// Photos given a date go where that date says, keep their distance from
+// each other, and carry it in a .xmp beside the copy: the photo itself is
+// the card's, byte for byte.
+func TestADateGivenGoesWithThePhoto(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/100_FUJI/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "four"))
+	write(t, card, "DCIM/100_FUJI/DSCF0005.JPG", exifPhoto("2018:01:01 00:02:46", "five"))
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	when := time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)
+	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0004.JPG", "DSCF0005.JPG"}, When: when}}}
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, how, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Redated != 2 {
+		t.Errorf("redated %d, want 2", done.Redated)
+	}
+	five := filepath.Join(root, "ruvido", "2026", "09", "DSCF0005.JPG")
+	mustExist(t, five)
+	content, err := os.ReadFile(five)
+	if err != nil || string(content) != string(exifPhoto("2018:01:01 00:02:46", "five")) {
+		t.Error("the photo was changed: the date goes beside it, not in it")
+	}
+	xmp, err := os.ReadFile(five + ".xmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Seventy seconds after the first, as on the card, with an offset.
+	if !strings.Contains(string(xmp), `exif:DateTimeOriginal="2026-09-14T10:21:10`) || !regexp.MustCompile(`10:21:10[+-]\d\d:\d\d"`).Match(xmp) {
+		t.Errorf("xmp says:\n%s", xmp)
+	}
+}
+
+// A name given a date that the folder does not have is said before any
+// copy: a typing mistake, not a photo to skip in silence.
+func TestADateForANameNotThereIsSaid(t *testing.T) {
+	card := cameraCard(t)
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0099.JPG"}, When: time.Now()}}}
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, how, nil)
+	var unknown UnknownNameError
+	if !errors.As(err, &unknown) || unknown.Name != "DSCF0099.JPG" || done.Placed != 0 {
+		t.Errorf("%v, %+v; want DSCF0099.JPG said and nothing copied", err, done)
 	}
 }

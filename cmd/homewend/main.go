@@ -849,13 +849,57 @@ func importArgs(args []string) importWords {
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
+	var dates dateFlags
+	flags.Var(&dates, "date", "NAMES=WHEN: the right date of photos whose camera had it wrong")
 	flags.Parse(args)
 	dir := flags.Arg(0)
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, more: dir != "" && flags.NArg() > 0}
 }
+
+// dateFlags are the --date given, each "NAMES=WHEN" as typed.
+type dateFlags []string
+
+func (d *dateFlags) String() string     { return strings.Join(*d, " ") }
+func (d *dateFlags) Set(v string) error { *d = append(*d, v); return nil }
+
+// redates reads each --date: names separated by commas, an equals sign,
+// and a date with or without its time, as the camera's clock reads it.
+func (d dateFlags) redates() ([]library.Redate, error) {
+	var out []library.Redate
+	for _, v := range d {
+		names, when, ok := strings.Cut(v, "=")
+		if !ok {
+			return nil, fmt.Errorf("%w: %s", errBadDate, v)
+		}
+		var t time.Time
+		var err error
+		for _, layout := range []string{"2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04", "2006-01-02"} {
+			if t, err = time.Parse(layout, strings.TrimSpace(when)); err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", errBadDate, v)
+		}
+		r := library.Redate{When: t}
+		for _, name := range strings.Split(names, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				r.Names = append(r.Names, name)
+			}
+		}
+		if len(r.Names) == 0 {
+			return nil, fmt.Errorf("%w: %s", errBadDate, v)
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// errBadDate is a --date that does not read as NAMES=WHEN.
+var errBadDate = errors.New("a date is NAMES=YYYY-MM-DD or NAMES=YYYY-MM-DDTHH:MM")
 
 // importWords is what import was told.
 type importWords struct {
@@ -863,6 +907,7 @@ type importWords struct {
 	dryRun  bool
 	link    bool
 	profile string
+	dates   dateFlags
 	card    string // the card found, when no folder was named
 	json    bool
 	more    bool // more than one folder
@@ -934,7 +979,11 @@ func importCopy(w importWords, args []string) int {
 	out := begin(args)
 	defer out.close()
 	w.sayCard(out)
-	done, err := engine.Import(ctx, w.dir, profile, w.link, out.event)
+	redates, err := w.dates.redates()
+	if err != nil {
+		return out.fail(err)
+	}
+	done, err := engine.Import(ctx, w.dir, profile, w.link, redates, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -950,6 +999,9 @@ func importCopy(w importWords, args []string) int {
 	}
 	if done.Undated > 0 {
 		out.say("  " + fmt.Sprintf(text["imported undated"], done.Undated))
+	}
+	if done.Redated > 0 {
+		out.say("  " + fmt.Sprintf(text["imported redated"], done.Redated))
 	}
 	if done.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(done.Unreadable, "import unreadable"), warnColour, false))
@@ -1122,6 +1174,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	var space engine.NoSpaceError
 	var notOffered *takeout.NotOfferedError
 	var gone engine.LibraryGoneError
+	var unknown library.UnknownNameError
 	var folderGone engine.FolderGoneError
 	switch {
 	case errors.As(err, &notOffered):
@@ -1158,6 +1211,10 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
+	case errors.Is(err, errBadDate):
+		return exitError, err.Error(), nil, []string{text["date hint"]}
+	case errors.As(err, &unknown):
+		return exitError, fmt.Sprintf(text["no such photo"], unknown.Name), nil, []string{text["date hint"]}
 	case errors.Is(err, engine.ErrLibraryBusy):
 		return exitError, text["library busy"], nil, []string{fmt.Sprintf(text["library busy hint"], again)}
 	case errors.Is(err, engine.ErrBadProfile):

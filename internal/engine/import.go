@@ -50,7 +50,7 @@ func PlanImport(dir string, emit progress.Func) (library.ImportPlan, error) {
 // Import brings dir's photos and videos into the library, into profile:
 // copied and read back, or with link given a second name on the library's
 // disk. dir is not changed. ctx stops it between two files.
-func Import(ctx context.Context, dir, profile string, link bool, emit progress.Func) (library.Imported, error) {
+func Import(ctx context.Context, dir, profile string, link bool, redates []library.Redate, emit progress.Func) (library.Imported, error) {
 	// A profile is a folder of the library: a name like "../x" would put
 	// photos outside it, or into the folder being imported.
 	if !ValidProfile(profile) {
@@ -90,7 +90,8 @@ func Import(ctx context.Context, dir, profile string, link bool, emit progress.F
 		}
 		return nil
 	}
-	done, err := library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, link, fits, emit)
+	how := library.ImportOptions{Link: link, Fits: fits, Redates: redates}
+	done, err := library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, how, emit)
 	// A card taken out halfway, during a copy or between two, is not a run
 	// that ended or failed: it is one to resume. A stop asked for is said
 	// as a stop.

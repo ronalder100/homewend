@@ -26,6 +26,7 @@ const (
 	FromSidecar DateSource = "sidecar" // Google's own answer
 	FromEXIF    DateSource = "exif"    // the camera's answer: its clock, with no zone
 	FromVideo   DateSource = "video"   // a video's header, read as the camera's clock
+	FromGiven   DateSource = "given"   // the person's answer, given before an import: a clock, like the camera's
 	FromFolder  DateSource = "folder"  // the year Takeout filed it under
 	NoDate      DateSource = "none"    // and we do not invent one
 )
