@@ -764,12 +764,16 @@ func verify(args []string) int {
 // --dry-run tells what it would bring.
 func importCommand(args []string) int {
 	w := importArgs(args)
-	dir := w.dir
-	if dir == "" {
-		return w.failed(text["import no dir"], text["import no dir hint"])
+	if w.dir == "" {
+		card, code := findCard(w)
+		if code != exitOK {
+			return code
+		}
+		w.dir, w.card = card.Path, card.Name
 	}
+	dir := w.dir
 	if w.more {
-		return w.failed(text["import one folder"], text["import no dir hint"])
+		return w.failed(text["import one folder"], text["no card hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
 		return w.failed(fmt.Sprintf(text["import not found"], dir))
@@ -783,6 +787,7 @@ func importCommand(args []string) int {
 	}
 	out := begin(args)
 	defer out.close()
+	w.sayCard(out)
 	plan, err := engine.PlanImport(dir, out.event)
 	if err != nil {
 		return out.fail(err)
@@ -854,8 +859,46 @@ type importWords struct {
 	dryRun  bool
 	link    bool
 	profile string
+	card    string // the card found, when no folder was named
 	json    bool
 	more    bool // more than one folder
+}
+
+// findCard is the card to import when no folder was named: the one in, or
+// the one chosen among several.
+func findCard(w importWords) (engine.Card, int) {
+	cards := engine.Cards()
+	switch {
+	case len(cards) == 1:
+		return cards[0], exitOK
+	case len(cards) == 0:
+		return engine.Card{}, w.failed(text["no card"], text["no card hint"])
+	case !interactive(w.json):
+		var names []string
+		for _, c := range cards {
+			names = append(names, shellWord(c.Path))
+		}
+		return engine.Card{}, w.failed(fmt.Sprintf(text["cards found"], strings.Join(names, ", ")), text["no card hint"])
+	}
+	ctx, stop := interrupted()
+	defer stop()
+	var names []string
+	for _, c := range cards {
+		names = append(names, c.Name+"  "+c.Path)
+	}
+	at, err := choose(ctx, text["which card"], "", names)
+	if err != nil {
+		return engine.Card{}, newPrinter(w.json).fail(err)
+	}
+	return cards[at], exitOK
+}
+
+// sayCard says which card was found, when no folder was named.
+func (w importWords) sayCard(out *printer) {
+	if w.card != "" && !out.json {
+		out.say("  " + fmt.Sprintf(text["card found"], w.card, shellWord(w.dir)))
+		out.say("")
+	}
 }
 
 // failed says what is wrong before anything starts: as a line of JSON when
@@ -886,6 +929,7 @@ func importCopy(w importWords, args []string) int {
 	}
 	out := begin(args)
 	defer out.close()
+	w.sayCard(out)
 	done, err := engine.Import(ctx, w.dir, profile, w.link, out.event)
 	if err != nil {
 		return out.fail(err)

@@ -123,8 +123,11 @@ Examples:
 	"help import": `homewend import — bring in the photos of a card or a folder
 
 Usage:
-  homewend import DIR [--profile NAME] [--link] [--json]
-  homewend import --dry-run DIR [--json]
+  homewend import [DIR] [--profile NAME] [--link] [--json]
+  homewend import --dry-run [DIR] [--json]
+
+Without DIR, the card that is in: a disk with a camera's DCIM folder on it,
+or one chosen among several.
 
 Copies every photo and video under DIR into the library, reads each copy back
 to check it, and files it by the date the camera wrote. A photo the library
@@ -144,7 +147,8 @@ Flags:
   --json          one JSON object per line, for scripts
 
 Examples:
-  homewend import --dry-run /media/card
+  homewend import
+  homewend import --dry-run
   homewend import /media/card
   homewend import ~/Pictures/old-laptop --link`,
 
@@ -273,8 +277,6 @@ Examples:
 	"result":                  "All %d photos are there",
 	"export details":          " · %s · %d parts · %s",
 	"result verify":           "All %d photos from your exports are in %s",
-	"import no dir":           "no folder given",
-	"import no dir hint":      "to bring in a card, run: **homewend import DIR**",
 	"photos":                  "%d photos",
 	"photos one":              "1 photo",
 	"videos":                  "%d videos",
@@ -306,6 +308,11 @@ Examples:
 	"bad profile":             "a profile is a name: no / or \\, and not starting with a dot",
 	"folder gone":             "%s was taken out before the end: what was copied is in the library",
 	"folder gone hint":        "put it back, then run: **%s**",
+	"card found":              "The card %s, at %s",
+	"no card":                 "no card found: no disk with a camera's DCIM folder is in",
+	"no card hint":            "put the card in, or name a folder: **homewend import DIR**",
+	"cards found":             "more than one card is in: %s",
+	"which card":              "Which card?",
 	"import top":              "at the top",
 	"import no date":          "no date",
 	"import others":           "%s, %s · not photos or videos, they stay out",
