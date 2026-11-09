@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -71,7 +72,9 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			return done, err
 		}
 		home := filepath.Join(root, filepath.FromSlash(relative))
-		if known && !exists(home) {
+		// Gone, not unreadable: a share that answers late is not a reason to
+		// copy the photo again.
+		if _, err := os.Lstat(home); known && errors.Is(err, fs.ErrNotExist) {
 			// In the catalog, gone from the disk: someone deleted it. The
 			// arrivals were emptied, so it is no move left halfway either.
 			// Brought in again, it is new, in this profile.
