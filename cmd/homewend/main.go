@@ -776,10 +776,15 @@ func importCommand(args []string) int {
 	if dir == "" {
 		return failed(text["import no dir"], nil, text["import no dir hint"])
 	}
+	if flags.NArg() > 0 {
+		return failed(text["import one folder"], nil, text["import no dir hint"])
+	}
 	if info, err := os.Stat(dir); err != nil {
 		return failed(fmt.Sprintf(text["import not found"], dir), nil)
 	} else if !info.IsDir() {
 		return failed(fmt.Sprintf(text["import not a folder"], dir), nil)
+	} else if _, err := os.ReadDir(dir); err != nil {
+		return failed(fmt.Sprintf(text["import cannot read"], dir), nil)
 	}
 	if !*dryRun {
 		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], shellWord(dir)))
@@ -1017,7 +1022,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
 	case errors.As(err, &gone):
-		return exitError, fmt.Sprintf(text["library gone"], gone.Root), nil, []string{text["library gone hint"]}
+		return exitError, fmt.Sprintf(text["library gone"], gone.Root), nil, []string{fmt.Sprintf(text["library gone hint"], again)}
 	case errors.Is(err, errNoSuchAccount):
 		return exitError, fmt.Sprintf(text["no such account"], err), nil, []string{text["accounts hint"]}
 	case errors.Is(err, errWhichAccount):

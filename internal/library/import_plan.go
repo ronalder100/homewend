@@ -55,7 +55,7 @@ type ImportOther struct {
 // Dates are read in loc, as Organize files them. Reading is the long part:
 // emit hears each file, N of Of.
 func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit progress.Func) (ImportPlan, error) {
-	plan := ImportPlan{Unreadable: len(f.Unreadable), Years: []ImportYear{}, Others: []ImportOther{}}
+	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Others: []ImportOther{}}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
 	for i, item := range f.Items {
@@ -81,9 +81,12 @@ func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit
 		if info, err := os.Stat(item.Path); err == nil {
 			plan.Bytes += info.Size()
 		}
+		// The camera's date; a video's is not read yet, so it has none.
 		year := ""
-		if capture := cameraDate(item.Path); capture.Source != NoDate {
-			year = strconv.Itoa(capture.When.In(loc).Year())
+		if !IsVideo(item.Path) {
+			if when, ok := exifDate(item.Path); ok {
+				year = strconv.Itoa(when.In(loc).Year())
+			}
 		}
 		y := years[year]
 		if y == nil {

@@ -154,6 +154,31 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	}
 }
 
+// A download stopped by closing its terminal leaves its last rows in the
+// -wal beside the catalog: a look must see them.
+func TestALookSeesRowsStillInTheWal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.db")
+	writer, err := OpenCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer writer.Close()
+	if err := writer.Put(Photo{Hash: "late", Path: "2026/08/late.jpg", Name: "late.jpg"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path + "-wal"); err != nil {
+		t.Skip("the row went straight into the catalog file")
+	}
+	look, err := OpenCatalogReadOnly(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer look.Close()
+	if _, known, err := look.PathOf("late"); err != nil || !known {
+		t.Errorf("known %v, %v: a row in the -wal is in the library", known, err)
+	}
+}
+
 // Looking at the library before an import writes nothing into it.
 func TestTheCatalogIsOnlyRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.db")

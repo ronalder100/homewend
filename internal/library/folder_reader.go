@@ -50,7 +50,7 @@ func isSystem(name string) bool { return strings.HasPrefix(name, ".") || systemN
 type Folder struct {
 	Items      []Item
 	Others     []string
-	Unreadable []string
+	Unreadable int
 }
 
 // ReadFolder lists what is under dir. A file or folder that cannot be read
@@ -66,7 +66,7 @@ func ReadFolder(dir string) (Folder, error) {
 			if path == dir {
 				return err
 			}
-			f.Unreadable = append(f.Unreadable, path)
+			f.Unreadable++
 			return nil
 		}
 		if path != dir && isSystem(entry.Name()) {
@@ -86,13 +86,4 @@ func ReadFolder(dir string) (Folder, error) {
 		return nil
 	})
 	return f, err
-}
-
-// cameraDate is the date the camera wrote in the file, or none.
-func cameraDate(path string) Capture {
-	origin := OriginOf("", filepath.Base(path))
-	if when, ok := exifDate(path); ok {
-		return Capture{When: when, Source: FromEXIF, Origin: origin}
-	}
-	return Capture{Source: NoDate, Origin: origin}
 }

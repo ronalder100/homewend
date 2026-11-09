@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -146,13 +147,18 @@ UPDATE OR IGNORE album_owners SET account = 'google/' || account WHERE instr(acc
 // migration, nothing written. A look before an import changes nothing in the
 // library, and a library on a read-only share can still be looked at.
 //
-// Immutable, because read-only alone is not: in WAL mode SQLite still
-// creates the -shm and -wal files beside the catalog, and fails where it
-// cannot (measured 09/11). The price is that a write in progress by a
-// download running at the same moment is not seen: the look may count a
-// photo as new that arrives a second later.
+// Read-only alone would not do it: in WAL mode SQLite creates the -shm and
+// -wal files beside the catalog, and fails where it cannot (measured 09/11).
+// So a catalog with no -wal beside it is opened immutable. One with a -wal
+// holds rows not yet in the catalog file — a download running, or one
+// stopped by closing its terminal — that immutable would not see: it is
+// opened read-only, and the files it needs are already there.
 func OpenCatalogReadOnly(path string) (*Catalog, error) {
-	db, err := sql.Open("sqlite", catalogDSN(path, "mode=ro&immutable=1"))
+	options := "mode=ro&immutable=1"
+	if _, err := os.Stat(path + "-wal"); err == nil {
+		options = "mode=ro&_pragma=busy_timeout(5000)"
+	}
+	db, err := sql.Open("sqlite", catalogDSN(path, options))
 	if err != nil {
 		return nil, fmt.Errorf("opening the catalog: %w", err)
 	}
