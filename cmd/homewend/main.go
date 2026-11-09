@@ -763,11 +763,12 @@ func verify(args []string) int {
 // importCommand tells what a card or a folder would bring into the library.
 // Only --dry-run exists: the copy comes next.
 func importCommand(args []string) int {
-	dir, dryRun, more := importArgs(args)
+	w := importArgs(args)
+	dir := w.dir
 	if dir == "" {
 		return failed(text["import no dir"], nil, text["import no dir hint"])
 	}
-	if more {
+	if w.more {
 		return failed(text["import one folder"], nil, text["import no dir hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
@@ -777,8 +778,8 @@ func importCommand(args []string) int {
 	} else if _, err := os.ReadDir(dir); err != nil {
 		return failed(fmt.Sprintf(text["import cannot read"], dir), nil)
 	}
-	if !dryRun {
-		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], shellWord(dir)))
+	if !w.dryRun {
+		return importCopy(w, args)
 	}
 	out := begin(args)
 	defer out.close()
@@ -833,16 +834,61 @@ func importCommand(args []string) int {
 // and whether more than one folder was. The flags may come before the folder
 // or after it: Go's parser stops at the first word that is not a flag, so
 // what follows the folder is parsed again.
-func importArgs(args []string) (dir string, dryRun, more bool) {
+func importArgs(args []string) importWords {
 	flags := newFlags("import")
 	dry := flags.Bool("dry-run", false, "only tell what would happen")
+	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
+	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
-	dir = flags.Arg(0)
+	dir := flags.Arg(0)
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return dir, *dry, dir != "" && flags.NArg() > 0
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, more: dir != "" && flags.NArg() > 0}
+}
+
+// importWords is what import was told.
+type importWords struct {
+	dir     string
+	dryRun  bool
+	link    bool
+	profile string
+	more    bool // more than one folder
+}
+
+// importCopy brings the folder into the library.
+func importCopy(w importWords, args []string) int {
+	ctx, stop := interrupted()
+	defer stop()
+	asJSON := slices.Contains(args, "--json") || slices.Contains(args, "-json")
+	profile, err := pickProfile(ctx, w.profile, asJSON)
+	if err != nil {
+		return newPrinter(asJSON).fail(err)
+	}
+	out := begin(args)
+	defer out.close()
+	done, err := engine.Import(w.dir, profile, w.link, out.event)
+	if err != nil {
+		return out.fail(err)
+	}
+	if out.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done})
+		return exitOK
+	}
+	if done.Skipped > 0 {
+		out.say("  " + fmt.Sprintf(text["import already"], done.Skipped))
+	}
+	if done.Undated > 0 {
+		out.say("  " + fmt.Sprintf(text["imported undated"], done.Undated))
+	}
+	out.say("")
+	if done.Placed == 0 {
+		out.say(out.out.result(text["result import none"]))
+	} else {
+		out.say(out.out.result(fmt.Sprintf(text["result imported"], done.Placed, size(done.Bytes), profile)))
+	}
+	return exitOK
 }
 
 // counted is n of a thing, "1 photo" or "3 photos": key names the plural in
@@ -1030,6 +1076,8 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
+	case errors.Is(err, library.ErrNoLink):
+		return exitError, text["no link"], nil, []string{text["no link hint"]}
 	case errors.As(err, &gone):
 		return exitError, fmt.Sprintf(text["library gone"], gone.Root), nil, []string{fmt.Sprintf(text["library gone hint"], again)}
 	case errors.Is(err, errNoSuchAccount):

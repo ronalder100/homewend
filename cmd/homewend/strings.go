@@ -120,26 +120,33 @@ Examples:
   homewend takeout --list
   homewend takeout --library /mnt/nas/photos`,
 
-	"help import": `homewend import — what a card or a folder would bring in
+	"help import": `homewend import — bring in the photos of a card or a folder
 
 Usage:
+  homewend import DIR [--profile NAME] [--link] [--json]
   homewend import --dry-run DIR [--json]
 
-Reads every photo and video under DIR and tells, by year, what would come into
-the library and what is already there: the same photo is found by its content,
-whatever its name. Files that are not photos or videos stay out and are listed
-by folder; a disk's own system files are not listed at all. Nothing is copied
-and nothing changes, on DIR or in the library.
+Copies every photo and video under DIR into the library, reads each copy back
+to check it, and files it by the date the camera wrote. A photo the library
+already holds is found by its content, whatever its name, and kept once.
+Files that are not photos or videos stay where they are; nothing on DIR
+changes, and nothing is removed from a card.
 
-Copying is not built yet: --dry-run is needed.
+With --dry-run nothing is copied: it tells, by year, what would come in.
 
 Flags:
   --dry-run       only tell what would happen
+  --profile NAME  whose photos: the library's folder they go in; asked when
+                  there are several
+  --link          give each file a second name in the library instead of a
+                  copy: no space used, but only for a folder on the library's
+                  disk, and a change to one is a change to both
   --json          one JSON object per line, for scripts
 
 Examples:
   homewend import --dry-run /media/card
-  homewend import --dry-run ~/Pictures/old-laptop`,
+  homewend import /media/card
+  homewend import ~/Pictures/old-laptop --link`,
 
 	"help verify": `homewend verify — count a library again
 
@@ -268,8 +275,6 @@ Examples:
 	"result verify":           "All %d photos from your exports are in %s",
 	"import no dir":           "no folder given",
 	"import no dir hint":      "to see what a card would bring in, run: **homewend import --dry-run DIR**",
-	"import dry only":         "copying is not built yet",
-	"import dry hint":         "to see what would come in, run: **homewend import --dry-run %s**",
 	"photos":                  "%d photos",
 	"photos one":              "1 photo",
 	"videos":                  "%d videos",
@@ -288,6 +293,11 @@ Examples:
 	"library gone":            "the library folder %s is not there: is its disk connected?",
 	"library gone hint":       "connect the library's disk, then run: **%s**",
 	"reading":                 "Reading the photos",
+	"copying":                 "Bringing in",
+	"imported undated":        "%d with no date the camera wrote: in undated/",
+	"result imported":         "%d photos and videos brought in, %s, each read back, in %s's photos",
+	"no link":                 "a hard link needs the folder on the library's disk",
+	"no link hint":            "to copy it instead, run the same command without --link",
 	"import top":              "at the top",
 	"import no date":          "no date",
 	"import others":           "%s, %s · not photos or videos, they stay out",

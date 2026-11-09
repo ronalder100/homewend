@@ -358,9 +358,9 @@ func TestImportReadsItsFolderWhereverTheFlagsAre(t *testing.T) {
 		{[]string{"/card", "/other", "--dry-run"}, "/card", false, true},
 		{[]string{"--dry-run"}, "", true, false},
 	} {
-		dir, dryRun, more := importArgs(c.args)
-		if dir != c.dir || dryRun != c.dryRun || more != c.more {
-			t.Errorf("importArgs(%q) = %q, %v, %v; want %q, %v, %v", c.args, dir, dryRun, more, c.dir, c.dryRun, c.more)
+		w := importArgs(c.args)
+		if w.dir != c.dir || w.dryRun != c.dryRun || w.more != c.more {
+			t.Errorf("importArgs(%q) = %q, %v, %v; want %q, %v, %v", c.args, w.dir, w.dryRun, w.more, c.dir, c.dryRun, c.more)
 		}
 	}
 }

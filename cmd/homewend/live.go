@@ -178,6 +178,8 @@ func (p *printer) event(e progress.Event) {
 			p.sortStart = t
 		}
 		p.now(going{said: text["sorting"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
+	case progress.Copy:
+		p.now(going{said: text["copying"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
 	case progress.Read:
 		p.now(going{said: text["reading"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
 	case progress.Update:
