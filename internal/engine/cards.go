@@ -73,13 +73,11 @@ func disksUnder(roots []string) []string {
 
 // cardsOf are the disks with a DCIM folder at their top.
 func cardsOf(disks []string) []Card {
-	seen := map[string]bool{}
 	var cards []Card
 	for _, disk := range disks {
-		if seen[disk] || !hasDCIM(disk) {
+		if !hasDCIM(disk) {
 			continue
 		}
-		seen[disk] = true
 		name := filepath.Base(disk)
 		if runtime.GOOS == "windows" {
 			name = strings.TrimSuffix(disk, `\`)

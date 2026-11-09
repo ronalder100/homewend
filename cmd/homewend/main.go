@@ -878,13 +878,13 @@ func findCard(w importWords) (engine.Card, int) {
 		for _, c := range cards {
 			names = append(names, shellWord(c.Path))
 		}
-		return engine.Card{}, w.failed(fmt.Sprintf(text["cards found"], strings.Join(names, ", ")), text["no card hint"])
+		return engine.Card{}, w.failed(fmt.Sprintf(text["cards found"], strings.Join(names, ", ")), text["one folder hint"])
 	}
 	ctx, stop := interrupted()
 	defer stop()
 	var names []string
 	for _, c := range cards {
-		names = append(names, c.Name+"  "+c.Path)
+		names = append(names, c.Path)
 	}
 	at, err := choose(ctx, text["which card"], "", names)
 	if err != nil {
