@@ -93,7 +93,7 @@ func TestFoundSaysTheProfileRunFills(t *testing.T) {
 }
 
 // A profile typed for a download is a folder of the library: one that would
-// leave it is refused before Google is asked anything.
+// leave it is refused before a download starts.
 func TestADownloadRefusesAProfileOutsideTheLibrary(t *testing.T) {
 	for _, profile := range []string{"../escaped", ".homewend", "a/b"} {
 		g := Get{Profile: profile}

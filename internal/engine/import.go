@@ -53,7 +53,7 @@ func PlanImport(dir string, emit progress.Func) (library.ImportPlan, error) {
 func Import(ctx context.Context, dir, profile string, link bool, emit progress.Func) (library.Imported, error) {
 	// A profile is a folder of the library: a name like "../x" would put
 	// photos outside it, or into the folder being imported.
-	if !validProfile(profile) {
+	if !ValidProfile(profile) {
 		return library.Imported{}, ErrBadProfile
 	}
 	dir, folder, err := readFolder(dir)

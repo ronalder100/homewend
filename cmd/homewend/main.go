@@ -511,6 +511,10 @@ func takeoutCommand(args []string) int {
 	profile := a.Profile
 	if *profileFlag != "" {
 		profile = *profileFlag
+		// Said before Google is asked anything, not after its questions.
+		if !engine.ValidProfile(profile) {
+			return newPrinter(*asJSON).fail(engine.ErrBadProfile)
+		}
 	}
 	dir, code := libraryFor(ctx, *libraryDir, *asJSON)
 	if dir == "" {

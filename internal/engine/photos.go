@@ -174,7 +174,7 @@ func folder(root string, accounts []AccountInfo, hidden []string, account, year,
 
 // ProfileFolder is the folder of a profile in the library.
 func ProfileFolder(profile string) (string, error) {
-	if !validProfile(profile) {
+	if !ValidProfile(profile) {
 		return "", ErrBadProfile
 	}
 	root, err := ChosenLibrary()

@@ -62,7 +62,7 @@ func ProfileNames(accounts []AccountInfo, s Settings) []string {
 
 // SetProfile puts the account id in the profile named profile.
 func SetProfile(id, profile string) error {
-	if !validProfile(profile) {
+	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
 	// Only an account that is here: the settings keep no profile for one
@@ -88,7 +88,7 @@ func SetProfile(id, profile string) error {
 // ErrBadProfile is a profile name that cannot be a folder.
 var ErrBadProfile = errors.New("a profile is a name, without / or \\, and not . or ..")
 
-func validProfile(p string) bool {
+func ValidProfile(p string) bool {
 	return p != "" && p != "." && p != ".." && !strings.ContainsAny(p, "/\\") && !strings.HasPrefix(p, ".")
 }
 

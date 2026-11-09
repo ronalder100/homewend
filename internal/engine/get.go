@@ -52,7 +52,7 @@ const waitPoll = time.Minute
 func (g Get) Run(ctx context.Context, sess *session.Session, emit progress.Func) (result Result, err error) {
 	// A profile named here is a folder of the library: "../x" would put the
 	// photos outside it. Settings check theirs; one typed is checked here.
-	if g.Profile != "" && !validProfile(g.Profile) {
+	if g.Profile != "" && !ValidProfile(g.Profile) {
 		return Result{}, ErrBadProfile
 	}
 	err = Patiently(ctx, emit, func() error {
