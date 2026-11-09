@@ -792,7 +792,11 @@ func importCommand(args []string) int {
 	out := begin(args)
 	defer out.close()
 	w.sayCard(out)
-	plan, err := engine.PlanImport(dir, out.event)
+	redates, err := w.dates.redates()
+	if err != nil {
+		return out.fail(err)
+	}
+	plan, err := engine.PlanImport(dir, redates, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -899,7 +903,7 @@ func (d dateFlags) redates() ([]library.Redate, error) {
 }
 
 // errBadDate is a --date that does not read as NAMES=WHEN.
-var errBadDate = errors.New("a date is NAMES=YYYY-MM-DD or NAMES=YYYY-MM-DDTHH:MM")
+var errBadDate = errors.New("bad date")
 
 // importWords is what import was told.
 type importWords struct {
@@ -1175,6 +1179,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	var notOffered *takeout.NotOfferedError
 	var gone engine.LibraryGoneError
 	var unknown library.UnknownNameError
+	var ambiguous library.AmbiguousNameError
 	var folderGone engine.FolderGoneError
 	switch {
 	case errors.As(err, &notOffered):
@@ -1212,7 +1217,9 @@ func explain(err error) (code int, said string, causes, hints []string) {
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
 	case errors.Is(err, errBadDate):
-		return exitError, err.Error(), nil, []string{text["date hint"]}
+		return exitError, fmt.Sprintf(text["bad date"], strings.TrimPrefix(err.Error(), errBadDate.Error()+": ")), nil, []string{text["date hint"]}
+	case errors.As(err, &ambiguous):
+		return exitError, fmt.Sprintf(text["name twice"], ambiguous.Name, strings.Join(ambiguous.Paths, ", ")), nil, []string{fmt.Sprintf(text["name twice hint"], ambiguous.Paths[0])}
 	case errors.As(err, &unknown):
 		return exitError, fmt.Sprintf(text["no such photo"], unknown.Name), nil, []string{text["date hint"]}
 	case errors.Is(err, engine.ErrLibraryBusy):

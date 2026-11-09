@@ -551,6 +551,13 @@ func (c *Catalog) forget(hash string) error {
 }
 
 // setPath records that a photo is now at path, under name.
+// setDate records a date given to a photo already in the library.
+func (c *Catalog) setDate(hash string, capture Capture) error {
+	_, err := c.db.Exec(`UPDATE photos SET taken = ?, source = ?, kind = ? WHERE hash = ?`,
+		capture.When.Unix(), string(capture.Source), string(capture.Kind()), hash)
+	return err
+}
+
 func (c *Catalog) setPath(hash, path, name string) error {
 	_, err := c.db.Exec(`UPDATE photos SET path = ?, name = ? WHERE hash = ?`, path, name, hash)
 	return err

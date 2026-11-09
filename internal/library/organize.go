@@ -370,7 +370,11 @@ func linkInto(src, path string) (bool, error) {
 	return false, nil
 }
 
-func hashOf(path string) (string, error) {
+func hashOf(path string) (string, error) { return hashReading(path, nil) }
+
+// hashReading is hashOf telling the bytes read so far to read, when not nil:
+// on a card, reading a large file is as long as copying it.
+func hashReading(path string, read func(int64)) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -378,7 +382,11 @@ func hashOf(path string) (string, error) {
 	defer file.Close()
 
 	sum := sha256.New()
-	if _, err := io.Copy(sum, file); err != nil {
+	var to io.Writer = sum
+	if read != nil {
+		to = &counting{w: sum, copied: read}
+	}
+	if _, err := io.Copy(to, file); err != nil {
 		return "", fmt.Errorf("hashing %s: %w", path, err)
 	}
 	return hex.EncodeToString(sum.Sum(nil)), nil

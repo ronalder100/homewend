@@ -391,3 +391,96 @@ func TestADateForANameNotThereIsSaid(t *testing.T) {
 		t.Errorf("%v, %+v; want DSCF0099.JPG said and nothing copied", err, done)
 	}
 }
+
+func importDated(t *testing.T, card, root string, redates []Redate) (Imported, error) {
+	t.Helper()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Import(context.Background(), folder, root, catalog, Options{Profile: "ruvido"}, ImportOptions{Fits: func(int64) error { return nil }, Redates: redates}, nil)
+}
+
+// The likeliest use: a first import shows 2018 in the library, and the
+// date is given on the next. The photo already in moves to its date.
+func TestADateGivenToAPhotoAlreadyInMovesIt(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/100_FUJI/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "four"))
+	root := t.TempDir()
+	if _, err := importDated(t, card, root, nil); err != nil {
+		t.Fatal(err)
+	}
+	mustExist(t, filepath.Join(root, "ruvido", "2018", "01", "DSCF0004.JPG"))
+	done, err := importDated(t, card, root, []Redate{{Names: []string{"dscf0004.jpg"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Redated != 1 || done.InLibrary != 1 {
+		t.Errorf("%+v, want 1 redated, 1 in the library", done)
+	}
+	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "DSCF0004.JPG.xmp"))
+	if exists(filepath.Join(root, "ruvido", "2018")) {
+		t.Error("2018 is still there, empty or not")
+	}
+}
+
+// Two cameras both name a photo DSCF0004.JPG: the name alone is refused,
+// its path chooses, and the other photo keeps its date.
+func TestANameInTwoFoldersIsChosenByItsPath(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/100_FUJI/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "reset"))
+	write(t, card, "DCIM/101_FUJI/DSCF0004.JPG", exifPhoto("2025:06:01 12:00:00", "right"))
+	when := time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)
+	var twice AmbiguousNameError
+	if _, err := importDated(t, card, t.TempDir(), []Redate{{Names: []string{"DSCF0004.JPG"}, When: when}}); !errors.As(err, &twice) || len(twice.Paths) != 2 {
+		t.Fatalf("%v, want the name said twice", err)
+	}
+	root := t.TempDir()
+	if _, err := importDated(t, card, root, []Redate{{Names: []string{"DCIM/100_FUJI/DSCF0004.JPG"}, When: when}}); err != nil {
+		t.Fatal(err)
+	}
+	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ruvido", "2025", "06", "DSCF0004.JPG"))
+}
+
+// The XMP begins with the byte-order mark its packet header names, and a
+// time the clock skipped keeps the time given.
+func TestTheXMPIsWellFormed(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "IMG_1.JPG")
+	if err := writeXMP(photo, time.Date(2026, 3, 29, 2, 30, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	xmp, err := os.ReadFile(photo + ".xmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(xmp), "begin=\"\ufeff\"") {
+		t.Error("the packet header has no byte-order mark")
+	}
+	if !strings.Contains(string(xmp), `"2026-03-29T02:30:00`) {
+		t.Errorf("the time given is not kept:\n%s", xmp)
+	}
+}
+
+// A dry run counts photos where the dates given put them.
+func TestADryRunCountsTheDatesGiven(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "four"))
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanImport(card, folder, nil, []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}, nil)
+	if err != nil || len(plan.Years) != 1 || plan.Years[0].Year != "2026" {
+		t.Errorf("%+v, %v; want 2026", plan.Years, err)
+	}
+}

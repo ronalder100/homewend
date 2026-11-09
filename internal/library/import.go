@@ -31,11 +31,6 @@ type Imported struct {
 	Unreadable int `json:"unreadable"`
 }
 
-// UnknownNameError is a photo given a date that is not in the folder.
-type UnknownNameError struct{ Name string }
-
-func (e UnknownNameError) Error() string { return e.Name + " is not in the folder" }
-
 // ImportOptions are how an import brings files in.
 type ImportOptions struct {
 	// Link gives each file a second name in the library instead of a copy:
@@ -64,20 +59,12 @@ func arrivals(root string) string { return filepath.Join(root, WorkDir, "import"
 // room for it.
 func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Options, how ImportOptions, emit progress.Func) (Imported, error) {
 	done := Imported{Unreadable: f.Unreadable}
-	// A name given a date that is not in the folder is a typing mistake:
-	// said before anything is copied.
-	present := map[string]bool{}
-	for _, item := range f.Items {
-		present[filepath.Base(item.Path)] = true
+	// A name the folder does not have, or has twice, is said before
+	// anything is copied.
+	dates, err := given(how.Redates, f)
+	if err != nil {
+		return done, err
 	}
-	for _, r := range how.Redates {
-		for _, name := range r.Names {
-			if !present[name] {
-				return done, UnknownNameError{Name: name}
-			}
-		}
-	}
-	dates := given(how.Redates, f.Items)
 	// What a stopped run left here was never placed: it starts again.
 	if err := os.RemoveAll(arrivals(root)); err != nil {
 		return done, err
@@ -88,14 +75,32 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		if err := ctx.Err(); err != nil {
 			return done, err
 		}
+		// A file of a few GB is minutes on a card, read once to know it and
+		// once to copy it: its bytes are told, at most a few times a second.
+		var last time.Time
+		size := sizeOf(item.Path)
+		tell := func(n int64) {
+			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || n == size {
+				last = now
+				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path), Done: n, Total: size})
+			}
+		}
 		emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path)})
-		hash, err := hashOf(item.Path)
+		hash, err := hashReading(item.Path, tell)
 		if err != nil {
 			done.Unreadable++
 			continue
 		}
+		when, dated := dates[item.Path]
 		if seen[hash] {
 			done.Twins++
+			// The same photo, given a date under its other name.
+			if dated {
+				if err := redateInLibrary(root, catalog, hash, when, opt); err != nil {
+					return done, err
+				}
+				done.Redated++
+			}
 			continue
 		}
 		seen[hash] = true
@@ -124,26 +129,28 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 					return done, err
 				}
 			}
+			// A date given now is for a photo already in: the likeliest
+			// case, seen as 2018 in the library after a first import.
+			if dated {
+				if err := redateInLibrary(root, catalog, hash, when, opt); err != nil {
+					return done, err
+				}
+				done.Redated++
+			}
 			done.InLibrary++
 			continue
 		}
-		// A file of a few GB is minutes on a card: its bytes are told, at
-		// most a few times a second.
-		var last time.Time
-		size := sizeOf(item.Path)
-		copied := func(n int64) {
-			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || n == size {
-				last = now
-				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path), Done: n, Total: size})
-			}
+		capture := Capture{Source: NoDate, Origin: OriginOf("", filepath.Base(item.Path))}
+		if dated {
+			capture.When, capture.Source = when, FromGiven
 		}
-		placed, err := bringIn(item.Path, i, root, catalog, opt, how, dates, copied)
+		placed, err := bringIn(item.Path, i, root, catalog, opt, how.Link, how.Fits, capture, tell)
 		if err != nil {
 			return done, err
 		}
-		// A date given by the person goes beside the copy too, for the
-		// photo apps that read it there.
-		if when, ok := dates[item.Path]; ok {
+		// A date given goes beside the copy too, for the photo apps that
+		// read it there.
+		if dated {
 			if relative, known, err := catalog.PathOf(hash); err == nil && known {
 				if err := writeXMP(filepath.Join(root, filepath.FromSlash(relative)), when); err != nil {
 					return done, err
@@ -159,7 +166,8 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 }
 
 // bringIn copies or links one file into the arrivals and places it.
-func bringIn(src string, i int, root string, catalog *Catalog, opt Options, how ImportOptions, dates map[string]time.Time, copied func(int64)) (Organized, error) {
+// A capture with no date is read from the copy, the camera's own.
+func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error, capture Capture, copied func(int64)) (Organized, error) {
 	// A folder of its own for each file: two cameras both name a photo
 	// DSCF0001.JPG. Emptied once the file is placed.
 	arrived := filepath.Join(arrivals(root), fmt.Sprint(i), filepath.Base(src))
@@ -167,7 +175,7 @@ func bringIn(src string, i int, root string, catalog *Catalog, opt Options, how 
 	if err := os.MkdirAll(filepath.Dir(arrived), 0o755); err != nil {
 		return Organized{}, err
 	}
-	if how.Link {
+	if link {
 		// The file a link points at, not the link: a second name for a
 		// link would be a link into the folder.
 		target, err := filepath.EvalSymlinks(src)
@@ -178,18 +186,17 @@ func bringIn(src string, i int, root string, catalog *Catalog, opt Options, how 
 			return Organized{}, fmt.Errorf("%w: %v", ErrNoLink, err)
 		}
 	} else {
-		if err := how.Fits(sizeOf(src)); err != nil {
+		if err := fits(sizeOf(src)); err != nil {
 			return Organized{}, err
 		}
 		if _, err := copyFile(src, arrived, copied); err != nil {
 			return Organized{}, fmt.Errorf("copying %s: %w", src, err)
 		}
 	}
-	capture := Capture{Source: NoDate, Origin: OriginOf("", filepath.Base(src))}
-	if when, ok := dates[src]; ok {
-		capture.When, capture.Source = when, FromGiven
-	} else if when, source, ok := cameraDate(arrived); ok {
-		capture.When, capture.Source = when, source
+	if capture.Source == NoDate {
+		if when, source, ok := cameraDate(arrived); ok {
+			capture.When, capture.Source = when, source
+		}
 	}
 	return Organize([]Item{{Path: arrived, Capture: capture}}, root, catalog, opt, nil)
 }

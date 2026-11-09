@@ -32,7 +32,7 @@ func readFolder(dir string) (string, library.Folder, error) {
 
 // PlanImport is what importing dir would bring into the library, read and
 // never written: dir, a card or the library are left as they are.
-func PlanImport(dir string, emit progress.Func) (library.ImportPlan, error) {
+func PlanImport(dir string, redates []library.Redate, emit progress.Func) (library.ImportPlan, error) {
 	dir, folder, err := readFolder(dir)
 	if err != nil {
 		return library.ImportPlan{}, err
@@ -44,7 +44,7 @@ func PlanImport(dir string, emit progress.Func) (library.ImportPlan, error) {
 	if catalog != nil {
 		defer catalog.Close()
 	}
-	return library.PlanImport(dir, folder, catalog, emit)
+	return library.PlanImport(dir, folder, catalog, redates, emit)
 }
 
 // Import brings dir's photos and videos into the library, into profile:

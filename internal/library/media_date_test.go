@@ -71,7 +71,7 @@ func TestNewYearsEveStaysInItsYear(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(src, folder, nil, nil)
+	plan, err := PlanImport(src, folder, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

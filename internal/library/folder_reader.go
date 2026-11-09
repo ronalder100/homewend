@@ -48,6 +48,7 @@ func isSystem(name string) bool { return strings.HasPrefix(name, ".") || systemN
 // Organize, the other files, and what could not be read. An item's date is
 // not read yet: PlanImport reads it with the rest of the file.
 type Folder struct {
+	Root       string // the folder read
 	Items      []Item
 	Others     []string
 	Unreadable int
@@ -60,7 +61,7 @@ type Folder struct {
 // A folder's conventions are not Takeout's: there is no sidecar, and no
 // folder name is a year. The date is the camera's, or none.
 func ReadFolder(dir string) (Folder, error) {
-	var f Folder
+	f := Folder{Root: dir}
 	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			if path == dir {

@@ -149,7 +149,9 @@ Flags:
                   clock reset to 1 January: the first of NAMES takes WHEN,
                   the others keep their distance from it. The photos are
                   not changed: the date goes in a NAME.xmp beside each copy,
-                  which Immich, digiKam and darktable read. Repeatable
+                  which Immich reads, and digiKam or darktable when set to.
+                  A photo already in the library moves to its new date.
+                  A name in two folders is given by its path. Repeatable
   --json          one JSON object per line, for scripts
 
 Examples:
@@ -312,6 +314,9 @@ Examples:
 	"import whose hint":       "name one: **%s --profile NAME**",
 	"no link":                 "the disk refused a hard link: is the folder on the library's disk?",
 	"no link hint":            "to copy it instead, run the same command without --link",
+	"bad date":                "%s is not NAMES=YYYY-MM-DD or NAMES=YYYY-MM-DDTHH:MM",
+	"name twice":              "%s is in more than one folder: %s",
+	"name twice hint":         "say which, by its path: **--date %s=…**",
 	"imported redated":        "%d with the date you gave, written in a .xmp beside each",
 	"no such photo":           "%s is not among the photos and videos of the folder",
 	"date hint":               "give it as: **--date DSCF0004.JPG,DSCF0005.JPG=2026-09-14T10:20**",

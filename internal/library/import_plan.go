@@ -53,7 +53,14 @@ type ImportOther struct {
 //
 // A date is the camera's clock, the year it is filed under. Reading is the
 // long part: emit hears each file, N of Of.
-func PlanImport(dir string, f Folder, catalog *Catalog, emit progress.Func) (ImportPlan, error) {
+//
+// Dates given are counted as the import would file the photos: a name the
+// folder does not have is said here too, before the import.
+func PlanImport(dir string, f Folder, catalog *Catalog, redates []Redate, emit progress.Func) (ImportPlan, error) {
+	dates, err := given(redates, f)
+	if err != nil {
+		return ImportPlan{}, err
+	}
 	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Others: []ImportOther{}}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
@@ -83,7 +90,9 @@ func PlanImport(dir string, f Folder, catalog *Catalog, emit progress.Func) (Imp
 			plan.Bytes += info.Size()
 		}
 		year := ""
-		if when, _, ok := cameraDate(item.Path); ok {
+		if when, ok := dates[item.Path]; ok {
+			year = strconv.Itoa(when.Year())
+		} else if when, _, ok := cameraDate(item.Path); ok {
 			year = strconv.Itoa(when.Year())
 		}
 		y := years[year]
