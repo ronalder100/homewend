@@ -145,8 +145,12 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := folder.Items[0].Capture.Source; got != NoDate {
-		t.Errorf("date from %q, want none", got)
+	plan, err := PlanImport(dir, folder, nil, time.UTC, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Years) != 1 || plan.Years[0].Year != "" {
+		t.Errorf("years %+v, want only the undated", plan.Years)
 	}
 }
 
@@ -183,5 +187,10 @@ func TestTheCatalogIsOnlyRead(t *testing.T) {
 	}
 	if !bytes.Equal(before, after) {
 		t.Error("the catalog changed while it was only looked at")
+	}
+	for _, beside := range []string{"-shm", "-wal"} {
+		if _, err := os.Stat(path + beside); err == nil {
+			t.Errorf("%s left beside the catalog by a look", beside)
+		}
 	}
 }

@@ -82,8 +82,8 @@ func PlanImport(dir string, f Folder, catalog *Catalog, loc *time.Location, emit
 			plan.Bytes += info.Size()
 		}
 		year := ""
-		if item.Capture.Source != NoDate {
-			year = strconv.Itoa(item.Capture.When.In(loc).Year())
+		if capture := cameraDate(item.Path); capture.Source != NoDate {
+			year = strconv.Itoa(capture.When.In(loc).Year())
 		}
 		y := years[year]
 		if y == nil {

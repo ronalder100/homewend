@@ -145,8 +145,14 @@ UPDATE OR IGNORE album_owners SET account = 'google/' || account WHERE instr(acc
 // OpenCatalogReadOnly opens the index at path to look at it: no schema, no
 // migration, nothing written. A look before an import changes nothing in the
 // library, and a library on a read-only share can still be looked at.
+//
+// Immutable, because read-only alone is not: in WAL mode SQLite still
+// creates the -shm and -wal files beside the catalog, and fails where it
+// cannot (measured 09/11). The price is that a write in progress by a
+// download running at the same moment is not seen: the look may count a
+// photo as new that arrives a second later.
 func OpenCatalogReadOnly(path string) (*Catalog, error) {
-	db, err := sql.Open("sqlite", catalogDSN(path, "mode=ro&_pragma=busy_timeout(5000)"))
+	db, err := sql.Open("sqlite", catalogDSN(path, "mode=ro&immutable=1"))
 	if err != nil {
 		return nil, fmt.Errorf("opening the catalog: %w", err)
 	}

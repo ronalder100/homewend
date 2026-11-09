@@ -45,7 +45,8 @@ var systemNames = map[string]bool{
 func isSystem(name string) bool { return strings.HasPrefix(name, ".") || systemNames[name] }
 
 // Folder is what is under a folder: the photos and videos as items for
-// Organize, the other files, and what could not be read.
+// Organize, the other files, and what could not be read. An item's date is
+// not read yet: PlanImport reads it with the rest of the file.
 type Folder struct {
 	Items      []Item
 	Others     []string
@@ -81,7 +82,7 @@ func ReadFolder(dir string) (Folder, error) {
 			f.Others = append(f.Others, path)
 			return nil
 		}
-		f.Items = append(f.Items, Item{Path: path, Capture: cameraDate(path)})
+		f.Items = append(f.Items, Item{Path: path})
 		return nil
 	})
 	return f, err

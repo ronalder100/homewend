@@ -5,7 +5,6 @@ package engine
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,10 +13,12 @@ import (
 	"github.com/ronalder100/homewend/internal/progress"
 )
 
-// ErrLibraryGone is a library folder chosen once and not there now: its
+// LibraryGoneError is a library folder chosen once and not there now: its
 // disk unplugged, its share not mounted. Taken for an empty library, it
 // would make everything look new.
-var ErrLibraryGone = errors.New("the library folder is not there")
+type LibraryGoneError struct{ Root string }
+
+func (e LibraryGoneError) Error() string { return "the library folder " + e.Root + " is not there" }
 
 // PlanImport is what importing dir would bring into the library, read and
 // never written: dir, a card or the library are left as they are.
@@ -49,7 +50,7 @@ func lookAtLibrary() (*library.Catalog, error) {
 		return nil, err
 	}
 	if _, err := os.Stat(root); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrLibraryGone, root)
+		return nil, LibraryGoneError{Root: root}
 	}
 	if _, err := os.Stat(catalogPath(root)); errors.Is(err, os.ErrNotExist) {
 		return nil, nil

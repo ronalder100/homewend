@@ -766,8 +766,13 @@ func importCommand(args []string) int {
 	flags := newFlags("import")
 	dryRun := flags.Bool("dry-run", false, "only tell what would happen")
 	flags.Bool("json", false, "one JSON object per line")
+	// The flags may come after the folder too: Go's parser stops at the
+	// first word that is not one.
 	flags.Parse(args)
 	dir := flags.Arg(0)
+	if flags.NArg() > 1 {
+		flags.Parse(flags.Args()[1:])
+	}
 	if dir == "" {
 		return failed(text["import no dir"], nil, text["import no dir hint"])
 	}
@@ -810,7 +815,7 @@ func importCommand(args []string) int {
 		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))
 	}
 	if plan.Unreadable > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["import unreadable"], counted(plan.Unreadable, "files")), warnColour, false))
+		out.say("  " + out.out.paint(counted(plan.Unreadable, "import unreadable"), warnColour, false))
 	}
 	out.say("")
 	switch {
@@ -818,6 +823,8 @@ func importCommand(args []string) int {
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
 	case plan.InLibrary+plan.Twins > 0:
 		out.say(out.out.result(text["result import none"]))
+	case plan.Unreadable > 0:
+		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], dir)))
 	default:
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
 	}
@@ -973,6 +980,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	again := typed()
 	var space engine.NoSpaceError
 	var notOffered *takeout.NotOfferedError
+	var gone engine.LibraryGoneError
 	switch {
 	case errors.As(err, &notOffered):
 		var years []string
@@ -1008,8 +1016,8 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
-	case errors.Is(err, engine.ErrLibraryGone):
-		return exitError, fmt.Sprintf(text["library gone"], err), nil, []string{text["library gone hint"]}
+	case errors.As(err, &gone):
+		return exitError, fmt.Sprintf(text["library gone"], gone.Root), nil, []string{text["library gone hint"]}
 	case errors.Is(err, errNoSuchAccount):
 		return exitError, fmt.Sprintf(text["no such account"], err), nil, []string{text["accounts hint"]}
 	case errors.Is(err, errWhichAccount):
