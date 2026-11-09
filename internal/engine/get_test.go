@@ -4,6 +4,8 @@
 package engine
 
 import (
+	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -87,5 +89,16 @@ func TestFoundSaysTheProfileRunFills(t *testing.T) {
 	g.Again = true
 	if p := g.found(e).Profile; p != "annie" {
 		t.Errorf("downloaded again: %q, want the account's", p)
+	}
+}
+
+// A profile typed for a download is a folder of the library: one that would
+// leave it is refused before Google is asked anything.
+func TestADownloadRefusesAProfileOutsideTheLibrary(t *testing.T) {
+	for _, profile := range []string{"../escaped", ".homewend", "a/b"} {
+		g := Get{Profile: profile}
+		if _, err := g.Run(context.Background(), nil, nil); !errors.Is(err, ErrBadProfile) {
+			t.Errorf("profile %q: %v, want ErrBadProfile", profile, err)
+		}
 	}
 }
