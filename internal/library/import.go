@@ -70,7 +70,17 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		if err != nil {
 			return done, err
 		}
-		if home := filepath.Join(root, filepath.FromSlash(relative)); known && exists(home) {
+		home := filepath.Join(root, filepath.FromSlash(relative))
+		if known && !exists(home) {
+			// In the catalog, gone from the disk: someone deleted it. The
+			// arrivals were emptied, so it is no move left halfway either.
+			// Brought in again, it is new, in this profile.
+			if err := catalog.forget(hash); err != nil {
+				return done, err
+			}
+			known = false
+		}
+		if known {
 			// Already in the library. Held by another profile, it gets a
 			// name in this one too: Organize is handed the library's own
 			// file for that, never the folder's, so it cannot move it.

@@ -89,9 +89,10 @@ func Import(ctx context.Context, dir, profile string, link bool, emit progress.F
 		return nil
 	}
 	done, err := library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, link, fits, emit)
-	// A card taken out halfway makes every file after it unreadable: that
-	// is not a run that ended, it is one to resume.
-	if _, gone := os.Stat(dir); err == nil && gone != nil {
+	// A card taken out halfway, during a copy or between two, is not a run
+	// that ended or failed: it is one to resume. A stop asked for is said
+	// as a stop.
+	if _, gone := os.Stat(dir); gone != nil && !errors.Is(err, context.Canceled) {
 		return done, FolderGoneError{Dir: dir}
 	}
 	return done, err

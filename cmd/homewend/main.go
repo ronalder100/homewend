@@ -766,17 +766,17 @@ func importCommand(args []string) int {
 	w := importArgs(args)
 	dir := w.dir
 	if dir == "" {
-		return failed(text["import no dir"], nil, text["import no dir hint"])
+		return w.failed(text["import no dir"], text["import no dir hint"])
 	}
 	if w.more {
-		return failed(text["import one folder"], nil, text["import no dir hint"])
+		return w.failed(text["import one folder"], text["import no dir hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
-		return failed(fmt.Sprintf(text["import not found"], dir), nil)
+		return w.failed(fmt.Sprintf(text["import not found"], dir))
 	} else if !info.IsDir() {
-		return failed(fmt.Sprintf(text["import not a folder"], dir), nil)
+		return w.failed(fmt.Sprintf(text["import not a folder"], dir))
 	} else if _, err := os.ReadDir(dir); err != nil {
-		return failed(fmt.Sprintf(text["import cannot read"], dir), nil)
+		return w.failed(fmt.Sprintf(text["import cannot read"], dir))
 	}
 	if !w.dryRun {
 		return importCopy(w, args)
@@ -858,6 +858,16 @@ type importWords struct {
 	more    bool // more than one folder
 }
 
+// failed says what is wrong before anything starts: as a line of JSON when
+// that was asked for, as printer.fail does.
+func (w importWords) failed(said string, hints ...string) int {
+	if w.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"error": said, "exit": exitError})
+		return exitError
+	}
+	return failed(said, nil, hints...)
+}
+
 // importCopy brings the folder into the library.
 func importCopy(w importWords, args []string) int {
 	ctx, stop := interrupted()
@@ -869,11 +879,7 @@ func importCopy(w importWords, args []string) int {
 	if errors.Is(err, errNoProfile) {
 		// No Google account, no profile yet: a card needs no sign-in, only
 		// a name for whose photos these are.
-		if w.json {
-			json.NewEncoder(os.Stdout).Encode(map[string]any{"error": text["import whose"], "exit": exitError})
-			return exitError
-		}
-		return failed(text["import whose"], nil, fmt.Sprintf(text["import whose hint"], typed()))
+		return w.failed(text["import whose"], fmt.Sprintf(text["import whose hint"], typed()))
 	}
 	if err != nil {
 		return newPrinter(w.json).fail(err)

@@ -261,11 +261,16 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 	// Same name, different photo: keep both. Silently overwriting here is how a
 	// library quietly loses pictures. A name is taken when a file holds it, or
 	// when the catalog has promised it to a photo whose move was interrupted.
-	target := filepath.Join(dir, filepath.Base(src))
-	for {
-		// Already a name of this very file, from a run before: it is its
+	name := filepath.Join(dir, filepath.Base(src))
+	for n := 1; ; n++ {
+		target := name
+		if n > 1 {
+			target = withSuffix(name, n)
+		}
+		// Already this photo, from a run before: a second name of the same
+		// file, or — on a disk with no hard links — a copy of it. It is its
 		// place, not a reason for another name.
-		if sameFile(target, src) {
+		if same(target, src) {
 			return target, nil
 		}
 		promised, err := catalog.PathTaken(relativeTo(root, target))
@@ -275,7 +280,6 @@ func destination(src, root string, capture Capture, opt Options, catalog *Catalo
 		if !promised && !exists(target) {
 			return target, nil
 		}
-		target = withSuffix(target)
 	}
 }
 
@@ -319,32 +323,33 @@ func sizeOf(path string) int64 {
 	return info.Size()
 }
 
-func withSuffix(path string) string {
+func withSuffix(path string, n int) string {
 	// The file's name only: a folder above it named "Disk-2" is not a
 	// suffix to count up, and counting it moved the photo out of the
-	// library (measured 09/11, under /tmp/claude-1000).
-	dir, name := filepath.Split(path)
-	ext := filepath.Ext(name)
-	stem := strings.TrimSuffix(name, ext)
-
-	// "name-2.jpg", then "name-3.jpg", rather than "name-2-2.jpg".
-	if at := strings.LastIndex(stem, "-"); at > 0 {
-		var n int
-		if _, err := fmt.Sscanf(stem[at+1:], "%d", &n); err == nil {
-			return filepath.Join(dir, fmt.Sprintf("%s-%d%s", stem[:at], n+1, ext))
-		}
-	}
-	return filepath.Join(dir, stem+"-2"+ext)
+	// library (measured 09/11, under /tmp/claude-1000). Counted from the
+	// first name each time, so "2018-01-05.jpg" becomes "2018-01-05-2.jpg".
+	dir, file := filepath.Split(path)
+	ext := filepath.Ext(file)
+	return filepath.Join(dir, fmt.Sprintf("%s-%d%s", strings.TrimSuffix(file, ext), n, ext))
 }
 
-// sameFile is whether a and b are two names of one file.
-func sameFile(a, b string) bool {
+// same is whether a and b hold one photo: two names of one file, or two
+// files of the same size and content.
+func same(a, b string) bool {
+	if linked(a, b) {
+		return true
+	}
 	x, err := os.Stat(a)
 	if err != nil {
 		return false
 	}
 	y, err := os.Stat(b)
-	return err == nil && os.SameFile(x, y)
+	if err != nil || x.Size() != y.Size() {
+		return false
+	}
+	ha, errA := hashOf(a)
+	hb, errB := hashOf(b)
+	return errA == nil && errB == nil && ha == hb
 }
 
 // linkInto makes path a second name for src. Reports whether a hardlink worked;

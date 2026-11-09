@@ -544,6 +544,13 @@ func relativeTo(root, path string) string {
 }
 
 // setPath records that a photo is now at path, under name.
+// forget drops a photo whose file is gone from the library, so that a copy
+// brought in again is placed and counted as new.
+func (c *Catalog) forget(hash string) error {
+	_, err := c.db.Exec(`DELETE FROM photos WHERE hash = ?`, hash)
+	return err
+}
+
 func (c *Catalog) setPath(hash, path, name string) error {
 	_, err := c.db.Exec(`UPDATE photos SET path = ?, name = ? WHERE hash = ?`, path, name, hash)
 	return err

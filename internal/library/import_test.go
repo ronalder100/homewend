@@ -201,13 +201,18 @@ func TestALinkToALinkIsTheFile(t *testing.T) {
 // A suffix counts up the file's name, never a folder above it: under a
 // folder named Disk-2, a second DSCF0001 stays in the library.
 func TestASuffixIsTheNamesOnly(t *testing.T) {
-	for in, want := range map[string]string{
-		"/media/Disk-2/lib/2018/01/DSCF0001.JPG":   "/media/Disk-2/lib/2018/01/DSCF0001-2.JPG",
-		"/media/Disk-2/lib/2018/01/DSCF0001-2.JPG": "/media/Disk-2/lib/2018/01/DSCF0001-3.JPG",
-		"/home/u/Photos-2024/IMG_1.JPG":            "/home/u/Photos-2024/IMG_1-2.JPG",
+	for _, c := range []struct {
+		in   string
+		n    int
+		want string
+	}{
+		{"/media/Disk-2/lib/2018/01/DSCF0001.JPG", 2, "/media/Disk-2/lib/2018/01/DSCF0001-2.JPG"},
+		{"/media/Disk-2/lib/2018/01/DSCF0001.JPG", 3, "/media/Disk-2/lib/2018/01/DSCF0001-3.JPG"},
+		{"/home/u/Photos-2024/IMG_1.JPG", 2, "/home/u/Photos-2024/IMG_1-2.JPG"},
+		{"/lib/2018/01/2018-01-05.jpg", 2, "/lib/2018/01/2018-01-05-2.jpg"},
 	} {
-		if got := withSuffix(filepath.FromSlash(in)); got != filepath.FromSlash(want) {
-			t.Errorf("withSuffix(%s) = %s, want %s", in, got, want)
+		if got := withSuffix(filepath.FromSlash(c.in), c.n); got != filepath.FromSlash(c.want) {
+			t.Errorf("withSuffix(%s, %d) = %s, want %s", c.in, c.n, got, c.want)
 		}
 	}
 }
@@ -241,5 +246,49 @@ func TestASecondProfileGetsOneNameEach(t *testing.T) {
 	})
 	if len(names) != 3 {
 		t.Errorf("%d names in the second profile, want 3: %v", len(names), names)
+	}
+}
+
+// A photo deleted from the library and brought in again is new: placed in
+// the profile it is brought into, and counted.
+func TestAPhotoDeletedFromTheLibraryComesBackAsNew(t *testing.T) {
+	card := cameraCard(t)
+	root := t.TempDir()
+	importCard(t, card, root, false)
+	gone := filepath.Join(root, "ruvido", "2018", "01", "DSCF0002.JPG")
+	if err := os.Remove(gone); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, false, func(int64) error { return nil }, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.Placed != 1 {
+		t.Errorf("%+v, want the deleted photo placed again", done)
+	}
+	mustExist(t, filepath.Join(root, "anna", "2018", "01", "DSCF0002.JPG"))
+}
+
+// On a disk with no hard links, a photo's name in a second profile is a
+// copy: the next run must know it for the same photo, not add another.
+func TestACopyIsTheSamePhoto(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "a/DSCF0001.JPG", []byte("one photo"))
+	write(t, dir, "b/DSCF0001.JPG", []byte("one photo"))
+	write(t, dir, "c/DSCF0001.JPG", []byte("another!!"))
+	if !same(filepath.Join(dir, "a", "DSCF0001.JPG"), filepath.Join(dir, "b", "DSCF0001.JPG")) {
+		t.Error("two copies of one photo were taken for two photos")
+	}
+	if same(filepath.Join(dir, "a", "DSCF0001.JPG"), filepath.Join(dir, "c", "DSCF0001.JPG")) {
+		t.Error("two photos of the same size were taken for one")
 	}
 }
