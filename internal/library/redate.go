@@ -4,6 +4,7 @@
 package library
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,9 @@ type Redate struct {
 	// clock: a clock, like EXIF, kept unmoved.
 	When time.Time `json:"when"`
 }
+
+// ErrOthersPhoto is a date given to a photo another profile brought first.
+var ErrOthersPhoto = errors.New("the photo is filed in another profile")
 
 // UnknownNameError is a name given a date that the folder does not have.
 type UnknownNameError struct{ Name string }
@@ -78,7 +82,14 @@ func given(redates []Redate, f Folder) (map[string]time.Time, error) {
 // the folder, in any case — a card's FAT keeps names as the camera wrote
 // them, and nobody types them so.
 func named(name string, f Folder) (string, error) {
-	want := filepath.ToSlash(name)
+	// A path typed as the shell completes it — whole, or from ./ — is the
+	// same name as the path below the folder.
+	if filepath.IsAbs(name) {
+		if rel, err := filepath.Rel(f.Root, name); err == nil {
+			name = rel
+		}
+	}
+	want := filepath.ToSlash(filepath.Clean(name))
 	var found []string
 	for _, item := range f.Items {
 		rel, err := filepath.Rel(f.Root, item.Path)
@@ -107,12 +118,19 @@ func named(name string, f Folder) (string, error) {
 // redateInLibrary gives a date to a photo the library already holds: it
 // moves to the folder of that date, on the same disk, and the catalog and
 // a .xmp beside it say the date. The file is not written.
+//
+// A photo is filed once, in the profile that brought it first; others hold
+// a second name of it. Its date is given from that profile: given from
+// another, it would take the photo away from the first (ErrOthersPhoto).
 func redateInLibrary(root string, catalog *Catalog, hash string, when time.Time, opt Options) error {
 	record, err := catalog.photo(hash)
 	if err != nil {
 		return err
 	}
 	from := filepath.Join(root, filepath.FromSlash(record.Path))
+	if !within(from, profileRoot(root, opt)) {
+		return ErrOthersPhoto
+	}
 	capture := Capture{When: when, Source: FromGiven, Origin: record.Origin}
 	to, err := destination(from, root, capture, opt, catalog)
 	if err != nil {
@@ -135,8 +153,9 @@ func redateInLibrary(root string, catalog *Catalog, hash string, when time.Time,
 		// The month and the year it leaves, if nothing else is in them: an
 		// empty 2018 would say a year the camera never saw. Remove fails on
 		// a folder that is not empty, which is the check.
+		// Never the profile's own folder: undated/ is right under it.
 		month := filepath.Dir(from)
-		if os.Remove(month) == nil {
+		if os.Remove(month) == nil && filepath.Dir(month) != profileRoot(root, opt) {
 			os.Remove(filepath.Dir(month))
 		}
 		if err := catalog.setPath(hash, relativeTo(root, to), filepath.Base(to)); err != nil {

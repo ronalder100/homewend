@@ -22,6 +22,8 @@ type ImportPlan struct {
 	// Already in the library, found by content: copying them again would
 	// store nothing new.
 	InLibrary int `json:"in_library"`
+	// Of them and of the twins, those a date given would move.
+	Redated int `json:"redated"`
 	// The same photo twice in the folder: it is copied once.
 	Twins int `json:"twins"`
 	// Files and folders that could not be read, passed over.
@@ -71,6 +73,7 @@ func PlanImport(dir string, f Folder, catalog *Catalog, redates []Redate, emit p
 			plan.Unreadable++
 			continue
 		}
+		_, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
 		// the folder has it.
 		if catalog != nil {
@@ -78,11 +81,17 @@ func PlanImport(dir string, f Folder, catalog *Catalog, redates []Redate, emit p
 				return plan, err
 			} else if known {
 				plan.InLibrary++
+				if dated {
+					plan.Redated++
+				}
 				continue
 			}
 		}
 		if seen[hash] {
 			plan.Twins++
+			if dated {
+				plan.Redated++
+			}
 			continue
 		}
 		seen[hash] = true

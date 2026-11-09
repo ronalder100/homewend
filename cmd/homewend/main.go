@@ -821,6 +821,9 @@ func importCommand(args []string) int {
 	if plan.InLibrary > 0 {
 		out.say("  " + fmt.Sprintf(text["import already"], plan.InLibrary))
 	}
+	if plan.Redated > 0 {
+		out.say("  " + fmt.Sprintf(text["plan redated"], plan.Redated))
+	}
 	if plan.Twins > 0 {
 		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))
 	}
@@ -1007,6 +1010,9 @@ func importCopy(w importWords, args []string) int {
 	if done.Redated > 0 {
 		out.say("  " + fmt.Sprintf(text["imported redated"], done.Redated))
 	}
+	if done.NotRedated > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], done.NotRedated), warnColour, false))
+	}
 	if done.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(done.Unreadable, "import unreadable"), warnColour, false))
 	}
@@ -1016,6 +1022,8 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.result(fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)))
 	case done.Placed > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)))
+	case done.Redated > 0:
+		out.say(out.out.result(fmt.Sprintf(text["result redated"], done.Redated)))
 	case done.InLibrary+done.Twins > 0 && done.Unreadable > 0:
 		out.say(out.out.summary(text["result import none read"]))
 	case done.InLibrary+done.Twins > 0:

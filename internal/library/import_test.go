@@ -484,3 +484,75 @@ func TestADryRunCountsTheDatesGiven(t *testing.T) {
 		t.Errorf("%+v, %v; want 2026", plan.Years, err)
 	}
 }
+
+// A date given from a second profile does not take the photo away from the
+// one that brought it first: it is said, and nothing moves.
+func TestADateFromAnotherProfileLeavesThePhoto(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "four"))
+	root := t.TempDir()
+	if _, err := importDated(t, card, root, nil); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}}
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ann"}, how, nil)
+	catalog.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.NotRedated != 1 || done.Redated != 0 {
+		t.Errorf("%+v, want it said as another profile's", done)
+	}
+	mustExist(t, filepath.Join(root, "ruvido", "2018", "01", "DSCF0004.JPG"))
+	mustExist(t, filepath.Join(root, "ann", "2018", "01", "DSCF0004.JPG"))
+}
+
+// Dating a profile's only undated photo leaves the profile's own folder.
+func TestTheProfilesFolderStays(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "clip.mov", []byte("a video with no header"))
+	root := t.TempDir()
+	if _, err := importDated(t, card, root, nil); err != nil {
+		t.Fatal(err)
+	}
+	mustExist(t, filepath.Join(root, "ruvido", "undated", "clip.mov"))
+	if _, err := importDated(t, card, root, []Redate{{Names: []string{"clip.mov"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}); err != nil {
+		t.Fatal(err)
+	}
+	mustExist(t, filepath.Join(root, "ruvido", "2026", "09", "clip.mov"))
+	mustExist(t, filepath.Join(root, "ruvido"))
+}
+
+// A dry run says the photos already in that a date would move; a name is
+// also taken as the shell completes it, whole or from ./.
+func TestADryRunSaysWhatADateWouldMove(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "four"))
+	root := t.TempDir()
+	if _, err := importDated(t, card, root, nil); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{filepath.Join(card, "DCIM", "DSCF0004.JPG"), "./DCIM/DSCF0004.JPG"} {
+		plan, err := PlanImport(card, folder, catalog, []Redate{{Names: []string{name}, When: time.Now()}}, nil)
+		if err != nil || plan.Redated != 1 {
+			t.Errorf("%s: %+v, %v; want 1 that would move", name, plan, err)
+		}
+	}
+}

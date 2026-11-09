@@ -26,7 +26,9 @@ type Imported struct {
 	Undated   int   `json:"undated"`    // of them, with no date the camera wrote
 	InLibrary int   `json:"in_library"` // already there before: nothing copied
 	Twins     int   `json:"twins"`      // the same photo twice in the folder: brought in once
-	Redated   int   `json:"redated"`    // of the placed, with a date given before the import
+	Redated   int   `json:"redated"`    // given the date the person gave: new or already in
+	// Given a date but filed in another profile, whose date it is to give.
+	NotRedated int `json:"not_redated"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 }
@@ -96,10 +98,14 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			done.Twins++
 			// The same photo, given a date under its other name.
 			if dated {
-				if err := redateInLibrary(root, catalog, hash, when, opt); err != nil {
+				switch err := redateInLibrary(root, catalog, hash, when, opt); {
+				case errors.Is(err, ErrOthersPhoto):
+					done.NotRedated++
+				case err != nil:
 					return done, err
+				default:
+					done.Redated++
 				}
-				done.Redated++
 			}
 			continue
 		}
@@ -132,10 +138,14 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// A date given now is for a photo already in: the likeliest
 			// case, seen as 2018 in the library after a first import.
 			if dated {
-				if err := redateInLibrary(root, catalog, hash, when, opt); err != nil {
+				switch err := redateInLibrary(root, catalog, hash, when, opt); {
+				case errors.Is(err, ErrOthersPhoto):
+					done.NotRedated++
+				case err != nil:
 					return done, err
+				default:
+					done.Redated++
 				}
-				done.Redated++
 			}
 			done.InLibrary++
 			continue
