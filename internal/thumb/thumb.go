@@ -73,11 +73,9 @@ func Make(ctx context.Context, src, dst string) error {
 	return os.Rename(tmp, dst)
 }
 
-var videos = map[string]bool{".mp4": true, ".mov": true, ".m4v": true, ".3gp": true, ".avi": true, ".mkv": true, ".webm": true}
-
 func decode(ctx context.Context, src string) (image.Image, error) {
 	ext := strings.ToLower(filepath.Ext(src))
-	if videos[ext] {
+	if library.IsVideo(src) {
 		return frame(ctx, src)
 	}
 	f, err := os.Open(src)

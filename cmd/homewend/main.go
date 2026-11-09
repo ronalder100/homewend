@@ -45,6 +45,7 @@ var version = "dev"
 // commands maps each subcommand to its shell. Every one has a help page,
 // text["help <name>"].
 var commands = map[string]func(args []string) int{
+	"import":  importCommand,
 	"login":   login,
 	"logout":  logout,
 	"status":  status,
@@ -751,6 +752,80 @@ func verify(args []string) int {
 		return exitIncomplete
 	}
 	return exitOK
+}
+
+// importCommand tells what a card or a folder would bring into the library.
+// Only --dry-run exists: the copy comes next.
+func importCommand(args []string) int {
+	flags := newFlags("import")
+	dryRun := flags.Bool("dry-run", false, "only tell what would happen")
+	flags.Bool("json", false, "one JSON object per line")
+	flags.Parse(args)
+	dir := flags.Arg(0)
+	if dir == "" {
+		return failed(text["import no dir"], nil, text["import no dir hint"])
+	}
+	if !*dryRun {
+		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], dir))
+	}
+	out := begin(args)
+	defer out.close()
+	plan, err := engine.PlanImport(dir)
+	if err != nil {
+		return out.fail(err)
+	}
+	if out.json {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"import": plan})
+		return exitOK
+	}
+	for _, y := range plan.Years {
+		year := y.Year
+		if year == "" {
+			year = text["import no date"]
+		}
+		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
+	}
+	for _, o := range plan.Others {
+		folder := o.Folder
+		if folder == "." {
+			folder = text["import top"]
+		}
+		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
+	}
+	if plan.InLibrary > 0 {
+		out.say("  " + fmt.Sprintf(text["import already"], plan.InLibrary))
+	}
+	if plan.Twins > 0 {
+		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))
+	}
+	out.say("")
+	if plan.Photos+plan.Videos == 0 {
+		out.say(out.out.result(text["result import none"]))
+	} else {
+		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
+	}
+	return exitOK
+}
+
+// counted is n of a thing, "1 photo" or "3 photos": key names the plural in
+// the table, key+" one" the singular.
+func counted(n int, key string) string {
+	if n == 1 {
+		return text[key+" one"]
+	}
+	return fmt.Sprintf(text[key], n)
+}
+
+// mediaCount is "3 photos · 1 video", leaving out what there is none of.
+func mediaCount(photos, videos int) string {
+	var parts []string
+	if photos > 0 {
+		parts = append(parts, counted(photos, "photos"))
+	}
+	if videos > 0 {
+		parts = append(parts, counted(videos, "videos"))
+	}
+	return strings.Join(parts, " · ")
 }
 
 // updateProgram replaces the running homewend with the latest release.

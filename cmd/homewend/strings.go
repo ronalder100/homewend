@@ -18,6 +18,7 @@ Commands:
   logout    sign out and forget the Google sign-in
   status    show the account, the export and the library
   takeout   bring photos home from Google Takeout: all, or a year
+  import    see what a card or a folder would bring into the library
   verify    count the library again against its exports
   ui        serve the window of the desktop app
   update    install the latest homewend
@@ -119,6 +120,27 @@ Examples:
   homewend takeout --list
   homewend takeout --library /mnt/nas/photos`,
 
+	"help import": `homewend import — what a card or a folder would bring in
+
+Usage:
+  homewend import --dry-run DIR [--json]
+
+Reads every photo and video under DIR and tells, by year, what would come into
+the library and what is already there: the same photo is found by its content,
+whatever its name. Files that are not photos or videos stay out and are listed
+by folder; a disk's own system files are not listed at all. Nothing is copied
+and nothing changes, on DIR or in the library.
+
+Copying is not built yet: --dry-run is needed.
+
+Flags:
+  --dry-run       only tell what would happen
+  --json          one JSON object per line, for scripts
+
+Examples:
+  homewend import --dry-run /media/card
+  homewend import --dry-run ~/Pictures/old-laptop`,
+
 	"help verify": `homewend verify — count a library again
 
 Usage:
@@ -213,43 +235,60 @@ Examples:
 	"all photos":       "photos",
 
 	// The work.
-	"looking":         "Looking for an export of your %s on Google Takeout",
-	"asking":          "Asking Google for an export",
-	"asking hint":     "Takeout takes two or three minutes to take the request.",
-	"asked":           "Asked Google for an export",
-	"asked at":        " at %s",
-	"preparing":       "Google is preparing the export",
-	"preparing hint":  "Minutes for a year, a few hours for everything. The download starts by itself as soon as it is ready.",
-	"preparing lead":  "Have to go?",
-	"preparing note":  "Close the terminal and run the same command later: it picks up where it left off.",
-	"found":           "Found export %s",
-	"found details":   " · %d parts · %s",
-	"in library":      " · already in the library",
-	"in library now":  "Already in the library",
-	"downloading":     "Downloading part %d of %d",
-	"download sizes":  "%s of %s",
-	"download left":   " · %s left",
-	"downloaded":      "Downloaded part **%d of %d**",
-	"downloaded in":   " · %s in %s",
-	"network":         "Waiting for the network to come back",
-	"network try":     " · attempt %d",
-	"damaged":         "Part %d of %d was damaged on the way",
-	"damaged again":   " · downloading it again",
-	"unpacking":       "Unpacking part %d of %d",
-	"sorting":         "Sorting photos",
-	"sorted":          "Sorted **%d photos**",
-	"sorted details":  " in %s · %d duplicates · %d undated · %d in albums",
-	"checked":         "Checked **%d of %d**",
-	"checked details": " against the export's list",
-	"result":          "All %d photos are there",
-	"export details":  " · %s · %d parts · %s",
-	"result verify":   "All %d photos from your exports are in %s",
-	"missing":         "%d photos are missing from the library",
-	"fetch them":      "to fetch them, run: **%s**",
-	"stopped":         "Stopped",
-	"resume":          "to resume, run: **%s**",
-	"elapsed":         " · %s",
-	"please wait":     " · please wait…",
+	"looking":            "Looking for an export of your %s on Google Takeout",
+	"asking":             "Asking Google for an export",
+	"asking hint":        "Takeout takes two or three minutes to take the request.",
+	"asked":              "Asked Google for an export",
+	"asked at":           " at %s",
+	"preparing":          "Google is preparing the export",
+	"preparing hint":     "Minutes for a year, a few hours for everything. The download starts by itself as soon as it is ready.",
+	"preparing lead":     "Have to go?",
+	"preparing note":     "Close the terminal and run the same command later: it picks up where it left off.",
+	"found":              "Found export %s",
+	"found details":      " · %d parts · %s",
+	"in library":         " · already in the library",
+	"in library now":     "Already in the library",
+	"downloading":        "Downloading part %d of %d",
+	"download sizes":     "%s of %s",
+	"download left":      " · %s left",
+	"downloaded":         "Downloaded part **%d of %d**",
+	"downloaded in":      " · %s in %s",
+	"network":            "Waiting for the network to come back",
+	"network try":        " · attempt %d",
+	"damaged":            "Part %d of %d was damaged on the way",
+	"damaged again":      " · downloading it again",
+	"unpacking":          "Unpacking part %d of %d",
+	"sorting":            "Sorting photos",
+	"sorted":             "Sorted **%d photos**",
+	"sorted details":     " in %s · %d duplicates · %d undated · %d in albums",
+	"checked":            "Checked **%d of %d**",
+	"checked details":    " against the export's list",
+	"result":             "All %d photos are there",
+	"export details":     " · %s · %d parts · %s",
+	"result verify":      "All %d photos from your exports are in %s",
+	"import no dir":      "no folder given",
+	"import no dir hint": "to see what a card would bring in, run: **homewend import --dry-run DIR**",
+	"import dry only":    "copying is not built yet",
+	"import dry hint":    "to see what would come in, run: **homewend import --dry-run %s**",
+	"photos":             "%d photos",
+	"photos one":         "1 photo",
+	"videos":             "%d videos",
+	"videos one":         "1 video",
+	"files":              "%d files",
+	"files one":          "1 file",
+	"import top":         "at the top",
+	"import no date":     "no date",
+	"import others":      "%s, %s · not photos or videos, they stay out",
+	"import already":     "%d already in the library, found by content",
+	"import twins":       "%d twice in the folder, copied once",
+	"result import":      "%s would come in, %s",
+	"result import none": "Nothing new: every photo and video is already in the library",
+	"missing":            "%d photos are missing from the library",
+	"fetch them":         "to fetch them, run: **%s**",
+	"stopped":            "Stopped",
+	"resume":             "to resume, run: **%s**",
+	"elapsed":            " · %s",
+	"please wait":        " · please wait…",
 
 	// takeout --list.
 	"list title":     "Exports on Google Takeout for **%s**",
