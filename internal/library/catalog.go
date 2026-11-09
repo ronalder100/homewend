@@ -236,7 +236,9 @@ func offsets(first, last int64, zone *time.Location) string {
 	for {
 		_, offset := at.Zone()
 		_, end := at.ZoneBounds()
-		if end.IsZero() || end.Unix() > last {
+		// Past the zone's last written rule (2037) Go may end a span where
+		// it began: what lies beyond takes the offset found there.
+		if end.IsZero() || !end.After(at) || end.Unix() > last {
 			// One offset over them all, as in UTC: no CASE to choose.
 			if b.Len() == 0 {
 				return strconv.Itoa(offset)

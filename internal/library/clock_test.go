@@ -194,6 +194,11 @@ func TestTheOffsetsAreAsClocksAre(t *testing.T) {
 	for at := first; at <= last; at += 86400*3 + 3607 {
 		check(at)
 	}
+	// A date far in the future, a sidecar's mistake, ends: the spans after
+	// 2037 must still move on.
+	if far := offsets(first, time.Date(2045, 1, 1, 0, 0, 0, 0, time.UTC).Unix(), rome); !strings.HasPrefix(far, "CASE") {
+		t.Errorf("to 2045: %.40s", far)
+	}
 	// The change to summer time on 30 March 2025, 01:00 UTC.
 	change := time.Date(2025, 3, 30, 1, 0, 0, 0, time.UTC).Unix()
 	for _, at := range []int64{change - 1, change, change + 1, first, last} {
