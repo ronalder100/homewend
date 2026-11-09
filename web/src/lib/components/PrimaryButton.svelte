@@ -3,10 +3,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	let { onclick, children }: { onclick?: () => void; children: Snippet } = $props();
+	let { onclick, disabled = false, children }: { onclick?: () => void; disabled?: boolean; children: Snippet } = $props();
 </script>
 
-<button {onclick}>{@render children()}</button>
+<button {onclick} {disabled}>{@render children()}</button>
 
 <style>
 	/* The secondary button's size: the two stand side by side, and one
@@ -26,7 +26,12 @@
 		font-weight: 600;
 		white-space: nowrap;
 	}
-	button:hover {
+	button:hover:not(:disabled) {
 		filter: brightness(1.06);
+	}
+	/* Greyed when it cannot be done now: the screen says why. */
+	button:disabled {
+		opacity: 0.4;
+		cursor: default;
 	}
 </style>

@@ -3,7 +3,6 @@
 <script lang="ts">
 	import { FolderInput, Plus } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
-	import { fly } from 'svelte/transition';
 	import Brand from './Brand.svelte';
 	import { text } from '#lib/strings.js';
 
@@ -16,7 +15,6 @@
 	// On the Mac the corner belongs to the traffic lights: the sidebar opens
 	// from the View menu and ⌃⌘S there, as in Apple's own apps.
 	const mac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
-	let importing = $state(false);
 </script>
 
 <header>
@@ -32,29 +30,8 @@
 		     from a folder. -->
 		<button class="import" onclick={() => goto('/choose')}><Plus size={14} />{text.newTakeout}</button>
 	{/if}
-	<span class="anchor">
-		<button class="import" class:on={importing} onclick={() => (importing = !importing)}
-			><FolderInput size={14} />{text.importFolder}</button
-		>
-		{#if importing}
-			<!-- C3: importing a folder is phase 2; the button says what is coming. -->
-			<div class="popover" role="dialog" aria-label={text.importTitle} transition:fly={{ y: -6, duration: 150 }}>
-				<div class="row">
-					<span class="tile"><FolderInput size={18} /></span><span class="chip">{text.upcoming}</span>
-				</div>
-				<b>{text.importTitle}</b>
-				<p>{text.importDesc}</p>
-			</div>
-		{/if}
-	</span>
+	<button class="import" onclick={() => goto('/import')}><FolderInput size={14} />{text.importFolder}</button>
 </header>
-<svelte:window
-	onkeydown={(e) => e.key === 'Escape' && (importing = false)}
-	onclick={(e) => {
-		// A click anywhere but the popover and its button closes it.
-		if (importing && !(e.target as Element).closest('.anchor')) importing = false;
-	}}
-/>
 
 <style>
 	header {
@@ -123,9 +100,6 @@
 	.spacer {
 		flex: 1;
 	}
-	.anchor {
-		position: relative;
-	}
 	/* A text button: the bordered buttons are the page's, not the bar's. */
 	.import {
 		height: 32px;
@@ -139,56 +113,7 @@
 		font-weight: 600;
 		transition: background-color 120ms ease;
 	}
-	.import:hover,
-	.import.on {
+	.import:hover {
 		background: var(--accent-soft);
-	}
-	.popover {
-		position: absolute;
-		right: 0;
-		top: 40px;
-		z-index: 20;
-		width: 340px;
-		padding: 24px;
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 12px;
-		box-shadow: 0 12px 40px rgba(10, 10, 30, 0.16);
-		-webkit-app-region: no-drag;
-	}
-	.popover .row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.popover b {
-		font-size: var(--text-title-2);
-		font-weight: 700;
-		color: var(--fg);
-	}
-	.tile {
-		width: 36px;
-		height: 36px;
-		display: grid;
-		place-items: center;
-		border-radius: 8px;
-		background: var(--accent-soft);
-		color: var(--accent);
-	}
-	.chip {
-		padding: 2px 8px;
-		border-radius: 999px;
-		background: var(--chip);
-		color: #0a0a0a;
-		font-size: var(--text-subheadline);
-		font-weight: 600;
-	}
-	.popover p {
-		font-size: var(--text-callout);
-		line-height: 1.5;
-		color: var(--muted);
 	}
 </style>

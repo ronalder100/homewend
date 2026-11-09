@@ -156,3 +156,64 @@ export const getAbout = (hash: string) => call<{ albums: string[]; accounts: str
 
 export const readContents = (account: string, exportId: string) =>
 	call<{ years: string[] }>('POST', `/api/takeouts/contents?${q({ account, export: exportId })}`);
+
+/** A disk with a camera's photos on it: a card, a camera, a phone. */
+export interface Card {
+	path: string;
+	name: string;
+}
+
+export interface ImportPlan {
+	photos: number;
+	videos: number;
+	bytes: number;
+	in_library: number;
+	redated: number;
+	twins: number;
+	unreadable: number;
+	/** Newest first; "" is the photos with no date. */
+	years: { year: string; photos: number; videos: number }[];
+	/** What stays out, by the folder it sits in. */
+	others: { folder: string; files: number; bytes: number }[];
+}
+
+export interface Imported {
+	placed: number;
+	bytes: number;
+	undated: number;
+	in_library: number;
+	twins: number;
+	redated: number;
+	not_redated: number;
+	unreadable: number;
+}
+
+/** Where the window's import stands: the look at a folder, then the copy. */
+export interface ImportState {
+	running: boolean;
+	dir?: string;
+	/** Whose photos they are, for a copy taken up again. */
+	profile?: string;
+	kind?: 'plan' | 'import';
+	/** The file being read or copied, n of of; done of total its bytes. */
+	n: number;
+	of: number;
+	name?: string;
+	done: number;
+	total: number;
+	plan?: ImportPlan;
+	imported?: Imported;
+	stopped?: boolean;
+	error?: string;
+	problem?: 'taken-out' | 'no-space' | 'busy' | 'library-gone' | 'unknown-name' | 'ambiguous-name';
+	need?: number;
+	free?: number;
+}
+
+export const getCards = () => call<Card[]>('GET', '/api/cards');
+export const planImport = (dir: string, profile: string) =>
+	call<ImportState>('POST', '/api/import/plan', { dir, profile });
+export const startImport = (dir: string, profile: string) =>
+	call<ImportState>('POST', '/api/import', { dir, profile });
+export const getImport = () => call<ImportState>('GET', '/api/import');
+export const stopImport = () => call<ImportState>('POST', '/api/import/stop');

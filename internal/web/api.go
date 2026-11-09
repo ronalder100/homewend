@@ -12,13 +12,14 @@ import (
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
 
 // apiRoutes are the engine calls the page makes. Each is a thin translation
 // to JSON: what they do lives in the engine.
-func apiRoutes(jobs *engine.Jobs) http.Handler {
+func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 	mux := http.NewServeMux()
 	// One sign-in at a time: a second click must not open a second browser.
 	var signingIn sync.Mutex
@@ -255,6 +256,46 @@ func apiRoutes(jobs *engine.Jobs) http.Handler {
 		list, err := engine.Takeouts(sess)
 		reply(w, list, err)
 	})
+	// Importing a card or a folder: the cards in now, then a look at what
+	// one would bring, then the copy, each running in the engine while the
+	// page asks where it stands.
+	mux.HandleFunc("GET /api/cards", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, engine.Cards(), nil)
+	})
+	mux.HandleFunc("POST /api/import/plan", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Dir     string           `json:"dir"`
+			Profile string           `json:"profile"`
+			Redates []library.Redate `json:"redates"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		err := importing.Plan(body.Dir, body.Profile, body.Redates)
+		reply(w, importing.State(), err)
+	})
+	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Dir     string           `json:"dir"`
+			Profile string           `json:"profile"`
+			Link    bool             `json:"link"`
+			Redates []library.Redate `json:"redates"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		err := importing.Import(body.Dir, body.Profile, body.Link, body.Redates)
+		reply(w, importing.State(), err)
+	})
+	mux.HandleFunc("GET /api/import", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, importing.State(), nil)
+	})
+	mux.HandleFunc("POST /api/import/stop", func(w http.ResponseWriter, r *http.Request) {
+		<-importing.Stop()
+		reply(w, importing.State(), nil)
+	})
 	return mux
 }
 
@@ -264,7 +305,7 @@ func reply(w http.ResponseWriter, v any, err error) {
 	switch {
 	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrBadProfile):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, engine.ErrJobRunning), errors.Is(err, engine.ErrNoUserYet):
+	case errors.Is(err, engine.ErrJobRunning), errors.Is(err, engine.ErrImportRunning), errors.Is(err, engine.ErrNoUserYet):
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, takeout.ErrSignedOut):
 		http.Error(w, err.Error(), http.StatusUnauthorized)

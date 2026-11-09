@@ -45,6 +45,8 @@ type Server struct {
 	ln    net.Listener
 	srv   *http.Server
 	jobs  *engine.Jobs
+	// the window's import from a card or a folder
+	importing *engine.Importing
 	// stop ends every request's context: Shutdown waits for the requests in
 	// flight, and a sign-in is one until the person has signed in.
 	stop context.CancelFunc
@@ -58,7 +60,7 @@ func Listen() (*Server, error) {
 	}
 	token := rand.Text()
 	ctx, stop := context.WithCancel(context.Background())
-	s := &Server{token: token, host: ln.Addr().String(), ln: ln, jobs: &engine.Jobs{}, stop: stop}
+	s := &Server{token: token, host: ln.Addr().String(), ln: ln, jobs: &engine.Jobs{}, importing: &engine.Importing{}, stop: stop}
 	s.URL = "http://" + s.host + "/?t=" + token
 	s.srv = &http.Server{Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second,
 		BaseContext: func(net.Listener) context.Context { return ctx }}
@@ -92,12 +94,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.stop()
 	err := s.srv.Shutdown(ctx)
 	s.jobs.StopAll()
+	// An import stops between two files: what is in stays in, the file
+	// being copied is copied again next time.
+	<-s.importing.Stop()
 	return err
 }
 
 func (s *Server) handler() http.Handler {
 	files, _ := fs.Sub(dist, "dist")
-	api := apiRoutes(s.jobs)
+	api := apiRoutes(s.jobs, s.importing)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A page on another site can resolve its own name to 127.0.0.1;
 		// the Host header is what tells that request apart from ours.
