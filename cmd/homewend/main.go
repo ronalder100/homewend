@@ -91,12 +91,17 @@ func main() {
 func typed() string {
 	words := []string{"homewend"}
 	for _, w := range os.Args[1:] {
-		if strings.ContainsAny(w, " \t") {
-			w = strconv.Quote(w)
-		}
-		words = append(words, w)
+		words = append(words, shellWord(w))
 	}
 	return strings.Join(words, " ")
+}
+
+// shellWord is w as it must be typed: quoted when it holds a space.
+func shellWord(w string) string {
+	if strings.ContainsAny(w, " \t") {
+		return strconv.Quote(w)
+	}
+	return w
 }
 
 // sayNewer ends a command with a hint when a newer release is out. Only for
@@ -766,7 +771,7 @@ func importCommand(args []string) int {
 		return failed(text["import no dir"], nil, text["import no dir hint"])
 	}
 	if !*dryRun {
-		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], dir))
+		return failed(text["import dry only"], nil, fmt.Sprintf(text["import dry hint"], shellWord(dir)))
 	}
 	out := begin(args)
 	defer out.close()
