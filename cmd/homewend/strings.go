@@ -312,6 +312,7 @@ Examples:
 	"no card":                 "no card found: no disk with a camera's DCIM folder is in",
 	"no card hint":            "put the card in, or name a folder: **homewend import DIR**",
 	"cards found":             "more than one card is in: %s",
+	"one folder hint":         "name one: **homewend import DIR**",
 	"which card":              "Which card?",
 	"import top":              "at the top",
 	"import no date":          "no date",

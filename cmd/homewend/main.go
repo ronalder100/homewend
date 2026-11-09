@@ -773,7 +773,7 @@ func importCommand(args []string) int {
 	}
 	dir := w.dir
 	if w.more {
-		return w.failed(text["import one folder"], text["no card hint"])
+		return w.failed(text["import one folder"], text["one folder hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
 		return w.failed(fmt.Sprintf(text["import not found"], dir))
@@ -793,7 +793,7 @@ func importCommand(args []string) int {
 		return out.fail(err)
 	}
 	if out.json {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"import": plan})
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"import": plan, "dir": dir})
 		return exitOK
 	}
 	for _, y := range plan.Years {
@@ -935,7 +935,7 @@ func importCopy(w importWords, args []string) int {
 		return out.fail(err)
 	}
 	if out.json {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done})
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done, "dir": w.dir})
 		return exitOK
 	}
 	if done.InLibrary > 0 {

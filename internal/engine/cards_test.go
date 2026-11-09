@@ -19,7 +19,7 @@ func TestACardIsADiskWithADCIMFolder(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	cards := cardsUnder([]string{media, filepath.Join(media, "not-there")})
+	cards := cardsOf(disksUnder([]string{media, filepath.Join(media, "not-there")}))
 	if len(cards) != 2 || cards[0].Name != "EOS_DIGITAL" || cards[1].Name != "NO NAME" {
 		t.Errorf("cards %+v, want EOS_DIGITAL and NO NAME", cards)
 	}
