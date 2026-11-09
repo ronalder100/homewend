@@ -760,8 +760,8 @@ func verify(args []string) int {
 	return exitOK
 }
 
-// importCommand tells what a card or a folder would bring into the library.
-// Only --dry-run exists: the copy comes next.
+// importCommand brings a card or a folder into the library, or with
+// --dry-run tells what it would bring.
 func importCommand(args []string) int {
 	w := importArgs(args)
 	dir := w.dir
@@ -839,13 +839,13 @@ func importArgs(args []string) importWords {
 	dry := flags.Bool("dry-run", false, "only tell what would happen")
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
-	flags.Bool("json", false, "one JSON object per line")
+	asJSON := flags.Bool("json", false, "one JSON object per line")
 	flags.Parse(args)
 	dir := flags.Arg(0)
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, more: dir != "" && flags.NArg() > 0}
 }
 
 // importWords is what import was told.
@@ -854,6 +854,7 @@ type importWords struct {
 	dryRun  bool
 	link    bool
 	profile string
+	json    bool
 	more    bool // more than one folder
 }
 
@@ -861,14 +862,21 @@ type importWords struct {
 func importCopy(w importWords, args []string) int {
 	ctx, stop := interrupted()
 	defer stop()
-	asJSON := slices.Contains(args, "--json") || slices.Contains(args, "-json")
-	profile, err := pickProfile(ctx, w.profile, asJSON)
+	if _, code := libraryFor(ctx, "", w.json); code != exitOK {
+		return code
+	}
+	profile, err := pickProfile(ctx, w.profile, w.json)
+	if errors.Is(err, errNoProfile) {
+		// No Google account, no profile yet: a card needs no sign-in, only
+		// a name for whose photos these are.
+		return failed(text["import whose"], nil, fmt.Sprintf(text["import whose hint"], typed()))
+	}
 	if err != nil {
-		return newPrinter(asJSON).fail(err)
+		return newPrinter(w.json).fail(err)
 	}
 	out := begin(args)
 	defer out.close()
-	done, err := engine.Import(w.dir, profile, w.link, out.event)
+	done, err := engine.Import(ctx, w.dir, profile, w.link, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -876,17 +884,32 @@ func importCopy(w importWords, args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done})
 		return exitOK
 	}
-	if done.Skipped > 0 {
-		out.say("  " + fmt.Sprintf(text["import already"], done.Skipped))
+	if done.InLibrary > 0 {
+		out.say("  " + fmt.Sprintf(text["import already"], done.InLibrary))
+	}
+	if done.Twins > 0 {
+		out.say("  " + fmt.Sprintf(text["import twins"], done.Twins))
 	}
 	if done.Undated > 0 {
 		out.say("  " + fmt.Sprintf(text["imported undated"], done.Undated))
 	}
+	if done.Unreadable > 0 {
+		out.say("  " + out.out.paint(counted(done.Unreadable, "import unreadable"), warnColour, false))
+	}
 	out.say("")
-	if done.Placed == 0 {
+	switch {
+	case done.Placed > 0 && w.link:
+		out.say(out.out.result(fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)))
+	case done.Placed > 0:
+		out.say(out.out.result(fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)))
+	case done.InLibrary+done.Twins > 0 && done.Unreadable > 0:
+		out.say(out.out.summary(text["result import none read"]))
+	case done.InLibrary+done.Twins > 0:
 		out.say(out.out.result(text["result import none"]))
-	} else {
-		out.say(out.out.result(fmt.Sprintf(text["result imported"], done.Placed, size(done.Bytes), profile)))
+	case done.Unreadable > 0:
+		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], w.dir)))
+	default:
+		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], w.dir)))
 	}
 	return exitOK
 }
@@ -1076,6 +1099,8 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &space):
 		return exitError, text["no space"], []string{fmt.Sprintf(text["no space sizes"], size(space.Need), size(space.Free))},
 			[]string{fmt.Sprintf(text["no space hint"], again)}
+	case errors.Is(err, engine.ErrBadProfile):
+		return exitError, text["bad profile"], nil, nil
 	case errors.Is(err, library.ErrNoLink):
 		return exitError, text["no link"], nil, []string{text["no link hint"]}
 	case errors.As(err, &gone):

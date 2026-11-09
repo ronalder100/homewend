@@ -4,6 +4,7 @@
 package library
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,52 +14,115 @@ import (
 )
 
 // ErrNoLink is a hard link the disk refused: the folder is on another disk
-// than the library, or a disk that has no hard links.
-var ErrNoLink = errors.New("a hard link needs the folder on the library's disk")
+// than the library, or on a disk that has none.
+var ErrNoLink = errors.New("the disk refused a hard link")
+
+// Imported is what an import did.
+type Imported struct {
+	Placed    int   `json:"placed"`     // photos and videos now in the library
+	Bytes     int64 `json:"bytes"`      // they take, counted once each
+	Undated   int   `json:"undated"`    // of them, with no date the camera wrote
+	InLibrary int   `json:"in_library"` // already there before: nothing copied
+	Twins     int   `json:"twins"`      // the same photo twice in the folder: brought in once
+	// Files and folders that could not be read, passed over.
+	Unreadable int `json:"unreadable"`
+}
 
 // arrivals is where a file from a folder waits, copied and read back, for
 // Organize to place it: inside the library, so placing it is a rename.
 func arrivals(root string) string { return filepath.Join(root, WorkDir, "import") }
 
 // Import brings f's photos and videos into the library at root, one at a
-// time: each is copied into the library and read back — or, with link, given
-// a second name there, which costs no space and needs the same disk — then
-// placed by Organize, which files it by its date and stores a photo the
-// library already holds only once. Nothing in the folder is changed.
+// time. Each is read once to know its content: one the library already
+// holds is not copied again. A new one is copied into the library and read
+// back — or, with link, given a second name there, which costs no space and
+// needs the same disk — then placed by Organize, which files it by its date.
+// Nothing in the folder is changed.
 //
-// One at a time, so that a card taken out halfway leaves in the library
-// every photo that was already in, and the next run brings the rest.
-func Import(f Folder, root string, catalog *Catalog, opt Options, link bool, emit progress.Func) (Organized, error) {
-	result := Organized{BySource: map[DateSource]int{}, ByOrigin: map[Origin]int{}}
+// One at a time, so that a card taken out halfway, or a stop asked through
+// ctx, leaves in the library every photo already in, and the next run brings
+// the rest. fits is asked before each copy whether the library's disk has
+// room for it.
+func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error, emit progress.Func) (Imported, error) {
+	done := Imported{Unreadable: f.Unreadable}
 	// What a stopped run left here was never placed: it starts again.
 	if err := os.RemoveAll(arrivals(root)); err != nil {
-		return result, err
+		return done, err
 	}
 	defer os.RemoveAll(arrivals(root))
+	seen := map[string]bool{}
 	for i, item := range f.Items {
+		if err := ctx.Err(); err != nil {
+			return done, err
+		}
 		emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path)})
-		// A folder of its own for each file: two cameras both name a photo
-		// DSCF0001.JPG.
-		arrived := filepath.Join(arrivals(root), fmt.Sprint(i), filepath.Base(item.Path))
-		if err := os.MkdirAll(filepath.Dir(arrived), 0o755); err != nil {
-			return result, err
-		}
-		if link {
-			if err := os.Link(item.Path, arrived); err != nil {
-				return result, fmt.Errorf("%w: %v", ErrNoLink, err)
-			}
-		} else if _, err := copyFile(item.Path, arrived); err != nil {
-			return result, fmt.Errorf("copying %s: %w", item.Path, err)
-		}
-		capture := Capture{Source: NoDate, Origin: OriginOf("", filepath.Base(item.Path))}
-		if when, source, ok := cameraDate(arrived); ok {
-			capture.When, capture.Source = when, source
-		}
-		placed, err := Organize([]Item{{Path: arrived, Capture: capture}}, root, catalog, opt, nil)
+		hash, err := hashOf(item.Path)
 		if err != nil {
-			return result, err
+			done.Unreadable++
+			continue
 		}
-		result.Add(placed)
+		if seen[hash] {
+			done.Twins++
+			continue
+		}
+		seen[hash] = true
+		relative, known, err := catalog.PathOf(hash)
+		if err != nil {
+			return done, err
+		}
+		if home := filepath.Join(root, filepath.FromSlash(relative)); known && exists(home) {
+			// Already in the library. Held by another profile, it gets a
+			// name in this one too: Organize is handed the library's own
+			// file for that, never the folder's, so it cannot move it.
+			if !within(home, profileRoot(root, opt)) {
+				if _, err := Organize([]Item{{Path: home}}, root, catalog, opt, nil); err != nil {
+					return done, err
+				}
+			}
+			done.InLibrary++
+			continue
+		}
+		placed, err := bringIn(item.Path, i, root, catalog, opt, link, fits)
+		if err != nil {
+			return done, err
+		}
+		done.Placed += placed.Placed
+		done.Bytes += placed.Bytes
+		done.Undated += placed.Undated
 	}
-	return result, nil
+	return done, nil
+}
+
+// bringIn copies or links one file into the arrivals and places it.
+func bringIn(src string, i int, root string, catalog *Catalog, opt Options, link bool, fits func(int64) error) (Organized, error) {
+	// A folder of its own for each file: two cameras both name a photo
+	// DSCF0001.JPG. Emptied once the file is placed.
+	arrived := filepath.Join(arrivals(root), fmt.Sprint(i), filepath.Base(src))
+	defer os.RemoveAll(filepath.Dir(arrived))
+	if err := os.MkdirAll(filepath.Dir(arrived), 0o755); err != nil {
+		return Organized{}, err
+	}
+	if link {
+		// The file a link points at, not the link: a second name for a
+		// link would be a link into the folder.
+		target, err := filepath.EvalSymlinks(src)
+		if err != nil {
+			return Organized{}, err
+		}
+		if err := os.Link(target, arrived); err != nil {
+			return Organized{}, fmt.Errorf("%w: %v", ErrNoLink, err)
+		}
+	} else {
+		if err := fits(sizeOf(src)); err != nil {
+			return Organized{}, err
+		}
+		if _, err := copyFile(src, arrived); err != nil {
+			return Organized{}, fmt.Errorf("copying %s: %w", src, err)
+		}
+	}
+	capture := Capture{Source: NoDate, Origin: OriginOf("", filepath.Base(src))}
+	if when, source, ok := cameraDate(arrived); ok {
+		capture.When, capture.Source = when, source
+	}
+	return Organize([]Item{{Path: arrived, Capture: capture}}, root, catalog, opt, nil)
 }

@@ -18,7 +18,7 @@ Commands:
   logout    sign out and forget the Google sign-in
   status    show the account, the export and the library
   takeout   bring photos home from Google Takeout: all, or a year
-  import    see what a card or a folder would bring into the library
+  import    bring in the photos of a card or a folder
   verify    count the library again against its exports
   ui        serve the window of the desktop app
   update    install the latest homewend
@@ -274,7 +274,7 @@ Examples:
 	"export details":          " · %s · %d parts · %s",
 	"result verify":           "All %d photos from your exports are in %s",
 	"import no dir":           "no folder given",
-	"import no dir hint":      "to see what a card would bring in, run: **homewend import --dry-run DIR**",
+	"import no dir hint":      "to bring in a card, run: **homewend import DIR**",
 	"photos":                  "%d photos",
 	"photos one":              "1 photo",
 	"videos":                  "%d videos",
@@ -295,14 +295,20 @@ Examples:
 	"reading":                 "Reading the photos",
 	"copying":                 "Bringing in",
 	"imported undated":        "%d with no date the camera wrote: in undated/",
-	"result imported":         "%d photos and videos brought in, %s, each read back, in %s's photos",
-	"no link":                 "a hard link needs the folder on the library's disk",
+	"result imported":         "%s brought in, %s, each read back, in %s's photos",
+	"result linked":           "%s linked into %s's photos: no space used",
+	"brought":                 "%d photos and videos",
+	"brought one":             "1 photo or video",
+	"import whose":            "whose photos are these? there is no profile yet",
+	"import whose hint":       "name one: **%s --profile NAME**",
+	"no link":                 "the disk refused a hard link: is the folder on the library's disk?",
 	"no link hint":            "to copy it instead, run the same command without --link",
+	"bad profile":             "a profile is a name: no / or \\, and not starting with a dot",
 	"import top":              "at the top",
 	"import no date":          "no date",
 	"import others":           "%s, %s · not photos or videos, they stay out",
 	"import already":          "%d already in the library, found by content",
-	"import twins":            "%d twice in the folder, copied once",
+	"import twins":            "%d twice in the folder, brought in once",
 	"result import":           "%s would come in, %s",
 	"result import none":      "Nothing new: every photo and video is already in the library",
 	"missing":                 "%d photos are missing from the library",
