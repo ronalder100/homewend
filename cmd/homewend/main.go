@@ -796,7 +796,13 @@ func importCommand(args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	plan, err := engine.PlanImport(dir, redates, out.event)
+	// Whose import it would be, when that is known without asking: a date
+	// another profile holds is said as the import would say it.
+	profile := w.profile
+	if profile == "" && len(redates) > 0 {
+		profile, _ = pickProfile(context.Background(), "", true)
+	}
+	plan, err := engine.PlanImport(dir, profile, redates, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -823,6 +829,9 @@ func importCommand(args []string) int {
 	}
 	if plan.Redated > 0 {
 		out.say("  " + fmt.Sprintf(text["plan redated"], plan.Redated))
+	}
+	if plan.NotRedated > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], plan.NotRedated), warnColour, false))
 	}
 	if plan.Twins > 0 {
 		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))

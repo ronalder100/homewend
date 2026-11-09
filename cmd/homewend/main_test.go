@@ -330,10 +330,10 @@ func TestTwoAccountsNeedAName(t *testing.T) {
 // A hint is pasted into a shell: a folder's name must reach it as written.
 func TestAPastedFolderReachesTheShellAsWritten(t *testing.T) {
 	for in, want := range map[string]string{
-		"/media/card":     "/media/card",
-		"/media/NO NAME":  "'/media/NO NAME'",
-		"/media/$HOME":    "'/media/$HOME'",
-		"/media/Ron's": `'/media/Ron'\''s'`,
+		"/media/card":    "/media/card",
+		"/media/NO NAME": "'/media/NO NAME'",
+		"/media/$HOME":   "'/media/$HOME'",
+		"/media/Ron's":   `'/media/Ron'\''s'`,
 	} {
 		if got := shellWord(in); got != want {
 			t.Errorf("shellWord(%q) = %s, want %s", in, got, want)

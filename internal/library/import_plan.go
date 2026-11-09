@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/ronalder100/homewend/internal/progress"
 )
@@ -24,6 +25,9 @@ type ImportPlan struct {
 	InLibrary int `json:"in_library"`
 	// Of them and of the twins, those a date given would move.
 	Redated int `json:"redated"`
+	// Those given a date but filed in another profile, whose date it is
+	// to give: counted when the profile is known.
+	NotRedated int `json:"not_redated"`
 	// The same photo twice in the folder: it is copied once.
 	Twins int `json:"twins"`
 	// Files and folders that could not be read, passed over.
@@ -57,8 +61,10 @@ type ImportOther struct {
 // long part: emit hears each file, N of Of.
 //
 // Dates given are counted as the import would file the photos: a name the
-// folder does not have is said here too, before the import.
-func PlanImport(dir string, f Folder, catalog *Catalog, redates []Redate, emit progress.Func) (ImportPlan, error) {
+// folder does not have is said here too, before the import. profile, when
+// not "", is whose import it would be: a photo another profile holds is not
+// its to date.
+func PlanImport(dir string, f Folder, catalog *Catalog, profile string, redates []Redate, emit progress.Func) (ImportPlan, error) {
 	dates, err := given(redates, f)
 	if err != nil {
 		return ImportPlan{}, err
@@ -77,11 +83,17 @@ func PlanImport(dir string, f Folder, catalog *Catalog, redates []Redate, emit p
 		// The library first: a photo it holds is in it however many times
 		// the folder has it.
 		if catalog != nil {
-			if _, known, err := catalog.PathOf(hash); err != nil {
+			if path, known, err := catalog.PathOf(hash); err != nil {
 				return plan, err
 			} else if known {
 				plan.InLibrary++
-				if dated {
+				// As redateInLibrary decides: by the profile it is filed in.
+				first, _, _ := strings.Cut(path, "/")
+				switch {
+				case !dated:
+				case profile != "" && first != profile:
+					plan.NotRedated++
+				default:
 					plan.Redated++
 				}
 				continue

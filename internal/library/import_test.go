@@ -479,7 +479,7 @@ func TestADryRunCountsTheDatesGiven(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, nil, []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}, nil)
+	plan, err := PlanImport(card, folder, nil, "", []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}, nil)
 	if err != nil || len(plan.Years) != 1 || plan.Years[0].Year != "2026" {
 		t.Errorf("%+v, %v; want 2026", plan.Years, err)
 	}
@@ -550,9 +550,39 @@ func TestADryRunSaysWhatADateWouldMove(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{filepath.Join(card, "DCIM", "DSCF0004.JPG"), "./DCIM/DSCF0004.JPG"} {
-		plan, err := PlanImport(card, folder, catalog, []Redate{{Names: []string{name}, When: time.Now()}}, nil)
+		plan, err := PlanImport(card, folder, catalog, "", []Redate{{Names: []string{name}, When: time.Now()}}, nil)
 		if err != nil || plan.Redated != 1 {
 			t.Errorf("%s: %+v, %v; want 1 that would move", name, plan, err)
 		}
+	}
+}
+
+// A path completed by the shell from where the command runs names the
+// file below the folder too; and a dry run from another profile says the
+// date is not its to give, as the import does.
+func TestADryRunTakesAPathFromHereAndKnowsTheProfile(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/DSCF0004.JPG", exifPhoto("2018:01:01 00:01:36", "four"))
+	root := t.TempDir()
+	if _, err := importDated(t, card, root, nil); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Dir(card))
+	name := filepath.Join(filepath.Base(card), "DCIM", "DSCF0004.JPG")
+	dates := []Redate{{Names: []string{name}, When: time.Now()}}
+	if plan, err := PlanImport(card, folder, catalog, "ron", dates, nil); err != nil || plan.Redated != 1 {
+		t.Errorf("%s from here: %+v, %v; want 1 that would move", name, plan, err)
+	}
+	if plan, err := PlanImport(card, folder, catalog, "bob", dates, nil); err != nil || plan.Redated != 0 || plan.NotRedated != 1 {
+		t.Errorf("from another profile: %+v, %v; want 1 left to its own", plan, err)
 	}
 }

@@ -72,7 +72,7 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, catalog, nil, nil)
+	plan, err := PlanImport(card, folder, catalog, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestAnEmptyLibraryTakesEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, nil, nil, nil)
+	plan, err := PlanImport(card, folder, nil, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestAFileThatCannotBeReadIsPassedOver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(card, folder, nil, nil, nil)
+	plan, err := PlanImport(card, folder, nil, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(dir, folder, nil, nil, nil)
+	plan, err := PlanImport(dir, folder, nil, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

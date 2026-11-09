@@ -33,6 +33,20 @@ type Imported struct {
 	Unreadable int `json:"unreadable"`
 }
 
+// redate gives a photo of the library its date, and counts it given or
+// left to the profile it is filed in.
+func (done *Imported) redate(root string, catalog *Catalog, hash string, when time.Time, opt Options) error {
+	switch err := redateInLibrary(root, catalog, hash, when, opt); {
+	case errors.Is(err, ErrOthersPhoto):
+		done.NotRedated++
+	case err != nil:
+		return err
+	default:
+		done.Redated++
+	}
+	return nil
+}
+
 // ImportOptions are how an import brings files in.
 type ImportOptions struct {
 	// Link gives each file a second name in the library instead of a copy:
@@ -98,13 +112,8 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			done.Twins++
 			// The same photo, given a date under its other name.
 			if dated {
-				switch err := redateInLibrary(root, catalog, hash, when, opt); {
-				case errors.Is(err, ErrOthersPhoto):
-					done.NotRedated++
-				case err != nil:
+				if err := done.redate(root, catalog, hash, when, opt); err != nil {
 					return done, err
-				default:
-					done.Redated++
 				}
 			}
 			continue
@@ -138,13 +147,8 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// A date given now is for a photo already in: the likeliest
 			// case, seen as 2018 in the library after a first import.
 			if dated {
-				switch err := redateInLibrary(root, catalog, hash, when, opt); {
-				case errors.Is(err, ErrOthersPhoto):
-					done.NotRedated++
-				case err != nil:
+				if err := done.redate(root, catalog, hash, when, opt); err != nil {
 					return done, err
-				default:
-					done.Redated++
 				}
 			}
 			done.InLibrary++

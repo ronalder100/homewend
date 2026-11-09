@@ -82,10 +82,10 @@ func given(redates []Redate, f Folder) (map[string]time.Time, error) {
 // the folder, in any case — a card's FAT keeps names as the camera wrote
 // them, and nobody types them so.
 func named(name string, f Folder) (string, error) {
-	// A path typed as the shell completes it — whole, or from ./ — is the
-	// same name as the path below the folder.
-	if filepath.IsAbs(name) {
-		if rel, err := filepath.Rel(f.Root, name); err == nil {
+	// A path typed as the shell completes it — whole, or from where the
+	// command runs — names a file below the folder when it leads there.
+	if strings.ContainsAny(name, `/\`) {
+		if rel, ok := below(name, f.Root); ok {
 			name = rel
 		}
 	}
@@ -115,6 +115,23 @@ func named(name string, f Folder) (string, error) {
 	return "", e
 }
 
+// below is path, as typed, relative to root, when it leads into root. root
+// is whole and its links followed (see readFolder), and so is path made.
+func below(path, root string) (string, bool) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return "", false
+	}
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
+	}
+	if !within(path, root) {
+		return "", false
+	}
+	rel, err := filepath.Rel(root, path)
+	return rel, err == nil
+}
+
 // redateInLibrary gives a date to a photo the library already holds: it
 // moves to the folder of that date, on the same disk, and the catalog and
 // a .xmp beside it say the date. The file is not written.
@@ -137,7 +154,13 @@ func redateInLibrary(root string, catalog *Catalog, hash string, when time.Time,
 		return err
 	}
 	if to != from {
+		// The catalog first, as Organize does: the name is the photo's
+		// before anything moves. A move that fails gives the old one back.
+		if err := catalog.setPath(hash, relativeTo(root, to), filepath.Base(to)); err != nil {
+			return err
+		}
 		if err := move(from, to); err != nil {
+			catalog.setPath(hash, record.Path, filepath.Base(from))
 			return err
 		}
 		// Google's sidecar, kept under the library's metadata folder by the
@@ -157,9 +180,6 @@ func redateInLibrary(root string, catalog *Catalog, hash string, when time.Time,
 		month := filepath.Dir(from)
 		if os.Remove(month) == nil && filepath.Dir(month) != profileRoot(root, opt) {
 			os.Remove(filepath.Dir(month))
-		}
-		if err := catalog.setPath(hash, relativeTo(root, to), filepath.Base(to)); err != nil {
-			return err
 		}
 	}
 	if err := catalog.setDate(hash, capture); err != nil {
