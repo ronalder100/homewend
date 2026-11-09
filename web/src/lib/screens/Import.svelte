@@ -68,7 +68,11 @@
 
 	async function load() {
 		try {
-			im = await getImport();
+			const s = await getImport();
+			// The cards are looked at again before a card taken out is shown:
+			// a list from before it came out would carry the copy on at once.
+			if (s.problem === 'taken-out') await lookCards();
+			im = s;
 		} catch {
 			// The engine answers within a second; the next ask will do.
 		}
@@ -88,8 +92,8 @@
 		getLibrary().then((l) => (free = l.free), () => {});
 		const t = setInterval(() => {
 			if (im?.running) load();
-			// The cards come and go, during a copy too: the one taken out must
-			// be seen gone before it can be seen back.
+			// The cards come and go: one put in while the window is open, the
+			// one taken out put back.
 			lookCards();
 		}, 1000);
 		return () => clearInterval(t);
