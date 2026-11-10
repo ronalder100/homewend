@@ -365,25 +365,26 @@
 			{/if}
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
-		{#if plan.deleted > 0}
+		{#if plan.deleted + plan.brought_back > 0}
 			<!-- The card still holds what was deleted from the library: it stays out
-			     unless ticked back, one by its name or all. -->
+			     unless ticked back, one by its path or all. A ticked one keeps its
+			     place among those left out. -->
 			{@const all = bringBack.includes('all')}
-			{@const named = [...bringBack.filter((n) => n !== 'all'), ...(plan.deleted_names ?? [])]}
+			{@const named = [...new Set([...bringBack.filter((n) => n !== 'all'), ...(plan.deleted_names ?? [])])].sort()}
 			<section class="years deleted">
 				<header>
-					<h2>{text.deletedHead(plan.deleted)}</h2>
+					<h2>{text.deletedHead(plan.deleted + plan.brought_back)}</h2>
 					<label class="back"><input type="checkbox" checked={all} onchange={() => backAll(!all)} />{text.bringAllBack}</label>
 				</header>
 				{#each named as n (n)}
 					<label class="year back">
 						<span class="name mono"
-							><input type="checkbox" checked={all || bringBack.includes(n)} disabled={all} onchange={() => back(n)} />{n}</span
+							><input type="checkbox" checked={bringBack.includes(n)} onchange={() => back(n)} />{n}</span
 						>
 					</label>
 				{/each}
-				{#if plan.deleted - plan.brought_back > (plan.deleted_names?.length ?? 0)}
-					<div class="year"><span class="name">{text.othersMore(plan.deleted - plan.brought_back - (plan.deleted_names?.length ?? 0))}</span></div>
+				{#if plan.deleted_more}
+					<div class="year"><span class="name">{text.othersMore(plan.deleted_more)}</span></div>
 				{/if}
 			</section>
 		{/if}
@@ -478,7 +479,7 @@
 				{#if done.undated > 0}<div><b>{done.undated.toLocaleString('en')}</b><span>{text.importUndated}</span></div>{/if}
 				{#if done.redated > 0}<div><b>{done.redated.toLocaleString('en')}</b><span>{text.importRedated}</span></div>{/if}
 				{#if done.brought_back > 0}<div><b>{done.brought_back.toLocaleString('en')}</b><span>{text.importDeletedBack}</span></div>{/if}
-				{#if done.deleted > done.brought_back}<div><b>{(done.deleted - done.brought_back).toLocaleString('en')}</b><span>{text.importDeletedOut}</span></div>{/if}
+				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{text.importDeletedOut}</span></div>{/if}
 				{#if done.unreadable > 0}<div class="warn"><b>{done.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			</div>
 		{/if}

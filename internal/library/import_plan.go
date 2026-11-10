@@ -115,11 +115,13 @@ type Asked struct {
 // again: one named, or all. A name the folder does not have is said, as a
 // date given to it would be.
 func (a Asked) bringsBack(f Folder) (func(path string) bool, error) {
-	back := map[string]bool{}
 	for _, name := range a.BringBack {
 		if strings.EqualFold(name, "all") {
 			return func(string) bool { return true }, nil
 		}
+	}
+	back := map[string]bool{}
+	for _, name := range a.BringBack {
 		path, err := named(name, f)
 		if err != nil {
 			return nil, err
@@ -327,7 +329,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			continue
 		}
 		if deleted {
-			plan.deleted(item.Path, back(item.Path))
+			plan.deleted(f.Root, item.Path, back(item.Path))
 			if !back(item.Path) {
 				continue
 			}

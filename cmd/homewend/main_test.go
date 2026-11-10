@@ -365,6 +365,27 @@ func TestImportReadsItsFolderWhereverTheFlagsAre(t *testing.T) {
 	}
 }
 
+// --bring-back with no names after it brings all back: at the end, before
+// another option, before the folder.
+func TestABareBringBackBringsAllBack(t *testing.T) {
+	card := t.TempDir()
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{card, "--bring-back"}, "all"},
+		{[]string{"--bring-back", "--dry-run", card}, "all"},
+		{[]string{"--bring-back", card}, "all"},
+		{[]string{"--bring-back", "A.JPG,B.JPG", card}, "A.JPG B.JPG"},
+		{[]string{card, "--bring-back=A.JPG"}, "A.JPG"},
+	} {
+		w := importArgs(c.args)
+		if got := strings.Join(w.asked(nil).BringBack, " "); got != c.want || w.dir != card {
+			t.Errorf("%q: %q in %q, want %q", c.args, got, w.dir, c.want)
+		}
+	}
+}
+
 // A date is NAMES=WHEN, with or without a time; anything else is said.
 func TestADateIsReadAsTyped(t *testing.T) {
 	r, err := listFlags{"DSCF0004.JPG, DSCF0005.JPG=2026-09-14T10:20"}.redates()
@@ -402,7 +423,7 @@ func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 // A dry run says the deleted brought back in the conditional, as its other
 // lines; the copy in the present.
 func TestDeletedBroughtBackAreSaidInTheRunsTense(t *testing.T) {
-	c := library.Counts{Deleted: 2, BroughtBack: 2, Outcome: library.OutcomeNew}
+	c := library.Counts{BroughtBack: 2, Outcome: library.OutcomeNew}
 	for dry, want := range map[bool]string{true: "would come in again", false: "come in again"} {
 		out := captured(t, func() {
 			sayImport(&printer{out: look{}}, importWords{dryRun: dry}, c, 0, "fresh")
@@ -433,9 +454,9 @@ func TestIncludeTakesTheFolderByItsName(t *testing.T) {
 
 // The deleted left out are named, for one to be brought back by its name.
 func TestDeletedLeftOutAreNamed(t *testing.T) {
-	c := library.Counts{Deleted: 12, DeletedNames: []string{"DSCF0010.JPG"}, Outcome: library.OutcomeDeleted}
+	c := library.Counts{Deleted: 12, DeletedNames: []string{"DSCF0010.JPG"}, DeletedMore: 11, Outcome: library.OutcomeDeleted}
 	out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{}, c, 0, "") })
-	for _, want := range []string{"12 deleted", "DSCF0010.JPG", "and 11 more", "--bring-back NAME"} {
+	for _, want := range []string{"12 deleted", "DSCF0010.JPG", "and 11 more", "--bring-back NAME", "all: --bring-back"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("%q missing:\n%s", want, out)
 		}

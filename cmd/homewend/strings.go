@@ -124,7 +124,7 @@ Examples:
 
 Usage:
   homewend import [DIR] [--profile NAME] [--link] [--include FOLDER]
-                  [--bring-back NAMES] [--json]
+                  [--bring-back [NAMES]] [--json]
   homewend import --dry-run [DIR] [--json]
 
 Without DIR, the card that is in: a disk with a camera's DCIM folder on it,
@@ -161,10 +161,11 @@ Flags:
   --include FOLDER
                   bring in a folder that stays out by itself, named as
                   --dry-run lists it ("." for DIR itself). Repeatable
-  --bring-back NAMES
+  --bring-back [NAMES]
                   bring in again photos deleted from the library, by name
-                  as the run lists them, or all: by default a card that
-                  still holds them leaves them out. Repeatable
+                  as the run lists them, or all when no name follows: by
+                  default a card that still holds them leaves them out.
+                  Repeatable
   --json          one JSON object per line, for scripts
 
 Examples:
@@ -329,7 +330,7 @@ Examples:
 	"no link hint":          "to copy it instead, run the same command without --link",
 	"bad date":              "%s is not NAMES=YYYY-MM-DD or NAMES=YYYY-MM-DDTHH:MM",
 	"name twice":            "%s is in more than one folder: %s",
-	"name twice hint":       "say which, by its path: **--date %s=…**",
+	"name twice hint":       "say which, by its path: **%s**",
 	"not redated":           "%d are filed in another profile: their date is given from there",
 	"redated dry":           "%d would move to the date you gave",
 	"redated":               "%d with the date you gave, written in a .xmp beside each",
@@ -367,7 +368,7 @@ Examples:
 	"deleted back one":     "1 deleted from the library comes in again",
 	"deleted back dry":     "%d deleted from the library would come in again",
 	"deleted back dry one": "1 deleted from the library would come in again",
-	"import deleted":       "%s · to bring one back: --bring-back NAME, or all",
+	"import deleted":       "%s · to bring one back: --bring-back NAME; all: --bring-back",
 	"deleted":              "%d deleted from the library stay out",
 	"deleted one":          "1 deleted from the library stays out",
 	"import others card":   "Not photos, left on the card:",

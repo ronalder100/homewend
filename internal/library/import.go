@@ -167,7 +167,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// The arrivals were emptied, so it is no move left halfway
 			// either. It stays out unless asked back; brought back, it is
 			// new, in this profile.
-			done.deleted(item.Path, back(item.Path))
+			done.deleted(f.Root, item.Path, back(item.Path))
 			if !back(item.Path) {
 				// Its twin further on is deleted too, not a photo in.
 				delete(seen, hash)

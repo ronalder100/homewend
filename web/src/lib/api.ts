@@ -219,10 +219,11 @@ export interface Counts {
 	/** Moved to a date given; given one but filed in another profile. */
 	redated: number;
 	not_redated: number;
-	/** Deleted from the library; of them, brought back; those left out by name. */
+	/** Deleted from the library: left out, and brought back; those left out by path, and how many more. */
 	deleted: number;
 	brought_back: number;
 	deleted_names?: string[];
+	deleted_more?: number;
 	unreadable: number;
 	outcome: Outcome;
 }

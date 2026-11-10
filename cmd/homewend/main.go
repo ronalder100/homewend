@@ -846,18 +846,36 @@ func importArgs(args []string) importWords {
 	dry := flags.Bool("dry-run", false, "only tell what would happen")
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
 	var back listFlags
-	flags.Var(&back, "bring-back", "NAMES: photos deleted from the library brought in again, or all")
+	flags.Var(&back, "bring-back", "NAMES: photos deleted from the library brought in again; alone, all")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	var dates, include listFlags
 	flags.Var(&dates, "date", "NAMES=WHEN: the right date of photos whose camera had it wrong")
 	flags.Var(&include, "include", "FOLDER: a folder that stays out by itself (a project, no camera data) brought in")
-	flags.Parse(args)
+	flags.Parse(bareBringBack(args))
 	dir := flags.Arg(0)
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
 	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: dir != "" && flags.NArg() > 0}
+}
+
+// bareBringBack gives "all" to a --bring-back with no names after it:
+// nothing, another option, or the folder to import.
+func bareBringBack(args []string) []string {
+	var out []string
+	for i, a := range args {
+		out = append(out, a)
+		if a != "--bring-back" && a != "-bring-back" {
+			continue
+		}
+		if i+1 == len(args) || strings.HasPrefix(args[i+1], "-") {
+			out = append(out, "all")
+		} else if info, err := os.Stat(args[i+1]); err == nil && info.IsDir() {
+			out = append(out, "all")
+		}
+	}
+	return out
 }
 
 // listFlags are a flag given again and again: each --date, "NAMES=WHEN" as
@@ -886,18 +904,24 @@ func (d listFlags) redates() ([]library.Redate, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s", errBadDate, v)
 		}
-		r := library.Redate{When: t}
-		for _, name := range strings.Split(names, ",") {
-			if name = strings.TrimSpace(name); name != "" {
-				r.Names = append(r.Names, name)
-			}
-		}
+		r := library.Redate{When: t, Names: commaList(names)}
 		if len(r.Names) == 0 {
 			return nil, fmt.Errorf("%w: %s", errBadDate, v)
 		}
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// commaList is the names typed in v, split by commas.
+func commaList(v string) []string {
+	var out []string
+	for _, name := range strings.Split(v, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // errBadDate is a --date that does not read as NAMES=WHEN.
@@ -924,11 +948,7 @@ type importWords struct {
 func (w importWords) asked(redates []library.Redate) library.Asked {
 	var back []string
 	for _, v := range w.bringBack {
-		for _, name := range strings.Split(v, ",") {
-			if name = strings.TrimSpace(name); name != "" {
-				back = append(back, name)
-			}
-		}
+		back = append(back, commaList(v)...)
 	}
 	return library.Asked{Redates: redates, Choice: w.choice(), BringBack: back}
 }
@@ -1103,9 +1123,9 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 		out.say("  " + counted(c.BroughtBack, w.key("deleted back")))
 	}
 	// Those left out by name: one deleted by mistake is brought back by it.
-	if left := c.Deleted - c.BroughtBack; left > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(left, "deleted")), faintColour, false))
-		sayNames(out, c.DeletedNames, left-len(c.DeletedNames))
+	if c.Deleted > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))
+		sayNames(out, c.DeletedNames, c.DeletedMore)
 	}
 	if c.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(c.Unreadable, "import unreadable"), warnColour, false))
@@ -1335,7 +1355,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	case errors.As(err, &ambiguous):
 		return exitError, fmt.Sprintf(text["name twice"], ambiguous.Name, strings.Join(ambiguous.Paths, ", ")), nil, []string{fmt.Sprintf(text["name twice hint"], ambiguous.Paths[0])}
 	case errors.As(err, &unknown):
-		return exitError, fmt.Sprintf(text["no such photo"], unknown.Name), nil, []string{text["date hint"]}
+		return exitError, fmt.Sprintf(text["no such photo"], unknown.Name), nil, nil
 	case errors.Is(err, engine.ErrLibraryBusy):
 		return exitError, text["library busy"], nil, []string{fmt.Sprintf(text["library busy hint"], again)}
 	case errors.Is(err, engine.ErrBadProfile):

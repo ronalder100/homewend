@@ -39,13 +39,16 @@ type Counts struct {
 	Redated int `json:"redated"`
 	// Given a date but filed in another profile, whose date it is to give.
 	NotRedated int `json:"not_redated"`
-	// Photos the library had and someone deleted from it; of them, those
-	// brought back, counted as new too; the others stay out.
+	// Photos the library had and someone deleted from it: those that stay
+	// out, and those brought back, counted as new too.
 	Deleted     int `json:"deleted"`
 	BroughtBack int `json:"brought_back"`
-	// Those that stay out by name, MaxOthers at most: a person knows which
-	// photo they deleted when they see its name, and brings it back by it.
+	// Those that stay out by their path below the folder, MaxOthers at
+	// most, and how many more: a person knows which photo they deleted when
+	// they see its name, and brings it back by it — by the path, which no
+	// other file of a card with two cameras shares.
 	DeletedNames []string `json:"deleted_names,omitempty"`
+	DeletedMore  int      `json:"deleted_more,omitempty"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 	// The groups that stay out, by their kind or as chosen: said, so that
@@ -57,16 +60,20 @@ type Counts struct {
 	Outcome Outcome `json:"outcome"`
 }
 
-// deleted counts a photo deleted from the library: brought back, or left
-// out by its name.
-func (c *Counts) deleted(path string, back bool) {
-	c.Deleted++
+// deleted counts a photo deleted from the library, path being below root:
+// brought back, or left out by its path.
+func (c *Counts) deleted(root, path string, back bool) {
 	switch {
 	case back:
 		c.BroughtBack++
+		return
 	case len(c.DeletedNames) < MaxOthers:
-		c.DeletedNames = append(c.DeletedNames, filepath.Base(path))
+		rel, _ := filepath.Rel(root, path)
+		c.DeletedNames = append(c.DeletedNames, filepath.ToSlash(rel))
+	default:
+		c.DeletedMore++
 	}
+	c.Deleted++
 }
 
 // end decides the Outcome, fresh being what comes in, in this order: what
@@ -81,7 +88,7 @@ func (c *Counts) end(fresh int) {
 		c.Outcome = OutcomeRedated
 	case len(c.LeftOut) > 0:
 		c.Outcome = OutcomeLeftOut
-	case c.Deleted > c.BroughtBack:
+	case c.Deleted > 0:
 		c.Outcome = OutcomeDeleted
 	case known > 0 && c.Unreadable > 0:
 		c.Outcome = OutcomeKnownNoted

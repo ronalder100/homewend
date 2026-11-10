@@ -284,7 +284,7 @@ func TestAPhotoDeletedFromTheLibraryStaysOutUnlessBroughtBack(t *testing.T) {
 		t.Errorf("%+v, %v; want the deleted photo left out and said", done, err)
 	}
 	done, err = Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Asked: Asked{BringBack: []string{"all"}}, Fits: fits}, nil)
-	if err != nil || done.Placed != 1 {
+	if err != nil || done.Placed != 1 || done.BroughtBack != 1 || done.Deleted != 0 {
 		t.Errorf("%+v, %v; want the deleted photo placed again", done, err)
 	}
 	mustExist(t, filepath.Join(root, "anna", "2018", "01", "DSCF0002.JPG"))
@@ -688,11 +688,13 @@ func TestARunTellsItsBytesGoneThrough(t *testing.T) {
 	}
 }
 
-// One photo deleted by mistake comes back by its name; another deleted
-// stays out, named.
+// One photo deleted by mistake comes back by the path the look names it
+// by, though a second camera wrote the same name; the others deleted stay
+// out, named so.
 func TestOneDeletedPhotoComesBackByName(t *testing.T) {
 	card := t.TempDir()
-	write(t, card, "DCIM/A.JPG", exifPhoto("2019:07:14 10:00:00", "a"))
+	write(t, card, "DCIM/100/A.JPG", exifPhoto("2019:07:14 10:00:00", "a"))
+	write(t, card, "DCIM/101/A.JPG", exifPhoto("2019:07:16 10:00:00", "c"))
 	write(t, card, "DCIM/B.JPG", exifPhoto("2019:07:15 10:00:00", "b"))
 	root := t.TempDir()
 	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
@@ -708,15 +710,17 @@ func TestOneDeletedPhotoComesBackByName(t *testing.T) {
 	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits}, nil); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"A.JPG", "B.JPG"} {
-		if err := os.Remove(filepath.Join(root, "ron", "2019", "07", name)); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.RemoveAll(filepath.Join(root, "ron", "2019", "07")); err != nil {
+		t.Fatal(err)
 	}
-	back := ImportOptions{Fits: fits, Asked: Asked{BringBack: []string{"a.jpg"}}}
+	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Root: root}, nil)
+	if err != nil || plan.Deleted != 3 || strings.Join(plan.DeletedNames, " ") != "DCIM/100/A.JPG DCIM/101/A.JPG DCIM/B.JPG" {
+		t.Fatalf("look: %+v, %v; want the three named by path", plan.Counts, err)
+	}
+	back := ImportOptions{Fits: fits, Asked: Asked{BringBack: []string{plan.DeletedNames[0]}}}
 	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, back, nil)
-	if err != nil || done.Placed != 1 || done.BroughtBack != 1 || len(done.DeletedNames) != 1 || done.DeletedNames[0] != "B.JPG" {
-		t.Errorf("%+v, %v; want A back, B left out by name", done, err)
+	if err != nil || done.Placed != 1 || done.BroughtBack != 1 || done.Deleted != 2 {
+		t.Errorf("%+v, %v; want one A back, the others left out", done.Counts, err)
 	}
 	mustExist(t, filepath.Join(root, "ron", "2019", "07", "A.JPG"))
 	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits, Asked: Asked{BringBack: []string{"C.JPG"}}}, nil); !errors.As(err, new(UnknownNameError)) {
