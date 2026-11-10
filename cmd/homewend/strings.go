@@ -312,7 +312,7 @@ Examples:
 	"import one folder":      "one folder at a time",
 	"import cannot read":     "%s cannot be read: is it yours to open?",
 	"import not found":       "%s is not there",
-	"import not found photo": "a photo deleted from the library is brought back so: **homewend import --bring-back %s**",
+	"import not found photo": "to bring back a deleted photo: **homewend import --bring-back %s**",
 	"import not a folder":    "%s is a file, not a folder",
 	"import unreadable":      "%d files or folders could not be read: they are left out",
 	"import unreadable one":  "1 file or folder could not be read: it is left out",
