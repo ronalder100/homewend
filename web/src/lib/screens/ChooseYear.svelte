@@ -124,7 +124,12 @@
 			</div>
 		{/if}
 	</div>
-	{#if years.counts?.error}<p class="note">{text.countFailed}</p>{/if}
+	<!-- An old count stays offered when counting again fails: said so, with its day. -->
+	{#if years.counts?.error}<p class="note">
+			{years.counted && years.counts.counted
+				? text.recountFailed(new Date(years.counts.counted).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }))
+				: text.countFailed}
+		</p>{/if}
 
 	<div class="go">
 		<SecondaryButton onclick={() => goto(chooseUrl(account))}><ArrowLeft size={16} />{text.back}</SecondaryButton>

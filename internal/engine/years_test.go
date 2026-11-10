@@ -29,8 +29,11 @@ func TestAnOldCountIsStale(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := LoadYearCounts(account)
-		if err != nil || got.Stale != c.stale {
-			t.Errorf("counted %v ago: stale %v, %v; want %v", c.age, got.Stale, err, c.stale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Stale != c.stale {
+			t.Errorf("counted %v ago: stale %v, want %v", c.age, got.Stale, c.stale)
 		}
 	}
 }

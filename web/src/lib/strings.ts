@@ -154,6 +154,7 @@ export const text = {
 	findingYears: 'Looking on Google for your years',
 	findingYearsWhy: 'Which years have photos, and how many. Only the first time for this account.',
 	countFailed: 'Could not count the photos on Google: every year is offered.',
+	recountFailed: (day: string) => `Could not count the photos on Google again: the count of ${day} is shown.`,
 	itemsCount: (n: number) => `${n.toLocaleString('en')} photos and videos`,
 	failedLead: 'Something stopped the download. Resume to try again: nothing already downloaded is lost.',
 	seeLibrary: 'See them in your library',
