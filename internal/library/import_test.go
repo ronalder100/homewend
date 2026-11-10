@@ -727,3 +727,36 @@ func TestOneDeletedPhotoComesBackByName(t *testing.T) {
 		t.Errorf("a name not on the card: %v", err)
 	}
 }
+
+// The twin of a deleted photo brought back comes in with it: the look
+// says so as the copy does, and does not name it as left out.
+func TestTheTwinOfAPhotoBroughtBackComesInWithIt(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/100/A.JPG", exifPhoto("2019:07:14 10:00:00", "a"))
+	write(t, card, "DCIM/101/A.JPG", exifPhoto("2019:07:14 10:00:00", "a"))
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fits := func(int64) error { return nil }
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(root, "ron", "2019", "07")); err != nil {
+		t.Fatal(err)
+	}
+	asked := Asked{BringBack: []string{"DCIM/100/A.JPG"}}
+	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Root: root, Asked: asked}, nil)
+	done, err2 := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits, Asked: asked}, nil)
+	for _, c := range []Counts{plan.Counts, done.Counts} {
+		if c.BroughtBack != 1 || c.Twins != 1 || c.Deleted != 0 || len(c.DeletedNames) != 0 {
+			t.Errorf("%+v, %v %v; want one back and its twin with it", c, err, err2)
+		}
+	}
+}

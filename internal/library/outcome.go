@@ -3,8 +3,6 @@
 
 package library
 
-import "path/filepath"
-
 // Outcome is how a look or a copy of a folder ends, said once here so that
 // the command line and the window, a look and its copy, never tell the
 // same folder apart. They only put it in words.
@@ -63,23 +61,19 @@ type Counts struct {
 // deleted counts a photo deleted from the library, path being below root:
 // brought back, or left out by its path.
 func (c *Counts) deleted(root, path string, back bool) {
-	switch {
-	case back:
+	if back {
 		c.BroughtBack++
 		return
-	case len(c.DeletedNames) < MaxOthers:
-		rel, _ := filepath.Rel(root, path)
-		c.DeletedNames = append(c.DeletedNames, filepath.ToSlash(rel))
-	default:
-		c.DeletedMore++
 	}
 	c.Deleted++
+	c.DeletedNames = append(c.DeletedNames, relativeTo(root, path))
 }
 
 // end decides the Outcome, fresh being what comes in, in this order: what
 // comes in, what moves, the folders to look at, the deleted that stayed
-// out, what is in, what could not be read.
+// out, what is in, what could not be read. The deleted are named a few.
 func (c *Counts) end(fresh int) {
+	c.DeletedNames, c.DeletedMore = fewNames(c.DeletedNames)
 	known := c.InLibrary + c.Twins
 	switch {
 	case fresh > 0:

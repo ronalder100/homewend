@@ -116,7 +116,7 @@ type Asked struct {
 // date given to it would be.
 func (a Asked) bringsBack(f Folder) (func(path string) bool, error) {
 	for _, name := range a.BringBack {
-		if strings.EqualFold(name, "all") {
+		if strings.EqualFold(name, BringAllBack) {
 			return func(string) bool { return true }, nil
 		}
 	}
@@ -219,6 +219,19 @@ func (h Hashes) Hash(path string) (string, bool) {
 
 // MaxOthers is how many names of what stays out a look gives.
 const MaxOthers = 10
+
+// fewNames is list cut to MaxOthers, and how many more it had: a few
+// names say what they are; three thousand say nothing more.
+func fewNames[T any](list []T) ([]T, int) {
+	if len(list) <= MaxOthers {
+		return list, 0
+	}
+	return list[:MaxOthers], len(list) - MaxOthers
+}
+
+// BringAllBack, given among the names to bring back, brings back every
+// photo deleted from the library.
+const BringAllBack = "all"
 
 // ImportOther is what stays out at the top of the folder: a file that is
 // not a photo or a video, or a folder holding such files, named as a person
@@ -326,6 +339,11 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			}
 		}
 		if !in[item.Path] {
+			continue
+		}
+		// The twin of one brought back comes in with it, as the copy says.
+		if deleted && seen[hash] {
+			plan.Twins++
 			continue
 		}
 		if deleted {
@@ -439,10 +457,6 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 	}
 	sort.Slice(plan.Others, func(i, j int) bool { return plan.Others[i].Name < plan.Others[j].Name })
 	plan.OtherFiles = len(f.Others)
-	// A few names say what they are; three thousand say nothing more.
-	if len(plan.Others) > MaxOthers {
-		plan.OthersMore = len(plan.Others) - MaxOthers
-		plan.Others = plan.Others[:MaxOthers]
-	}
+	plan.Others, plan.OthersMore = fewNames(plan.Others)
 	return plan, nil
 }

@@ -365,7 +365,8 @@
 			{/if}
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
-		{#if plan.deleted + plan.brought_back > 0}
+		{@const deletedAll = plan.deleted + plan.brought_back}
+		{#if deletedAll > 0}
 			<!-- The card still holds what was deleted from the library: it stays out
 			     unless ticked back, one by its path or all. A ticked one keeps its
 			     place among those left out. -->
@@ -373,7 +374,7 @@
 			{@const named = [...new Set([...bringBack.filter((n) => n !== 'all'), ...(plan.deleted_names ?? [])])].sort()}
 			<section class="years deleted">
 				<header>
-					<h2>{text.deletedHead(plan.deleted + plan.brought_back)}</h2>
+					<h2>{text.deletedHead(deletedAll)}</h2>
 					<label class="back"><input type="checkbox" checked={all} onchange={() => backAll(!all)} />{text.bringAllBack}</label>
 				</header>
 				{#each named as n (n)}

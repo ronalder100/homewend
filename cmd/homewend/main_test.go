@@ -378,6 +378,7 @@ func TestABareBringBackBringsAllBack(t *testing.T) {
 		{[]string{"--bring-back", card}, "all"},
 		{[]string{"--bring-back", "A.JPG,B.JPG", card}, "A.JPG B.JPG"},
 		{[]string{card, "--bring-back=A.JPG"}, "A.JPG"},
+		{[]string{card, "--bring-back="}, "all"},
 	} {
 		w := importArgs(c.args)
 		if got := strings.Join(w.asked(nil).BringBack, " "); got != c.want || w.dir != card {

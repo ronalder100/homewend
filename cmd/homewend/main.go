@@ -860,7 +860,7 @@ func importArgs(args []string) importWords {
 	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: dir != "" && flags.NArg() > 0}
 }
 
-// bareBringBack gives "all" to a --bring-back with no names after it:
+// bareBringBack brings all back for a --bring-back with no names after it:
 // nothing, another option, or the folder to import.
 func bareBringBack(args []string) []string {
 	var out []string
@@ -870,9 +870,9 @@ func bareBringBack(args []string) []string {
 			continue
 		}
 		if i+1 == len(args) || strings.HasPrefix(args[i+1], "-") {
-			out = append(out, "all")
+			out = append(out, library.BringAllBack)
 		} else if info, err := os.Stat(args[i+1]); err == nil && info.IsDir() {
-			out = append(out, "all")
+			out = append(out, library.BringAllBack)
 		}
 	}
 	return out
@@ -948,7 +948,11 @@ type importWords struct {
 func (w importWords) asked(redates []library.Redate) library.Asked {
 	var back []string
 	for _, v := range w.bringBack {
-		back = append(back, commaList(v)...)
+		names := commaList(v)
+		if len(names) == 0 { // --bring-back= as typed alone
+			names = []string{library.BringAllBack}
+		}
+		back = append(back, names...)
 	}
 	return library.Asked{Redates: redates, Choice: w.choice(), BringBack: back}
 }
