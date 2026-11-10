@@ -41,13 +41,10 @@ func readFolder(dir string) (string, library.Folder, error) {
 }
 
 // PlanImport is what importing dir would bring into the library, read and
-// never written: dir, a card or the library are left as they are. profile,
-// when known, tells the dates it may give from those it may not. ctx stops
+// never written: dir, a card or the library are left as they are. ctx stops
 // it between two files.
-//
-// hashes, when not nil, keeps what was read for the next look at dir.
-func PlanImport(ctx context.Context, dir, profile string, redates []library.Redate, hashes library.Hashes, emit progress.Func) (library.ImportPlan, error) {
-	if profile != "" && !ValidProfile(profile) {
+func PlanImport(ctx context.Context, dir string, opt library.PlanOptions, emit progress.Func) (library.ImportPlan, error) {
+	if opt.Profile != "" && !ValidProfile(opt.Profile) {
 		return library.ImportPlan{}, ErrBadProfile
 	}
 	dir, folder, err := readFolder(dir)
@@ -61,7 +58,7 @@ func PlanImport(ctx context.Context, dir, profile string, redates []library.Reda
 	if catalog != nil {
 		defer catalog.Close()
 	}
-	plan, err := library.PlanImport(ctx, dir, folder, catalog, library.PlanOptions{Profile: profile, Redates: redates, Hashes: hashes}, emit)
+	plan, err := library.PlanImport(ctx, dir, folder, catalog, opt, emit)
 	// A card taken out while it is read is said as during the copy: its
 	// files read after are only unreadable, not an error.
 	if _, gone := os.Stat(dir); gone != nil && !errors.Is(err, context.Canceled) {
@@ -71,9 +68,10 @@ func PlanImport(ctx context.Context, dir, profile string, redates []library.Reda
 }
 
 // Import brings dir's photos and videos into the library, into profile:
-// copied and read back, or with link given a second name on the library's
-// disk. dir is not changed. ctx stops it between two files.
-func Import(ctx context.Context, dir, profile string, link bool, redates []library.Redate, emit progress.Func) (library.Imported, error) {
+// copied and read back, or with how.Link given a second name on the
+// library's disk. dir is not changed. ctx stops it between two files. The
+// room on the library's disk is checked here: how.Fits is not the caller's.
+func Import(ctx context.Context, dir, profile string, how library.ImportOptions, emit progress.Func) (library.Imported, error) {
 	// A profile is a folder of the library: a name like "../x" would put
 	// photos outside it, or into the folder being imported.
 	if !ValidProfile(profile) {
@@ -113,7 +111,7 @@ func Import(ctx context.Context, dir, profile string, link bool, redates []libra
 		}
 		return nil
 	}
-	how := library.ImportOptions{Link: link, Fits: fits, Redates: redates}
+	how.Fits = fits
 	done, err := library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, how, emit)
 	// A card taken out halfway, during a copy or between two, is not a run
 	// that ended or failed: it is one to resume. A stop asked for is said

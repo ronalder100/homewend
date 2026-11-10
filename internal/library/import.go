@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -56,6 +57,9 @@ type ImportOptions struct {
 	Fits func(size int64) error
 	// Redates are dates given to photos whose camera had them wrong.
 	Redates []Redate
+	// Choice is which of the folder's groups come in; nil, each as its
+	// kind says, as the look before it said.
+	Choice *Choice
 }
 
 // arrivals is where a file from a folder waits, copied and read back, for
@@ -86,8 +90,12 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		return done, err
 	}
 	defer os.RemoveAll(arrivals(root))
+	// A project's icons, an app's previews: left where they are, as the
+	// look said, unless chosen.
+	in := chosen(f, classify(f, cameraDates(f)), how.Choice)
+	items := slices.DeleteFunc(slices.Clone(f.Items), func(item Item) bool { return !in[item.Path] })
 	seen := map[string]bool{}
-	for i, item := range f.Items {
+	for i, item := range items {
 		if err := ctx.Err(); err != nil {
 			return done, err
 		}
@@ -98,10 +106,10 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		tell := func(n int64) {
 			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || n == size {
 				last = now
-				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path), Done: n, Total: size})
+				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path), Done: n, Total: size})
 			}
 		}
-		emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(f.Items), Name: filepath.Base(item.Path)})
+		emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path)})
 		hash, err := hashReading(item.Path, tell)
 		if err != nil {
 			done.Unreadable++

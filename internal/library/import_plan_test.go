@@ -149,7 +149,9 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{}, nil)
+	// With no camera's date it is unsure, and comes in when ticked.
+	choice := &Choice{In: []string{"Photos from 2019"}}
+	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{Choice: choice}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

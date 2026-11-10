@@ -804,7 +804,7 @@ func importCommand(args []string) int {
 	}
 	ctx, stop := interrupted()
 	defer stop()
-	plan, err := engine.PlanImport(ctx, dir, profile, redates, nil, out.event)
+	plan, err := engine.PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Choice: w.choice()}, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -818,6 +818,26 @@ func importCommand(args []string) int {
 			year = text["import no date"]
 		}
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
+	}
+	// The groups that stay out unless named, each with why.
+	var leftOut bool
+	for _, g := range plan.Groups {
+		if g.In {
+			continue
+		}
+		folder := g.Folder
+		if folder == "." {
+			folder = text["import top"]
+		}
+		why := text["group "+string(g.Kind)]
+		if g.Mark != "" {
+			why = fmt.Sprintf(why, g.Mark)
+		}
+		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(mediaCount(g.Photos, g.Videos)+" · "+why, faintColour, false))
+		leftOut = true
+	}
+	if leftOut {
+		out.say("  " + out.out.paint(text["group also"], faintColour, false))
 	}
 	for _, o := range plan.Others {
 		folder := o.Folder
@@ -867,25 +887,27 @@ func importArgs(args []string) importWords {
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
-	var dates dateFlags
+	var dates, also listFlags
 	flags.Var(&dates, "date", "NAMES=WHEN: the right date of photos whose camera had it wrong")
+	flags.Var(&also, "also", "FOLDER: a folder left out (a project, no camera data) brought in too")
 	flags.Parse(args)
 	dir := flags.Arg(0)
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, also: also, more: dir != "" && flags.NArg() > 0}
 }
 
-// dateFlags are the --date given, each "NAMES=WHEN" as typed.
-type dateFlags []string
+// listFlags are a flag given again and again: each --date, "NAMES=WHEN" as
+// typed; each --also.
+type listFlags []string
 
-func (d *dateFlags) String() string     { return strings.Join(*d, " ") }
-func (d *dateFlags) Set(v string) error { *d = append(*d, v); return nil }
+func (d *listFlags) String() string     { return strings.Join(*d, " ") }
+func (d *listFlags) Set(v string) error { *d = append(*d, v); return nil }
 
 // redates reads each --date: names separated by commas, an equals sign,
 // and a date with or without its time, as the camera's clock reads it.
-func (d dateFlags) redates() ([]library.Redate, error) {
+func (d listFlags) redates() ([]library.Redate, error) {
 	var out []library.Redate
 	for _, v := range d {
 		names, when, ok := strings.Cut(v, "=")
@@ -925,10 +947,25 @@ type importWords struct {
 	dryRun  bool
 	link    bool
 	profile string
-	dates   dateFlags
-	card    string // the card found, when no folder was named
+	dates   listFlags
+	also    listFlags // group folders left out, brought in
+	card    string    // the card found, when no folder was named
 	json    bool
 	more    bool // more than one folder
+}
+
+// choice is the groups --also brings in besides those that come in by
+// themselves; nil when none was named. A folder is named as the dry run
+// says it, with / and from the folder imported.
+func (w importWords) choice() *library.Choice {
+	if len(w.also) == 0 {
+		return nil
+	}
+	c := &library.Choice{}
+	for _, f := range w.also {
+		c.In = append(c.In, strings.Trim(filepath.ToSlash(filepath.Clean(f)), "/"))
+	}
+	return c
 }
 
 // findCard is the card to import when no folder was named: the one in, or
@@ -1001,7 +1038,7 @@ func importCopy(w importWords, args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	done, err := engine.Import(ctx, w.dir, profile, w.link, redates, out.event)
+	done, err := engine.Import(ctx, w.dir, profile, library.ImportOptions{Link: w.link, Redates: redates, Choice: w.choice()}, out.event)
 	if err != nil {
 		return out.fail(err)
 	}

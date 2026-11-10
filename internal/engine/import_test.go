@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/progress"
 )
 
@@ -17,7 +18,7 @@ import (
 // before anything is read or copied.
 func TestAnImportRefusesAProfileOutsideTheLibrary(t *testing.T) {
 	for _, profile := range []string{"../escaped", ".homewend", "a/b", ""} {
-		if _, err := Import(context.Background(), t.TempDir(), profile, false, nil, nil); !errors.Is(err, ErrBadProfile) {
+		if _, err := Import(context.Background(), t.TempDir(), profile, library.ImportOptions{}, nil); !errors.Is(err, ErrBadProfile) {
 			t.Errorf("profile %q: %v, want ErrBadProfile", profile, err)
 		}
 	}
@@ -27,8 +28,8 @@ func TestAnImportRefusesAProfileOutsideTheLibrary(t *testing.T) {
 // was copied stays, and the error says so.
 func TestACardTakenOutHalfwayIsSaid(t *testing.T) {
 	config(t)
-	library := t.TempDir()
-	if err := SetDefaultLibrary(library); err != nil {
+	root := t.TempDir()
+	if err := SetDefaultLibrary(root); err != nil {
 		t.Fatal(err)
 	}
 	card := filepath.Join(t.TempDir(), "card")
@@ -45,7 +46,7 @@ func TestACardTakenOutHalfwayIsSaid(t *testing.T) {
 			os.RemoveAll(card) // taken out
 		}
 	}
-	done, err := Import(context.Background(), card, "ron", false, nil, out)
+	done, err := Import(context.Background(), card, "ron", library.ImportOptions{}, out)
 	var gone FolderGoneError
 	if !errors.As(err, &gone) {
 		t.Fatalf("err %v, want the folder said gone", err)

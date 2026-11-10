@@ -38,9 +38,11 @@ type Importing struct {
 type ImportState struct {
 	Running bool   `json:"running"`
 	Dir     string `json:"dir,omitempty"`
-	// whose photos they are, and the dates given, for a copy taken up again
+	// whose photos they are, the dates given and the groups chosen, for a
+	// copy taken up again
 	Profile string           `json:"profile,omitempty"`
 	Redates []library.Redate `json:"redates,omitempty"`
+	Choice  *library.Choice  `json:"choice,omitempty"`
 	// Card is whether Dir was a card when the run began: one taken out is
 	// waited for, and carries on by itself when it is back.
 	Card bool `json:"card,omitempty"`
@@ -77,7 +79,7 @@ var ErrImportRunning = errors.New("an import is already running")
 
 // Plan reads dir in the background, to say what importing it into profile
 // would bring.
-func (im *Importing) Plan(dir, profile string, redates []library.Redate) error {
+func (im *Importing) Plan(dir, profile string, redates []library.Redate, choice *library.Choice) error {
 	// Said to the caller before the card is read, not after.
 	if !ValidProfile(profile) {
 		return ErrBadProfile
@@ -88,8 +90,8 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate) error {
 	}
 	hashes := im.hashes
 	im.mu.Unlock()
-	return im.start(dir, profile, redates, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		plan, err := PlanImport(ctx, dir, profile, redates, hashes, emit)
+	return im.start(dir, profile, redates, choice, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+		plan, err := PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Hashes: hashes, Choice: choice}, emit)
 		if err == nil {
 			s.Plan = &plan
 			s.CanLink = canLink(dir)
@@ -100,19 +102,19 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate) error {
 
 // Import copies dir into the library, into profile, in the background. The
 // plan read before stays in the state, for the screens that show it.
-func (im *Importing) Import(dir, profile string, link bool, redates []library.Redate) error {
+func (im *Importing) Import(dir, profile string, link bool, redates []library.Redate, choice *library.Choice) error {
 	// Said to the caller, not in the state: it is the page's mistake.
 	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
-	return im.start(dir, profile, redates, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		done, err := Import(ctx, dir, profile, link, redates, emit)
+	return im.start(dir, profile, redates, choice, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+		done, err := Import(ctx, dir, profile, library.ImportOptions{Link: link, Redates: redates, Choice: choice}, emit)
 		s.Imported = &done
 		return err
 	})
 }
 
-func (im *Importing) start(dir, profile string, redates []library.Redate, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+func (im *Importing) start(dir, profile string, redates []library.Redate, choice *library.Choice, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
 	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
@@ -136,7 +138,7 @@ func (im *Importing) start(dir, profile string, redates []library.Redate, kind s
 			before = im.state.Imported
 		}
 	}
-	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Kind: kind, Plan: plan, Card: card}
+	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Choice: choice, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {

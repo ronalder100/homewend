@@ -267,12 +267,13 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 			Dir     string           `json:"dir"`
 			Profile string           `json:"profile"`
 			Redates []library.Redate `json:"redates"`
+			Choice  *library.Choice  `json:"choice"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		err := importing.Plan(body.Dir, body.Profile, body.Redates)
+		err := importing.Plan(body.Dir, body.Profile, body.Redates, body.Choice)
 		reply(w, importing.State(), err)
 	})
 	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
@@ -281,12 +282,13 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 			Profile string           `json:"profile"`
 			Link    bool             `json:"link"`
 			Redates []library.Redate `json:"redates"`
+			Choice  *library.Choice  `json:"choice"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		err := importing.Import(body.Dir, body.Profile, body.Link, body.Redates)
+		err := importing.Import(body.Dir, body.Profile, body.Link, body.Redates, body.Choice)
 		reply(w, importing.State(), err)
 	})
 	// A file of the card looked at, small, for picking the ones with a

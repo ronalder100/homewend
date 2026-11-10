@@ -36,6 +36,10 @@ type ImportPlan struct {
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 
+	// The folder's photos in groups, as they come in or stay out: its
+	// own folders, a project, an app's previews.
+	Groups []ImportGroup `json:"groups"`
+
 	// Years, newest first; "" is the photos with no date.
 	Years []ImportYear `json:"years"`
 	// Every photo and video read, by the date its camera wrote: where a
@@ -66,6 +70,21 @@ type ImportFile struct {
 	Path  string    `json:"path"`            // below the folder, with /
 	Taken time.Time `json:"taken,omitzero"`  // the camera's clock; none, no date
 	Video bool      `json:"video,omitempty"` // else a photo
+	Group string    `json:"group"`           // its group's folder
+	// Small is an image of a few hundred pixels at most: an icon, a logo.
+	Small bool `json:"small,omitempty"`
+}
+
+// ImportGroup is a group of the folder's photos and what is in it, whether
+// it comes in or not.
+type ImportGroup struct {
+	Group
+	In        bool      `json:"in"` // whole, by its kind or as chosen
+	Photos    int       `json:"photos"`
+	Videos    int       `json:"videos"`
+	InLibrary int       `json:"in_library"`
+	First     time.Time `json:"first,omitzero"` // the camera's dates, first and last
+	Last      time.Time `json:"last,omitzero"`
 }
 
 // PlanOptions are what a look is for.
@@ -79,6 +98,8 @@ type PlanOptions struct {
 	// next look at the same folder: one with dates given reads nothing
 	// again.
 	Hashes Hashes
+	// Choice is which groups come in; nil, each as its kind says.
+	Choice *Choice
 }
 
 // Hashes are the contents of a folder's files, by path, as a look read
@@ -136,6 +157,17 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		return ImportPlan{}, err
 	}
 	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
+	cameras := cameraDates(f)
+	groups := classify(f, cameras)
+	in := chosen(f, groups, opt.Choice)
+	byPath := map[string]*ImportGroup{}
+	plan.Groups = make([]ImportGroup, len(groups))
+	for i, g := range groups {
+		plan.Groups[i] = ImportGroup{Group: g, In: opt.Choice.GroupIn(g)}
+		for _, p := range g.Paths {
+			byPath[p] = &plan.Groups[i]
+		}
+	}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
 	for i, item := range f.Items {
@@ -149,31 +181,59 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			plan.Unreadable++
 			continue
 		}
-		camera, _, hasDate := cameraDate(item.Path)
-		file := ImportFile{Path: relativeTo(dir, item.Path), Video: IsVideo(item.Path)}
+		camera, hasDate := cameras[item.Path]
+		group := byPath[item.Path]
+		file := ImportFile{Path: relativeTo(dir, item.Path), Video: IsVideo(item.Path), Group: group.Folder}
 		if hasDate {
 			file.Taken = camera
 		}
+		// The size of an image only where the person picks among them.
+		if group.Kind == Project || group.Kind == Unsure {
+			file.Small = small(item.Path)
+		}
 		plan.Files = append(plan.Files, file)
+		if file.Video {
+			group.Videos++
+		} else {
+			group.Photos++
+		}
+		if hasDate {
+			if group.First.IsZero() || camera.Before(group.First) {
+				group.First = camera
+			}
+			if camera.After(group.Last) {
+				group.Last = camera
+			}
+		}
+		var held string // where the library holds it, "" not
+		if catalog != nil {
+			path, known, err := catalog.PathOf(hash)
+			if err != nil {
+				return plan, err
+			}
+			if known {
+				held = path
+				group.InLibrary++
+			}
+		}
+		if !in[item.Path] {
+			continue
+		}
 		_, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
 		// the folder has it.
-		if catalog != nil {
-			if path, known, err := catalog.PathOf(hash); err != nil {
-				return plan, err
-			} else if known {
-				plan.InLibrary++
-				// As redateInLibrary decides: by the profile it is filed in.
-				first, _, _ := strings.Cut(path, "/")
-				switch {
-				case !dated:
-				case profile != "" && first != profile:
-					plan.NotRedated++
-				default:
-					plan.Redated++
-				}
-				continue
+		if held != "" {
+			plan.InLibrary++
+			// As redateInLibrary decides: by the profile it is filed in.
+			first, _, _ := strings.Cut(held, "/")
+			switch {
+			case !dated:
+			case profile != "" && first != profile:
+				plan.NotRedated++
+			default:
+				plan.Redated++
 			}
+			continue
 		}
 		if seen[hash] {
 			plan.Twins++
@@ -222,6 +282,9 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		if m != nil {
 			count(&m.Photos, &m.Videos)
 		}
+	}
+	for i := range plan.Groups {
+		plan.Groups[i].Paths = nil
 	}
 	for _, y := range years {
 		// The months nothing would go in are not said.
