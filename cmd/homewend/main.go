@@ -350,8 +350,8 @@ var (
 	errWhichAccount  = errors.New("more than one account is signed in")
 )
 
-// pickProfile is the profile of a command's photos: the one named, the only
-// one there is, or, for a person, one chosen from a list.
+// pickProfile is the profile of a command's photos: the one named, the one
+// the engine goes to unasked, or, for a person, one chosen from a list.
 func pickProfile(ctx context.Context, given string, asJSON bool) (string, error) {
 	if given != "" {
 		return given, nil
@@ -779,11 +779,6 @@ func importCommand(args []string) int {
 		return w.failed(text["import one folder"], text["one folder hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
-		// A photo's name typed where the folder goes: the dry run named it
-		// among those deleted, to bring back.
-		if filepath.Ext(dir) != "" {
-			return w.failed(fmt.Sprintf(text["import not found"], dir), fmt.Sprintf(text["import not found photo"], dir))
-		}
 		return w.failed(fmt.Sprintf(text["import not found"], dir))
 	} else if !info.IsDir() {
 		return w.failed(fmt.Sprintf(text["import not a folder"], dir))
@@ -858,11 +853,29 @@ func importArgs(args []string) importWords {
 	flags.Var(&dates, "date", "NAMES=WHEN: the right date of photos whose camera had it wrong")
 	flags.Var(&include, "include", "FOLDER: a folder that stays out by itself (a project, no camera data) brought in")
 	flags.Parse(bareBringBack(args))
-	dir := flags.Arg(0)
-	if flags.NArg() > 0 {
+	var dir string
+	var more bool
+	for flags.NArg() > 0 {
+		switch word := flags.Arg(0); {
+		case isPhotoName(word):
+			// A photo's name, not a folder: the deleted one the dry run
+			// named, to bring back from the card.
+			back = append(back, word)
+		case dir == "":
+			dir = word
+		default:
+			more = true
+		}
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: more}
+}
+
+// isPhotoName is whether word, typed where the folder goes, names a photo
+// of the card instead: nothing there by that path, and a file's extension.
+func isPhotoName(word string) bool {
+	_, err := os.Stat(word)
+	return err != nil && filepath.Ext(word) != ""
 }
 
 // bareBringBack gives an empty value, all as asked reads it, to a

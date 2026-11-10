@@ -26,8 +26,9 @@ type Settings struct {
 	// Profiles names the profile of each account, by id: the folder of the
 	// library its photos go in. An account not named here goes in ProfileFor's.
 	Profiles map[string]string `json:"profiles,omitempty"`
-	// Imported are the profiles a card or a folder was imported into that
-	// no account has: named once, found again at the next import.
+	// Imported are the profiles a card or a folder was imported into: named
+	// once, found again at the next import, an account's too, whose folder
+	// stays when the account goes.
 	Imported []string `json:"imported_profiles,omitempty"`
 }
 

@@ -68,6 +68,9 @@ func LibraryOverview(s Settings) (Overview, error) {
 		return Overview{}, err
 	}
 	o, err := overview(root, accounts, s.Hidden)
+	if err != nil {
+		return o, err
+	}
 	names, first := ProfileNames(accounts, s)
 	o.Profiles, o.Profile = append([]string{}, names...), first
 	return o, err
