@@ -258,4 +258,12 @@ func TestJobRecordsWhenAStepBegan(t *testing.T) {
 	if !jb.state.StageSince.After(began) {
 		t.Fatalf("a new step kept the old start: %v", jb.state.StageSince)
 	}
+	// Google asked again while it prepares: the wait goes on, the last look
+	// moves.
+	waiting, looked := jb.state.StageSince, jb.state.LastLooked
+	time.Sleep(time.Millisecond)
+	jb.record(progress.Event{Stage: progress.Waiting, Name: "job"})
+	if !jb.state.StageSince.Equal(waiting) || !jb.state.LastLooked.After(looked) {
+		t.Fatalf("asked again: start %v (was %v), last look %v (was %v)", jb.state.StageSince, waiting, jb.state.LastLooked, looked)
+	}
 }

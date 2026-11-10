@@ -226,8 +226,7 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 		select {
 		case <-counted:
 		default:
-			jb.state.Stage = progress.Counting
-			jb.state.StageSince = time.Now()
+			jb.record(progress.Event{Stage: progress.Counting})
 		}
 	}
 	go func() {
@@ -244,10 +243,9 @@ func (j *Jobs) start(account string, g Get, run func(context.Context, progress.F
 				j.mu.Lock()
 				// Each new stage, and each retry, goes to the log: what a job
 				// did before it stopped is read there afterwards.
-				if e.Stage != jb.state.Stage || e.Stage == progress.Retry {
+				if jb.record(e) || e.Stage == progress.Retry {
 					log.Printf("%s: %s %s", account, e.Stage, e.Note)
 				}
-				jb.record(e)
 				j.mu.Unlock()
 			})
 		default:
@@ -408,12 +406,13 @@ func (j *Jobs) State(account string) JobState {
 	return JobState{Years: []YearProgress{}}
 }
 
-func (jb *job) record(e progress.Event) {
+// record keeps e in the job's state, and says whether it began a new step.
+func (jb *job) record(e progress.Event) bool {
 	s := &jb.state
 	switch e.Stage {
 	case progress.Retry:
 		s.Retry = e.Note
-		return
+		return false
 	case progress.Ready:
 		s.Export, s.Of, s.Total = e.Name, e.Of, e.Total
 	case progress.Waiting:
@@ -437,11 +436,13 @@ func (jb *job) record(e progress.Event) {
 	case progress.Year:
 		jb.year(e)
 	}
-	if e.Stage != s.Stage {
+	changed := e.Stage != s.Stage
+	if changed {
 		s.StageSince = time.Now()
 	}
 	s.Stage = e.Stage
 	s.Retry = ""
+	return changed
 }
 
 func (jb *job) year(e progress.Event) {

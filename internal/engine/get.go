@@ -244,7 +244,7 @@ func askedSince(exports []takeout.Export, asked time.Time) string {
 
 // waitReady reads /manage until the export with job can be downloaded.
 func waitReady(ctx context.Context, sess *session.Session, job string, emit progress.Func) (takeout.Export, error) {
-	for waiting := false; ; {
+	for {
 		exports, err := takeout.Exports(sess)
 		if err != nil {
 			return takeout.Export{}, err
@@ -259,10 +259,8 @@ func waitReady(ctx context.Context, sess *session.Session, job string, emit prog
 		case Expired:
 			return takeout.Export{}, fmt.Errorf("%w: %s", ErrExpired, job)
 		}
-		if !waiting {
-			emit.Emit(progress.Event{Stage: progress.Waiting, Name: job})
-			waiting = true
-		}
+		// Said at each look: the window shows when Google was last asked.
+		emit.Emit(progress.Event{Stage: progress.Waiting, Name: job})
 		select {
 		case <-ctx.Done():
 			return takeout.Export{}, ctx.Err()
