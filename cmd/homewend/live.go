@@ -78,7 +78,7 @@ func (s pace) said(done, total int64) string {
 	said := fmt.Sprintf(text["pace"], size(int64(s.rate)))
 	// Under a second left is no time to say.
 	if left := time.Duration(float64(total-done) / s.rate * float64(time.Second)).Round(time.Second); left > 0 {
-		said += fmt.Sprintf(text["download left"], left)
+		said += fmt.Sprintf(text["left"], left)
 	}
 	return said
 }

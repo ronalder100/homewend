@@ -282,7 +282,7 @@ Examples:
 	"in library now":        "Already in the library",
 	"downloading":           "Downloading part %d of %d",
 	"download sizes":        "%s of %s",
-	"download left":         " · %s left",
+	"left":                  " · %s left",
 	"pace":                  " · %s/s",
 	"downloaded":            "Downloaded part **%d of %d**",
 	"downloaded in":         " · %s in %s",

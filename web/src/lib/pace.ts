@@ -7,6 +7,9 @@ const samples: Record<string, { t: number; done: number }[]> = {};
 
 /** Bytes a second for key, and seconds left to total; none until known. */
 export function pace(key: string, done: number, total: number): { rate: number; left: number } | null {
+	// Nothing to measure yet: no sample, or a zero from before the start
+	// would slow the first minute down.
+	if (total <= 0) return null;
 	const now = Date.now();
 	const s = (samples[key] = [
 		...(samples[key] ?? []).filter((x) => now - x.t < 60000 && x.done <= done),

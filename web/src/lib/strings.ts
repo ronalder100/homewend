@@ -168,7 +168,7 @@ export const text = {
 	leftAtSpeed: 'left at this speed',
 	aboutTime: (s: string) => `about ${s}`,
 	perSecond: (size: string) => `${size}/s`,
-	speed: 'copied a second',
+	speed: 'speed',
 
 	takeoutsTitle: 'Takeouts',
 	takeoutCol: 'TAKEOUT',

@@ -27,7 +27,7 @@
 		type ImportState
 	} from '#lib/api.js';
 	import { bytes, roughly, takenDay } from '#lib/format.js';
-	import { pace } from '#lib/pace.js';
+	import { forget, pace } from '#lib/pace.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
@@ -133,6 +133,8 @@
 
 	async function start(call: () => Promise<ImportState>) {
 		choosing = false;
+		// A run measures its own pace, not the last one's.
+		forget('import');
 		try {
 			im = await call();
 		} catch (e) {

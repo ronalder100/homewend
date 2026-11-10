@@ -652,3 +652,38 @@ func TestAKnownPhotoTakesTheCardAndADeletedTwinStaysOut(t *testing.T) {
 		t.Errorf("sources %v, %v; want Google and the card", sources, err)
 	}
 }
+
+// The run's bytes gone through only grow, and end at all of them, a photo
+// already in the library counted whole once it is done.
+func TestARunTellsItsBytesGoneThrough(t *testing.T) {
+	card := cameraCard(t)
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fits := func(int64) error { return nil }
+	for run := range 2 { // all new, then all in the library
+		var last, total int64
+		emit := func(e progress.Event) {
+			if e.Stage != progress.Moved {
+				return
+			}
+			if e.Done < last {
+				t.Errorf("run %d: went back from %d to %d", run, last, e.Done)
+			}
+			last, total = e.Done, e.Total
+		}
+		if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits}, emit); err != nil {
+			t.Fatal(err)
+		}
+		if total == 0 || last != total {
+			t.Errorf("run %d: ended at %d of %d", run, last, total)
+		}
+	}
+}
