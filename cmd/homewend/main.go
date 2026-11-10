@@ -819,14 +819,11 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
 	}
-	// The groups that stay out unless named, each with why; and whether
-	// any of them holds something the library has not.
+	// The groups that stay out unless named, each with why.
 	var leftOut []library.Group
-	var newOut bool
 	for _, g := range plan.Groups {
 		if !g.In {
 			leftOut = append(leftOut, g.Group)
-			newOut = newOut || g.Photos+g.Videos > g.InLibrary
 		}
 	}
 	sayLeftOut(out, leftOut, func(i int) string {
@@ -864,20 +861,8 @@ func importCommand(args []string) int {
 	switch {
 	case plan.Photos+plan.Videos > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
-	case newOut:
-		out.say(out.out.summary(text["result plan left out"]))
-	case plan.Deleted > 0:
-		out.say(out.out.result(text["result import deleted"]))
-	case len(leftOut) > 0:
-		out.say(out.out.result(text["result import none"]))
-	case plan.InLibrary+plan.Twins > 0 && plan.Unreadable > 0:
-		out.say(out.out.summary(text["result import none read"]))
-	case plan.InLibrary+plan.Twins > 0:
-		out.say(out.out.result(text["result import none"]))
-	case plan.Unreadable > 0:
-		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], dir)))
 	default:
-		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
+		sayNothingNew(out, true, len(leftOut) > 0, plan.Deleted, plan.InLibrary+plan.Twins, plan.Unreadable, dir)
 	}
 	return exitOK
 }
@@ -1106,20 +1091,34 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.result(fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)))
 	case done.Redated > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result redated"], done.Redated)))
-	case done.Deleted > 0:
-		out.say(out.out.result(text["result import deleted"]))
-	case done.InLibrary+done.Twins > 0 && done.Unreadable > 0:
-		out.say(out.out.summary(text["result import none read"]))
-	case done.InLibrary+done.Twins > 0:
-		out.say(out.out.result(text["result import none"]))
-	case done.Unreadable > 0:
-		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], w.dir)))
-	case len(done.LeftOut) > 0:
-		out.say(out.out.summary(text["result import left out"]))
 	default:
-		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], w.dir)))
+		sayNothingNew(out, false, len(done.LeftOut) > 0, done.Deleted, done.InLibrary+done.Twins, done.Unreadable, w.dir)
 	}
 	return exitOK
+}
+
+// sayNothingNew is the last line of a dry run or a copy that brings
+// nothing in, one for both, so that the two never tell the same folder
+// apart: folders left out first (new or not, they are what to look at),
+// then photos deleted from the library, then what was already in, read or
+// not, then nothing at all.
+func sayNothingNew(out *printer, dry, leftOut bool, deleted, known, unreadable int, dir string) {
+	switch {
+	case leftOut && dry:
+		out.say(out.out.summary(text["result plan left out"]))
+	case leftOut:
+		out.say(out.out.summary(text["result import left out"]))
+	case deleted > 0:
+		out.say(out.out.result(text["result import deleted"]))
+	case known > 0 && unreadable > 0:
+		out.say(out.out.summary(text["result import none read"]))
+	case known > 0:
+		out.say(out.out.result(text["result import none"]))
+	case unreadable > 0:
+		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], dir)))
+	default:
+		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
+	}
 }
 
 // sayDeleted says the photos left out because someone deleted them from
