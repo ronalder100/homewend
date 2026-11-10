@@ -27,7 +27,8 @@ type Redate struct {
 // ErrOthersPhoto is a date given to a photo another profile brought first.
 var ErrOthersPhoto = errors.New("the photo is filed in another profile")
 
-// UnknownNameError is a name given a date that the folder does not have.
+// UnknownNameError is a name given, to date or to bring back, that the
+// folder does not have.
 type UnknownNameError struct{ Name string }
 
 func (e UnknownNameError) Error() string { return e.Name + " is not in the folder" }

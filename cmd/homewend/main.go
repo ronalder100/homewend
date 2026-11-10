@@ -779,6 +779,11 @@ func importCommand(args []string) int {
 		return w.failed(text["import one folder"], text["one folder hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
+		// A photo's name typed where the folder goes: the dry run named it
+		// among those deleted, to bring back.
+		if filepath.Ext(dir) != "" {
+			return w.failed(fmt.Sprintf(text["import not found"], dir), fmt.Sprintf(text["import not found photo"], dir))
+		}
 		return w.failed(fmt.Sprintf(text["import not found"], dir))
 	} else if !info.IsDir() {
 		return w.failed(fmt.Sprintf(text["import not a folder"], dir))
@@ -870,13 +875,17 @@ func bareBringBack(args []string) []string {
 		if a != "--bring-back" && a != "-bring-back" {
 			continue
 		}
-		if i+1 == len(args) || strings.HasPrefix(args[i+1], "-") {
-			out = append(out, "")
-		} else if info, err := os.Stat(args[i+1]); err == nil && info.IsDir() {
+		if i+1 == len(args) || strings.HasPrefix(args[i+1], "-") || isFolder(args[i+1]) {
 			out = append(out, "")
 		}
 	}
 	return out
+}
+
+// isFolder is whether p is a folder there.
+func isFolder(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && info.IsDir()
 }
 
 // listFlags are a flag given again and again: each --date, "NAMES=WHEN" as
@@ -1084,7 +1093,7 @@ func sayNames(out *printer, names []string, more int) {
 		out.say("    " + out.out.paint(n, faintColour, false))
 	}
 	if more > 0 {
-		out.say("    " + out.out.paint(fmt.Sprintf(text["import others more"], more), faintColour, false))
+		out.say("    " + out.out.paint(fmt.Sprintf(text["names more"], more), faintColour, false))
 	}
 }
 

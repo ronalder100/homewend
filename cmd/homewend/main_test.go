@@ -256,16 +256,19 @@ func TestTheLastLine(t *testing.T) {
 }
 
 // captured is what f prints to stdout.
-func captured(t *testing.T, f func()) string {
+func captured(t *testing.T, f func()) string { return capturedFrom(t, &os.Stdout, f) }
+
+// capturedFrom is what f writes to *file, stdout or stderr.
+func capturedFrom(t *testing.T, file **os.File, f func()) string {
 	t.Helper()
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	stdout := os.Stdout
-	os.Stdout = w
+	was := *file
+	*file = w
 	f()
-	os.Stdout = stdout
+	*file = was
 	w.Close()
 	out, _ := io.ReadAll(r)
 	return string(out)
@@ -461,5 +464,14 @@ func TestDeletedLeftOutAreNamed(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("%q missing:\n%s", want, out)
 		}
+	}
+}
+
+// A photo's name typed where the folder goes is not a folder: the person
+// is told how a deleted photo is brought back.
+func TestAPhotoNameWhereTheFolderGoesSaysBringBack(t *testing.T) {
+	out := capturedFrom(t, &os.Stderr, func() { importCommand([]string{"--dry-run", "DCIM/100_FUJI/DSCF0003.JPG"}) })
+	if !strings.Contains(out, "--bring-back DCIM/100_FUJI/DSCF0003.JPG") {
+		t.Errorf("%q, want the --bring-back way", out)
 	}
 }
