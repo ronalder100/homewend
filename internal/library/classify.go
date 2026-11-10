@@ -183,7 +183,8 @@ func groupOf(root, path string, markOf func(string) string) (folder string, kind
 		case strings.HasSuffix(name, ".photoslibrary"), strings.HasSuffix(name, ".photolibrary"), strings.HasSuffix(name, ".aplibrary"):
 			// Apple Photos keeps the photos in originals (Masters before
 			// 2015, and in iPhoto and Aperture); the rest are its previews.
-			if i+1 < len(dirs) && (dirs[i+1] == "originals" || dirs[i+1] == "Masters") {
+			// iPhoto before 2009 wrote Originals.
+			if i+1 < len(dirs) && (strings.EqualFold(dirs[i+1], "originals") || dirs[i+1] == "Masters") {
 				return at + "/" + dirs[i+1], Photos, ""
 			}
 			return at, Previews, "Apple Photos"

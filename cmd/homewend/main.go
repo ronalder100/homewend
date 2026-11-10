@@ -840,7 +840,7 @@ func importCommand(args []string) int {
 	for _, o := range plan.Others {
 		folder := o.Folder
 		if folder == "." {
-			folder = text["import top"]
+			folder = text["import itself"]
 		}
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
@@ -974,6 +974,11 @@ func (w importWords) choice() *library.Choice {
 // or a path the shell completed, whole or from here, that leads into dir.
 func alsoFolder(dir, name string) string {
 	clean := filepath.Clean(name)
+	// "." is the folder itself, as the dry run writes it, wherever the
+	// command runs.
+	if clean == "." {
+		return "."
+	}
 	if _, err := os.Stat(clean); err == nil || filepath.IsAbs(clean) {
 		real := func(p string) string {
 			p, _ = filepath.Abs(p)

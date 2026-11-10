@@ -104,6 +104,10 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 	if err != nil {
 		return done, err
 	}
+	// Stopped while dates were read: the groups are not what the look said.
+	if err := ctx.Err(); err != nil {
+		return done, err
+	}
 	in := chosen(f, groups, how.Choice)
 	for _, g := range groups {
 		if !how.Choice.GroupIn(g) {

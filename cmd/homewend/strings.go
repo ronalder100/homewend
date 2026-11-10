@@ -335,7 +335,6 @@ Examples:
 	"cards found":             "more than one card is in: %s",
 	"one folder hint":         "name one: **homewend import DIR**",
 	"which card":              "Which card?",
-	"import top":              "at the top",
 	"import no date":          "no date",
 	"import others":           "%s, %s · not photos or videos, they stay out",
 	"group project":           "a project (%s): its images stay out",
