@@ -827,7 +827,9 @@ func importCommand(args []string) int {
 		if folder == "." {
 			name := w.card
 			if name == "" {
-				name = filepath.Base(dir)
+				// "." and ".." named as the folders they are.
+				abs, _ := filepath.Abs(dir)
+				name = filepath.Base(abs)
 			}
 			folder = fmt.Sprintf(text["import top"], name)
 		}
