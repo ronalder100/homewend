@@ -212,40 +212,36 @@ export interface Choice {
 	pick: string[];
 }
 
-export interface ImportPlan {
+/** What a look and its copy both count, and how it ends (the engine's library.Counts). */
+export interface Counts {
+	in_library: number;
+	twins: number;
+	/** Moved to a date given; given one but filed in another profile. */
+	redated: number;
+	not_redated: number;
+	/** Deleted from the library: counted always, in again only when brought back. */
+	deleted: number;
+	brought_back?: boolean;
+	unreadable: number;
+	outcome: Outcome;
+}
+
+export interface ImportPlan extends Counts {
 	photos: number;
 	videos: number;
 	bytes: number;
-	in_library: number;
-	twins: number;
-	unreadable: number;
-	/** Photos someone deleted from the library: they stay out unless brought back. */
-	deleted: number;
-	/** Those a date given moves; those another profile holds, left to it. */
-	redated: number;
-	not_redated: number;
 	files: ImportFile[];
 	groups: ImportGroup[];
-	outcome: Outcome;
 	/** Newest first; "" is the photos with no date. */
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by the folder it sits in. */
 	others: { folder: string; files: number; bytes: number }[];
 }
 
-export interface Imported {
-	/** How it ended, as the engine decides it. */
-	outcome: Outcome;
+export interface Imported extends Counts {
 	placed: number;
-	/** Deleted from the library, left out. */
-	deleted: number;
 	bytes: number;
 	undated: number;
-	in_library: number;
-	twins: number;
-	redated: number;
-	not_redated: number;
-	unreadable: number;
 }
 
 /** In the library and checked, by year and month; year "" month 0, the undated. */

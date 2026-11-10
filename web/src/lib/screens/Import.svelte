@@ -151,7 +151,6 @@
 		link = false;
 		choice = null;
 		bringBack = false;
-		deletedSeen = 0;
 		start(() => planImport({ dir, profile }));
 	}
 
@@ -160,13 +159,8 @@
 	// twice.
 	let redates = $state<Redate[]>([]);
 	let dating = $state(false);
-	// Photos deleted from the library come in again only when asked; how
-	// many, as the last look that left them out counted.
+	// Photos deleted from the library come in again only when asked.
 	let bringBack = $state(false);
-	let deletedSeen = $state(0);
-	$effect(() => {
-		if (im?.plan && !im.bringBack) deletedSeen = im.plan.deleted;
-	});
 
 	// What the person has said so far, for the next look or the copy.
 	const asking = (): ImportAsk => ({ dir: im!.dir!, profile: im!.profile || profile, redates, choice, bringBack });
@@ -361,11 +355,11 @@
 			{/if}
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
-		{#if deletedSeen > 0 || bringBack}
+		{#if plan.deleted > 0}
 			<!-- The card still holds what was deleted from the library: it stays out unless asked back. -->
 			<label class="note back">
 				<input type="checkbox" bind:checked={bringBack} onchange={lookAgain} />
-				{bringBack ? (deletedSeen ? text.bringingBack(deletedSeen) : text.bringingBackAll) : text.deletedStayOut(deletedSeen)}
+				{bringBack ? text.bringingBack(plan.deleted) : text.deletedStayOut(plan.deleted)}
 			</label>
 		{/if}
 		{#if plan.groups.length > 0}
@@ -439,20 +433,14 @@
 		{@const done = im.imported}
 		<span class="pill" class:ok={view === 'done'}>{#if view === 'done'}<CircleCheck size={14} />{/if}{name}</span>
 		<!-- How it ended, as the engine says it. -->
-		<h1>
-			{view === 'stopped'
-				? text.importStopped
+		{@const end =
+			view === 'stopped'
+				? { title: text.importStopped, lead: text.importStoppedLead }
 				: done && done.outcome !== 'new'
-					? text.importNothingNew
-					: text.importDone(done?.placed ?? 0)}
-		</h1>
-		<p class="lead">
-			{view === 'stopped'
-				? text.importStoppedLead
-				: done && done.outcome !== 'new'
-					? text.doneLead[done.outcome](done)
-					: text.importDoneLead}
-		</p>
+					? { title: text.importNothingNew, lead: text.doneLead[done.outcome](done) }
+					: { title: text.importDone(done?.placed ?? 0), lead: text.importDoneLead }}
+		<h1>{end.title}</h1>
+		<p class="lead">{end.lead}</p>
 		{#if done}
 			<div class="numbers">
 				<div><b>{done.placed.toLocaleString('en')}</b><span>{text.importPlaced}</span></div>

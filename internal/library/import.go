@@ -24,23 +24,13 @@ var ErrNoLink = errors.New("the disk refused a hard link")
 
 // Imported is what an import did.
 type Imported struct {
-	Placed    int   `json:"placed"`     // photos and videos now in the library
-	Bytes     int64 `json:"bytes"`      // they take, counted once each
-	Undated   int   `json:"undated"`    // of them, with no date the camera wrote
-	InLibrary int   `json:"in_library"` // already there before: nothing copied
-	Twins     int   `json:"twins"`      // the same photo twice in the folder: brought in once
-	Redated   int   `json:"redated"`    // given the date the person gave: new or already in
-	// Given a date but filed in another profile, whose date it is to give.
-	NotRedated int `json:"not_redated"`
-	// Files and folders that could not be read, passed over.
-	Unreadable int `json:"unreadable"`
-	// Photos the library had and someone deleted from it: left out.
-	Deleted int `json:"deleted"`
+	Placed  int   `json:"placed"`  // photos and videos now in the library
+	Bytes   int64 `json:"bytes"`   // they take, counted once each
+	Undated int   `json:"undated"` // of them, with no date the camera wrote
+	Counts
 	// The groups that stayed out, by their kind or as chosen: said, so
 	// that no photo stays out unseen.
 	LeftOut []Group `json:"left_out,omitempty"`
-	// How it ended, as the look before it would have said.
-	Outcome Outcome `json:"outcome"`
 }
 
 // redate gives a photo of the library its date, and counts it given or
@@ -94,7 +84,7 @@ func arrivals(root string) string { return filepath.Join(root, WorkDir, "import"
 // the rest. fits is asked before each copy whether the library's disk has
 // room for it.
 func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Options, how ImportOptions, emit progress.Func) (Imported, error) {
-	done := Imported{Unreadable: f.Unreadable}
+	done := Imported{Counts: Counts{Unreadable: f.Unreadable, BroughtBack: how.BringBack}}
 	// A name the folder does not have, or has twice, is said before
 	// anything is copied.
 	dates, err := given(how.Redates, f)
@@ -119,11 +109,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		return done, err
 	}
 	in := chosen(f, groups, how.Choice)
-	for _, g := range groups {
-		if !how.Choice.GroupIn(g) {
-			done.LeftOut = append(done.LeftOut, g)
-		}
-	}
+	done.LeftOut = leftOut(groups, how.Choice)
 	items := slices.DeleteFunc(slices.Clone(f.Items), func(item Item) bool { return !in[item.Path] })
 	seen := map[string]bool{}
 	for i, item := range items {
@@ -167,8 +153,8 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// The arrivals were emptied, so it is no move left halfway
 			// either. It stays out unless asked back; brought back, it is
 			// new, in this profile.
+			done.Deleted++
 			if !how.BringBack {
-				done.Deleted++
 				// Its twin further on is deleted too, not a photo in.
 				delete(seen, hash)
 				continue
@@ -180,20 +166,16 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		}
 		if known {
 			// Already in the library. Held by another profile, it gets a
-			// name in this one too: Organize is handed the library's own
-			// file for that, never the folder's, so it cannot move it.
+			// name in this one too, and the card as a source: Organize is
+			// handed the library's own file for that, never the folder's,
+			// so it cannot move it. In this profile, the card is a source
+			// too: hiding the account it came from first does not hide it.
 			if !filedIn(relative, opt.Profile) {
 				if _, err := Organize([]Item{{Path: home}}, root, catalog, opt, nil); err != nil {
 					return done, err
 				}
-			}
-			// It came from the card too: hiding the account it came from
-			// first does not hide it. Organize says so for another
-			// profile's.
-			if filedIn(relative, opt.Profile) {
-				if err := catalog.addOwner(hash, opt.Account); err != nil {
-					return done, err
-				}
+			} else if err := catalog.addOwner(hash, opt.Account); err != nil {
+				return done, err
 			}
 			// A date given now is for a photo already in: the likeliest
 			// case, seen as 2018 in the library after a first import.
@@ -226,7 +208,9 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		done.Placed += placed.Placed
 		done.Bytes += placed.Bytes
 		done.Undated += placed.Undated
-		// Its month, for the window that counts what came in by month.
+		// Its month, for the window that counts what came in by month: as
+		// it was filed, the catalog's date. bringIn dates it as the look
+		// does (the date given, else the camera's), so the two agree.
 		if p, err := catalog.photo(hash); err == nil {
 			e := progress.Event{Stage: progress.Filed}
 			if !p.Taken.IsZero() {
@@ -235,7 +219,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			emit.Emit(e)
 		}
 	}
-	done.Outcome = outcome(done.Placed, done.Redated, len(done.LeftOut) > 0, done.Deleted, done.InLibrary+done.Twins, done.Unreadable)
+	done.end(done.Placed, len(done.LeftOut) > 0)
 	return done, nil
 }
 

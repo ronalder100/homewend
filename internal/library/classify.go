@@ -223,6 +223,18 @@ func (c *Choice) GroupIn(g Group) bool {
 	return (g.Kind.In() && !slices.Contains(c.Out, g.Folder)) || slices.Contains(c.In, g.Folder)
 }
 
+// leftOut are the groups that do not come in whole, by their kind or as
+// chosen.
+func leftOut(groups []Group, choice *Choice) []Group {
+	var out []Group
+	for _, g := range groups {
+		if !choice.GroupIn(g) {
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
 // chosen is which of f's items come in, by path.
 func chosen(f Folder, groups []Group, choice *Choice) map[string]bool {
 	in := map[string]bool{}

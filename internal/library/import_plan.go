@@ -22,28 +22,13 @@ type ImportPlan struct {
 	Videos int   `json:"videos"` // to copy
 	Bytes  int64 `json:"bytes"`  // they would add to the library
 
-	// Already in the library, found by content: copying them again would
-	// store nothing new.
-	InLibrary int `json:"in_library"`
-	// Of them and of the twins, those a date given would move.
-	Redated int `json:"redated"`
-	// Those given a date but filed in another profile, whose date it is
-	// to give: counted when the profile is known.
-	NotRedated int `json:"not_redated"`
-	// The same photo twice in the folder: it is copied once.
-	Twins int `json:"twins"`
-	// Photos the library had and someone deleted from it: they stay out
-	// unless brought back.
-	Deleted int `json:"deleted"`
-	// Files and folders that could not be read, passed over.
-	Unreadable int `json:"unreadable"`
+	// What is in already, twice, moved, deleted, unreadable; how it ends.
+	// NotRedated is counted when the profile is known.
+	Counts
 
 	// The folder's photos in groups, as they come in or stay out: its
 	// own folders, a project, an app's previews.
 	Groups []ImportGroup `json:"groups"`
-
-	// How it ends, for every screen and line that says it.
-	Outcome Outcome `json:"outcome"`
 
 	// Years, newest first; "" is the photos with no date.
 	Years []ImportYear `json:"years"`
@@ -220,7 +205,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 	if err != nil {
 		return ImportPlan{}, err
 	}
-	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
+	plan := ImportPlan{Counts: Counts{Unreadable: f.Unreadable, BroughtBack: opt.BringBack}, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
 	// Every file read once, its content and its camera's date, before
 	// the groups are known: what the groups are depends on the dates.
 	hashes := opt.Hashes
@@ -301,9 +286,11 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		if !in[item.Path] {
 			continue
 		}
-		if deleted && !opt.BringBack {
+		if deleted {
 			plan.Deleted++
-			continue
+			if !opt.BringBack {
+				continue
+			}
 		}
 		_, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
@@ -368,12 +355,10 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			count(&m.Photos, &m.Videos)
 		}
 	}
-	leftOut := false
+	plan.end(plan.Photos+plan.Videos, len(leftOut(groups, opt.Choice)) > 0)
 	for i := range plan.Groups {
 		plan.Groups[i].Paths = nil
-		leftOut = leftOut || !plan.Groups[i].In
 	}
-	plan.Outcome = outcome(plan.Photos+plan.Videos, plan.Redated, leftOut, plan.Deleted, plan.InLibrary+plan.Twins, plan.Unreadable)
 	for _, y := range years {
 		// The months nothing would go in are not said.
 		y.Months = slices.DeleteFunc(y.Months, func(m ImportMonth) bool { return m.Photos+m.Videos == 0 })
