@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"image/color"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -816,29 +817,12 @@ func importCommand(args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"import": plan, "dir": dir})
 		return exitOK
 	}
-	for _, y := range plan.Years {
-		year := y.Year
-		if year == "" {
-			year = text["import no date"]
-		}
-		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
+	s := summary{Counts: plan.Counts, copied: plan.Photos + plan.Videos, years: plan.Years, othersMore: plan.OthersMore,
+		last: fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))}
+	for _, o := range plan.Others {
+		s.others = append(s.others, o.Name)
 	}
-	// What is not a photo or a video, by its name at the top of the card
-	// or the folder: a person knows FFDB/ when they see it. The engine names
-	// a few (library.MaxOthers) and counts the rest.
-	if len(plan.Others) > 0 {
-		where := "import others folder"
-		if w.card {
-			where = "import others card"
-		}
-		out.say("  " + out.out.paint(text[where], faintColour, false))
-		var names []string
-		for _, o := range plan.Others {
-			names = append(names, o.Name)
-		}
-		sayNames(out, names, plan.OthersMore)
-	}
-	sayImport(out, w, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
+	sayImport(out, w, s)
 	return exitOK
 }
 
@@ -1082,28 +1066,65 @@ func importCopy(w importWords, args []string) int {
 	if w.link {
 		fresh = fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)
 	}
-	sayImport(out, w, done.Counts, done.Undated, fresh)
+	sayImport(out, w, summary{Counts: done.Counts, copied: done.Placed, undated: done.Undated, last: fresh})
 	return exitOK
 }
 
-// sayNames lists names under the line before them, faint, and how many
-// more there are past them.
-func sayNames(out *printer, names []string, more int) {
-	for _, n := range names {
-		out.say("    " + out.out.paint(n, faintColour, false))
-	}
-	if more > 0 {
-		out.say("    " + out.out.paint(fmt.Sprintf(text["names more"], more), faintColour, false))
-	}
+// summary is what sayImport says of a look or its copy: the counts, what
+// is copied (with those brought back) and, a copy's, undated; a look's
+// years and what is not a photo, by name at the top of the card; the last
+// line when something comes in.
+type summary struct {
+	library.Counts
+	copied     int
+	undated    int
+	years      []library.ImportYear
+	others     []string
+	othersMore int
+	last       string
 }
 
-// sayImport says how a look (a dry run) or its copy went, one way for
-// both: the groups that stay out with why and how to bring one in, what is
-// in, moved, twice, undated (a copy's), left to another profile, deleted,
-// unreadable; then its last line.
-func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh string) {
+// sayImport says a look (a dry run) or its copy one way for both, as a
+// table a person reads at a glance: what is copied, what is skipped and
+// why, and under a row what to do about it; then the last line.
+func sayImport(out *printer, w importWords, s summary) {
+	// The verbs in one column as wide as this run's longest, "skip" or
+	// "skipped"; the counts right-aligned after them.
+	wide := 0
+	for _, verb := range []string{"copy", "skip", "date"} {
+		wide = max(wide, len(w.words("verb "+verb)))
+	}
+	under := strings.Repeat(" ", 2+wide+1+5+2) // below a row's words
+	row := func(verb string, n int, said string, colour color.Color) {
+		if n > 0 {
+			line := fmt.Sprintf("%-*s %5d  %s", wide, w.words("verb "+verb), n, said)
+			out.say("  " + out.out.paint(line, colour, false))
+		}
+	}
+	note := func(said string) { out.say(under + out.out.paint(said, faintColour, false)) }
+	row("copy", s.copied-s.BroughtBack, text["row new"], nil)
+	row("copy", s.BroughtBack, text["row back"], nil)
+	// Under what is copied, new or brought back: by year, and undated.
+	for _, y := range s.years {
+		year := y.Year
+		if year == "" {
+			year = text["import no date"]
+		}
+		note(fmt.Sprintf("%-7s %s", year, mediaCount(y.Photos, y.Videos)))
+	}
+	if s.undated > 0 {
+		note(fmt.Sprintf(text["imported undated"], s.undated))
+	}
+	row("date", s.Redated, w.words("row redated"), nil)
+	row("skip", s.NotRedated, text["row not redated"], warnColour)
+	row("skip", s.InLibrary, text["row already"], faintColour)
+	row("skip", s.Twins, text["row twins"], faintColour)
+	row("skip", s.Deleted, text["row deleted"], faintColour)
+	if s.Deleted > 0 {
+		note(text["row deleted hint"])
+	}
 	top := engine.TopName(w.dir)
-	for _, g := range c.LeftOut {
+	for _, g := range s.LeftOut {
 		folder := g.Folder
 		if folder == "." {
 			folder = top
@@ -1112,48 +1133,31 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 		if g.Mark != "" {
 			why = fmt.Sprintf(why, g.Mark)
 		}
-		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(counted(g.Files, "files")+" · "+why, faintColour, false))
+		row("skip", g.Files, folder+": "+why, faintColour)
 	}
-	if len(c.LeftOut) > 0 {
-		out.say("  " + out.out.paint(text["group include"], faintColour, false))
+	if len(s.LeftOut) > 0 {
+		note(text["group include"])
 	}
-	for _, line := range []struct {
-		n    int
-		said string
-	}{
-		{c.InLibrary, fmt.Sprintf(text["import already"], c.InLibrary)},
-		{c.Redated, fmt.Sprintf(w.words("redated"), c.Redated)},
-		{c.Twins, fmt.Sprintf(text["import twins"], c.Twins)},
-		{undated, fmt.Sprintf(text["imported undated"], undated)},
-	} {
-		if line.n > 0 {
-			out.say("  " + line.said)
+	// What is not a photo or a video, by its name at the top of the card
+	// or the folder: a person knows FFDB/ when they see it.
+	if len(s.others) > 0 {
+		names := strings.Join(s.others, ", ")
+		if s.othersMore > 0 {
+			names += " " + fmt.Sprintf(text["names more"], s.othersMore)
 		}
+		row("skip", len(s.others)+s.othersMore, fmt.Sprintf(text["row others"], names), faintColour)
 	}
-	if c.NotRedated > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], c.NotRedated), warnColour, false))
-	}
-	if c.BroughtBack > 0 {
-		out.say("  " + counted(c.BroughtBack, w.key("deleted back")))
-	}
-	// Those left out by name: one deleted by mistake is brought back by it.
-	if c.Deleted > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))
-		sayNames(out, c.DeletedNames, c.DeletedMore)
-	}
-	if c.Unreadable > 0 {
-		out.say("  " + out.out.paint(counted(c.Unreadable, "import unreadable"), warnColour, false))
-	}
+	row("skip", s.Unreadable, text["row unreadable"], warnColour)
 	out.say("")
-	// The last line: fresh when something comes in, else the outcome's own.
-	if c.Outcome == library.OutcomeNew {
-		out.say(out.out.result(fresh))
+	// The last line: what comes in when something does, else the outcome's own.
+	if s.Outcome == library.OutcomeNew {
+		out.say(out.out.result(s.last))
 		return
 	}
-	said := strings.NewReplacer("{n}", strconv.Itoa(c.Redated), "{dir}", w.dir).Replace(w.words("outcome " + string(c.Outcome)))
+	said := strings.NewReplacer("{n}", strconv.Itoa(s.Redated), "{dir}", w.dir).Replace(w.words("outcome " + string(s.Outcome)))
 	// What happened as asked is said as done; what is to look at, as a
 	// summary.
-	switch c.Outcome {
+	switch s.Outcome {
 	case library.OutcomeRedated, library.OutcomeDeleted, library.OutcomeKnown:
 		out.say(out.out.result(said))
 	default:

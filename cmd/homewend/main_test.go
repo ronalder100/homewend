@@ -424,16 +424,16 @@ func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 	}
 }
 
-// A dry run says the deleted brought back in the conditional, as its other
-// lines; the copy in the present.
-func TestDeletedBroughtBackAreSaidInTheRunsTense(t *testing.T) {
-	c := library.Counts{BroughtBack: 2, Outcome: library.OutcomeNew}
-	for dry, want := range map[bool]string{true: "would come in again", false: "come in again"} {
-		out := captured(t, func() {
-			sayImport(&printer{out: look{}}, importWords{dryRun: dry}, c, 0, "fresh")
-		})
-		if !strings.Contains(out, want) || (!dry && strings.Contains(out, "would")) {
-			t.Errorf("dry %v: %q, want %q", dry, out, want)
+// A dry run says what it would do, "copy" and "skip"; the copy what it
+// did, "copied" and "skipped".
+func TestTheSummarySaysTheRunsTense(t *testing.T) {
+	s := summary{Counts: library.Counts{BroughtBack: 1, InLibrary: 3, Outcome: library.OutcomeNew}, copied: 2, last: "fresh"}
+	for dry, want := range map[bool][]string{true: {"copy ", "skip "}, false: {"copied", "skipped"}} {
+		out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{dryRun: dry}, s) })
+		for _, w := range want {
+			if !strings.Contains(out, w) {
+				t.Errorf("dry %v: %q, want %q", dry, out, w)
+			}
 		}
 	}
 }
@@ -456,14 +456,18 @@ func TestIncludeTakesTheFolderByItsName(t *testing.T) {
 	}
 }
 
-// The deleted left out are named, for one to be brought back by its name.
-func TestDeletedLeftOutAreNamed(t *testing.T) {
+// The deleted are one row, counted, with how to copy them anyway; their
+// names are the window's, not a list here.
+func TestTheDeletedAreOneRow(t *testing.T) {
 	c := library.Counts{Deleted: 12, DeletedNames: []string{"DSCF0010.JPG"}, DeletedMore: 11, Outcome: library.OutcomeDeleted}
-	out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{}, c, 0, "") })
-	for _, want := range []string{"12 deleted", "DSCF0010.JPG", "and 11 more", "--bring-back NAME", "all: --bring-back"} {
+	out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{dryRun: true}, summary{Counts: c}) })
+	for _, want := range []string{"skip    12  deleted from the library", "--bring-back NAME"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("%q missing:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "DSCF0010.JPG") {
+		t.Errorf("names listed:\n%s", out)
 	}
 }
 

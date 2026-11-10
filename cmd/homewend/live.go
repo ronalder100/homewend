@@ -435,4 +435,6 @@ func fraction(done, total int64) float64 {
 	return float64(done) / float64(total)
 }
 
-func size(n int64) string { return humanize.IBytes(uint64(n)) }
+// size is n as the window says it, and as the disk's maker sells it: in
+// thousands, MB and GB.
+func size(n int64) string { return humanize.Bytes(uint64(n)) }
