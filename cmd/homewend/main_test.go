@@ -398,3 +398,17 @@ func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 		t.Errorf("said %d times, want the wait once and each retry:\n%s", n, out)
 	}
 }
+
+// A dry run says the deleted brought back in the conditional, as its other
+// lines; the copy in the present.
+func TestDeletedBroughtBackAreSaidInTheRunsTense(t *testing.T) {
+	c := library.Counts{Deleted: 2, Outcome: library.OutcomeNew}
+	for dry, want := range map[bool]string{true: "would come in again", false: "come in again"} {
+		out := captured(t, func() {
+			sayImport(&printer{out: look{}}, importWords{dryRun: dry, bringBack: true}, c, 0, "fresh")
+		})
+		if !strings.Contains(out, want) || (!dry && strings.Contains(out, "would")) {
+			t.Errorf("dry %v: %q, want %q", dry, out, want)
+		}
+	}
+}

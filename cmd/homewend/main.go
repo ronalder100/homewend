@@ -1071,7 +1071,7 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 	}
 	switch {
 	case c.Deleted > 0 && w.bringBack:
-		out.say("  " + counted(c.Deleted, "deleted back"))
+		out.say("  " + counted(c.Deleted, w.key("deleted back")))
 	case c.Deleted > 0:
 		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))
 	}
@@ -1095,14 +1095,17 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 	}
 }
 
-// words are key's words for this run: a dry run's in the conditional,
-// key+" dry", where the table has them.
-func (w importWords) words(key string) string {
-	if said, ok := text[key+" dry"]; ok && w.dryRun {
-		return said
+// key is the table's key for this run: a dry run's words are in the
+// conditional, key+" dry", where the table has them.
+func (w importWords) key(key string) string {
+	if _, ok := text[key+" dry"]; ok && w.dryRun {
+		return key + " dry"
 	}
-	return text[key]
+	return key
 }
+
+// words are key's words for this run.
+func (w importWords) words(key string) string { return text[w.key(key)] }
 
 // counted is n of a thing, "1 photo" or "3 photos": key names the plural in
 // the table, key+" one" the singular.

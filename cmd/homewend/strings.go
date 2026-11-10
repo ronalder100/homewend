@@ -362,6 +362,8 @@ Examples:
 	"outcome empty":        "No photos or videos in {dir}",
 	"deleted back":         "%d deleted from the library come in again",
 	"deleted back one":     "1 deleted from the library comes in again",
+	"deleted back dry":     "%d deleted from the library would come in again",
+	"deleted back dry one": "1 deleted from the library would come in again",
 	"import deleted":       "%s · to bring back: --bring-back",
 	"deleted":              "%d deleted from the library stay out",
 	"deleted one":          "1 deleted from the library stays out",
