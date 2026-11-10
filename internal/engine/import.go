@@ -59,7 +59,6 @@ func PlanImport(ctx context.Context, dir string, opt library.PlanOptions, emit p
 		defer catalog.Close()
 	}
 	plan, err := library.PlanImport(ctx, dir, folder, catalog, opt, emit)
-	plan.Top = TopName(dir)
 	// A card taken out while it is read is said as during the copy: its
 	// files read after are only unreadable, not an error.
 	if _, gone := os.Stat(dir); gone != nil && !errors.Is(err, context.Canceled) {

@@ -229,7 +229,6 @@
 		`${n.toLocaleString('en')} / ${(c.photos + c.videos).toLocaleString('en')}`;
 	const counts = (c: { photos: number; videos: number }) =>
 		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
-	const otherFiles = $derived((plan?.others ?? []).reduce((n, o) => n + o.files, 0));
 	const fits = $derived(!plan || !free || plan.bytes <= free);
 	const fileShare = $derived(im && im.total > 0 ? im.done / im.total : 0);
 	const share = $derived(im && im.of > 0 ? (im.n - 1 + fileShare) / im.of : 0);
@@ -320,7 +319,7 @@
 		<div class="numbers">
 			<div><b>{bytes(plan.bytes)}</b><span>{text.importToCopy}</span></div>
 			<div><b>{plan.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
-			{#if otherFiles > 0}<div><b>{otherFiles.toLocaleString('en')}</b><span>{text.importLeftOut}</span></div>{/if}
+			{#if plan.other_files > 0}<div><b>{plan.other_files.toLocaleString('en')}</b><span>{text.importLeftOut}</span></div>{/if}
 			{#if plan.unreadable > 0}<div class="warn"><b>{plan.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			{#if free}<div class:warn={!fits}><b>{bytes(free)}</b><span>{text.importFree}</span></div>{/if}
 		</div>

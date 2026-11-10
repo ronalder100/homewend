@@ -1047,10 +1047,11 @@ func importCopy(w importWords, args []string) int {
 // in, moved, twice, undated (a copy's), left to another profile, deleted,
 // unreadable; then its last line.
 func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh string) {
+	top := engine.TopName(w.dir)
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
-			folder = engine.TopName(w.dir)
+			folder = top
 		}
 		why := text["group "+string(g.Kind)]
 		if g.Mark != "" {

@@ -283,7 +283,7 @@ func TestWhatStaysOutIsNamedTenAtMost(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{}, nil)
-	if err != nil || len(plan.Others) != MaxOthers || plan.OthersMore != 2 {
-		t.Errorf("%d named, %d more, %v; want %d and 2", len(plan.Others), plan.OthersMore, err, MaxOthers)
+	if err != nil || len(plan.Others) != MaxOthers || plan.OthersMore != 2 || plan.OtherFiles != 12 {
+		t.Errorf("%d named, %d more, %d files, %v; want %d, 2 and all 12", len(plan.Others), plan.OthersMore, plan.OtherFiles, err, MaxOthers)
 	}
 }

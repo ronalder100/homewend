@@ -235,10 +235,9 @@ export interface ImportPlan extends Counts {
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by its name at the folder's top: "FWUP0013.DAT", "FFDB/". */
 	others: { name: string; files: number; bytes: number }[];
-	/** Those left unnamed past the first ten. */
+	/** Those left unnamed past the first ten; the files of all of them. */
 	others_more?: number;
-	/** How the folder imported is named: the card's name, or the folder's. */
-	top: string;
+	other_files: number;
 }
 
 export interface Imported extends Counts {

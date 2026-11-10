@@ -37,11 +37,10 @@ type ImportPlan struct {
 	Files []ImportFile `json:"files"`
 	// What is not a photo or a video, by the folder it sits in.
 	Others []ImportOther `json:"others"`
-	// OthersMore are those left unnamed past MaxOthers.
+	// OthersMore are those left unnamed past MaxOthers; OtherFiles, the
+	// files of all of them.
 	OthersMore int `json:"others_more,omitempty"`
-	// Top is how the folder imported is named, its own top among the
-	// groups included: the card's name, or the folder's.
-	Top string `json:"top"`
+	OtherFiles int `json:"other_files"`
 }
 
 // ImportYear is what a year would receive, and each of its months.
@@ -414,6 +413,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		plan.Others = append(plan.Others, *o)
 	}
 	sort.Slice(plan.Others, func(i, j int) bool { return plan.Others[i].Name < plan.Others[j].Name })
+	plan.OtherFiles = len(f.Others)
 	// A few names say what they are; three thousand say nothing more.
 	if len(plan.Others) > MaxOthers {
 		plan.OthersMore = len(plan.Others) - MaxOthers

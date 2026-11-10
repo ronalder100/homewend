@@ -373,7 +373,7 @@ Examples:
 	"bad include hint":     "the folders are named as **homewend import --dry-run DIR** lists them",
 	"import already":       "%d already in the library, found by content",
 	"import twins":         "%d twice in the folder, brought in once",
-	"result import":        "%s would come in, %s",
+	"result import":        "%s, %s",
 	"missing":              "%d photos are missing from the library",
 	"fetch them":           "to fetch them, run: **%s**",
 	"stopped":              "Stopped",
