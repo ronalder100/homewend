@@ -370,7 +370,7 @@
 					<div class="group" class:out={!g.in}>
 						<input type="checkbox" checked={g.in} onchange={() => tick(g)} aria-label={g.folder} />
 						<span class="what">
-							<b class="mono">{g.folder === '.' ? text.importTop(name) : g.folder}</b>
+							<b class="mono">{g.folder === '.' ? name : g.folder}</b>
 							<small>
 								{g.kind === 'photos'
 									? [range(g) || text.whyPhotos, g.in_library ? text.nInLibrary(g.in_library) : ''].filter(Boolean).join(' · ')
@@ -392,8 +392,8 @@
 		{#if plan.others.length > 0}
 			<section class="years">
 				<header><h2>{text.leftOut}</h2><span>{text.leftOutLead}</span></header>
-				{#each plan.others as o (o.folder)}
-					<div class="year"><span class="name" class:mono={o.folder !== '.'}>{o.folder === '.' ? text.importTop(name) : o.folder}</span><span class="count">{o.files.toLocaleString('en')} · {bytes(o.bytes)}</span></div>
+				{#each plan.others as o (o.name)}
+					<div class="year"><span class="name mono">{o.name}</span><span class="count">{o.files.toLocaleString('en')} · {bytes(o.bytes)}</span></div>
 				{/each}
 			</section>
 		{/if}

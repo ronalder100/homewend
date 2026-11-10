@@ -412,3 +412,21 @@ func TestDeletedBroughtBackAreSaidInTheRunsTense(t *testing.T) {
 		}
 	}
 }
+
+// --include takes the folder imported by its own name, as the dry run
+// writes it, unless a folder inside has that name too.
+func TestIncludeTakesTheFolderByItsName(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "Backup")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := includeFolder(dir, "Backup"); got != "." {
+		t.Errorf("Backup: %q, want the folder itself", got)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "Backup"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := includeFolder(dir, "Backup"); got != "Backup" {
+		t.Errorf("with Backup/ inside: %q, want that folder", got)
+	}
+}

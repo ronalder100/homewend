@@ -819,20 +819,21 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
 	}
-	// Files that are not photos or videos, in one line: what they are is
-	// not the person's question, only that they stay where they are.
-	var others int
-	var otherBytes int64
-	for _, o := range plan.Others {
-		others += o.Files
-		otherBytes += o.Bytes
-	}
-	if others > 0 {
+	// What is not a photo or a video, by its name at the top of the card
+	// or the folder: a person knows FFDB/ when they see it. Ten at most.
+	if len(plan.Others) > 0 {
 		where := "import others folder"
 		if w.card != "" {
 			where = "import others card"
 		}
-		out.say("  " + out.out.paint(fmt.Sprintf(text[where], counted(others, "other files"), size(otherBytes)), faintColour, false))
+		out.say("  " + out.out.paint(text[where], faintColour, false))
+		for i, o := range plan.Others {
+			if i == maxOthers {
+				out.say("    " + out.out.paint(fmt.Sprintf(text["import others more"], len(plan.Others)-maxOthers), faintColour, false))
+				break
+			}
+			out.say("    " + out.out.paint(o.Name, faintColour, false))
+		}
 	}
 	sayImport(out, w, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
 	return exitOK
@@ -942,9 +943,10 @@ func (w importWords) choice() *library.Choice {
 // or a path the shell completed, whole or from here, that leads into dir.
 func includeFolder(dir, name string) string {
 	clean := filepath.Clean(name)
-	// "." is the folder itself, as the dry run writes it, wherever the
-	// command runs.
-	if clean == "." {
+	// The folder itself, as "." or by its own name, as the dry run writes
+	// it — unless a folder inside has that name too.
+	abs, _ := filepath.Abs(dir)
+	if _, inside := os.Stat(filepath.Join(dir, clean)); clean == "." || (clean == filepath.Base(abs) && inside != nil) {
 		return "."
 	}
 	// A path the shell completed is one that is there from here.
@@ -954,6 +956,16 @@ func includeFolder(dir, name string) string {
 		}
 	}
 	return strings.Trim(filepath.ToSlash(clean), "/")
+}
+
+// maxOthers is how many names of what stays out a dry run lists.
+const maxOthers = 10
+
+// topName is the name of the card or the folder imported, as its own top
+// is said: the last part of its path, a card's name included.
+func (w importWords) topName() string {
+	abs, _ := filepath.Abs(w.dir)
+	return filepath.Base(abs)
 }
 
 // findCard is the card to import when no folder was named: the one in, or
@@ -988,7 +1000,7 @@ func findCard(w importWords) (engine.Card, int) {
 // sayCard says which card was found, when no folder was named.
 func (w importWords) sayCard(out *printer) {
 	if w.card != "" && !out.json {
-		out.say("  " + fmt.Sprintf(text["card found"], w.card, shellWord(w.dir)))
+		out.say("  " + fmt.Sprintf(text["card found"], shellWord(w.dir)))
 		out.say("")
 	}
 }
@@ -1050,7 +1062,7 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
-			folder = text["import itself"]
+			folder = w.topName()
 		}
 		why := text["group "+string(g.Kind)]
 		if g.Mark != "" {

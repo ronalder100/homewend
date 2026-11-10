@@ -6,10 +6,10 @@ package library
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -192,11 +192,13 @@ func (h Hashes) Hash(path string) (string, bool) {
 	return facts.hash, ok
 }
 
-// ImportOther is a folder's files that stay out.
+// ImportOther is what stays out at the top of the folder: a file that is
+// not a photo or a video, or a folder holding such files, named as a person
+// sees them there ("FWUP0013.DAT", "FFDB/").
 type ImportOther struct {
-	Folder string `json:"folder"` // relative to the folder imported, "." for its top
-	Files  int    `json:"files"`
-	Bytes  int64  `json:"bytes"`
+	Name  string `json:"name"`
+	Files int    `json:"files"`
+	Bytes int64  `json:"bytes"`
 }
 
 // PlanImport reads every photo and video of f through once, to know its
@@ -383,17 +385,16 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		return a > b
 	})
 
-	byFolder := map[string]*ImportOther{}
+	byName := map[string]*ImportOther{}
 	for _, path := range f.Others {
-		folder, err := filepath.Rel(dir, filepath.Dir(path))
-		if err != nil {
-			return plan, err
+		first, _, inside := strings.Cut(relativeTo(dir, path), "/")
+		if inside {
+			first += "/"
 		}
-		folder = filepath.ToSlash(folder)
-		o := byFolder[folder]
+		o := byName[first]
 		if o == nil {
-			o = &ImportOther{Folder: folder}
-			byFolder[folder] = o
+			o = &ImportOther{Name: first}
+			byName[first] = o
 		}
 		o.Files++
 		// Lstat: a link is counted as itself, not as what it points at.
@@ -401,9 +402,9 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			o.Bytes += info.Size()
 		}
 	}
-	for _, o := range byFolder {
+	for _, o := range byName {
 		plan.Others = append(plan.Others, *o)
 	}
-	sort.Slice(plan.Others, func(i, j int) bool { return plan.Others[i].Folder < plan.Others[j].Folder })
+	sort.Slice(plan.Others, func(i, j int) bool { return plan.Others[i].Name < plan.Others[j].Name })
 	return plan, nil
 }

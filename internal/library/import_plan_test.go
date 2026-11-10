@@ -96,8 +96,8 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	if !reflect.DeepEqual(plan.Years, want) {
 		t.Errorf("years %+v, want %+v: newest first, the undated last", plan.Years, want)
 	}
-	if len(plan.Others) != 2 || plan.Others[0].Folder != "." || plan.Others[1].Folder != "FFDB" {
-		t.Errorf("others %+v, want the top and FFDB", plan.Others)
+	if len(plan.Others) != 2 || plan.Others[0].Name != "FFDB/" || plan.Others[1].Name != "FWUP0013.DAT" {
+		t.Errorf("others %+v, want FFDB/ and FWUP0013.DAT, as at the card's top", plan.Others)
 	}
 }
 

@@ -233,8 +233,8 @@ export interface ImportPlan extends Counts {
 	groups: ImportGroup[];
 	/** Newest first; "" is the photos with no date. */
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
-	/** What stays out, by the folder it sits in. */
-	others: { folder: string; files: number; bytes: number }[];
+	/** What stays out, by its name at the folder's top: "FWUP0013.DAT", "FFDB/". */
+	others: { name: string; files: number; bytes: number }[];
 }
 
 export interface Imported extends Counts {
