@@ -38,6 +38,20 @@ func ChosenLibrary() (string, error) {
 	return root, err
 }
 
+// LibraryHere is the library folder to write into: chosen, and there. A
+// library on a disk unplugged or a share not mounted is said
+// (LibraryGoneError), never made again on the local disk.
+func LibraryHere() (string, error) {
+	root, err := ChosenLibrary()
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(root); err != nil {
+		return "", LibraryGoneError{Root: root}
+	}
+	return root, nil
+}
+
 func openLibrary() (*library.Catalog, string, error) {
 	root, err := ChosenLibrary()
 	if err != nil {

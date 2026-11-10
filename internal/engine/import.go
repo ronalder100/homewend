@@ -84,12 +84,9 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	if err != nil {
 		return library.Imported{}, err
 	}
-	root, err := ChosenLibrary()
+	root, err := LibraryHere()
 	if err != nil {
 		return library.Imported{}, err
-	}
-	if _, err := os.Stat(root); err != nil {
-		return library.Imported{}, LibraryGoneError{Root: root}
 	}
 	unlock, err := lockLibrary(root)
 	if err != nil {

@@ -169,7 +169,7 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 	// Bringing photos home runs in the engine; the page asks where it stands.
 	mux.HandleFunc("POST /api/get", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		dir, err := engine.ChosenLibrary()
+		dir, err := engine.LibraryHere()
 		if err != nil {
 			reply(w, nil, err)
 			return

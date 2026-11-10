@@ -613,12 +613,11 @@ func libraryFor(ctx context.Context, given string, asJSON bool) (string, int) {
 	if given != "" {
 		return given, exitOK
 	}
-	kept, err := engine.DefaultLibrary()
-	if err != nil {
-		return "", newPrinter(asJSON).fail(err)
-	}
-	if kept != "" {
+	// The library kept from before: there, or said away.
+	if kept, err := engine.LibraryHere(); err == nil {
 		return kept, exitOK
+	} else if !errors.Is(err, engine.ErrNoLibrary) {
+		return "", newPrinter(asJSON).fail(err)
 	}
 	if !interactive(asJSON) {
 		return "", failed(text["no library"], nil, fmt.Sprintf(text["no library hint"], typed()))

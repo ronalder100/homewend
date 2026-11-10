@@ -117,3 +117,18 @@ func TestAChosenLibraryIsMade(t *testing.T) {
 		t.Errorf("kept %q, want %q", got, root)
 	}
 }
+
+// A library kept from before on a disk now away is said, not made again.
+func TestALibraryAwayIsSaid(t *testing.T) {
+	config(t)
+	away := filepath.Join(t.TempDir(), "nas", "photos")
+	if err := SetDefaultLibrary(away); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LibraryHere(); !errors.As(err, new(LibraryGoneError)) {
+		t.Errorf("err %v, want the library said away", err)
+	}
+	if _, err := os.Stat(away); err == nil {
+		t.Error("the library was made again")
+	}
+}
