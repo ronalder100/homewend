@@ -83,7 +83,6 @@
 		);
 	});
 
-	// "1 Oct, 09:14", "Until 8 Oct": the design's dates.
 
 	function holds(t: Takeout) {
 		if (t.known) return t.year ? text.holdsYear(t.year) : text.holdsAll;

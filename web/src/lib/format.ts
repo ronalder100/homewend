@@ -22,6 +22,9 @@ export function day(d: Date): string {
 	return `${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}`;
 }
 
+const clockFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+
 /** A time of day as the window writes it: 09:41. */
-export const clock = (d: Date): string =>
-	new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(d);
+export function clock(d: Date): string {
+	return clockFormat.format(d);
+}
