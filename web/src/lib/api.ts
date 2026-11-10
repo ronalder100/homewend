@@ -268,6 +268,9 @@ export interface ImportAsk {
 	bring_back?: string[];
 }
 
+/** Among the names to bring back, every photo deleted from the library. */
+export const BRING_ALL_BACK = 'all';
+
 /** Where the window's import stands: the look at a folder, then the copy. */
 export interface ImportState extends Partial<ImportAsk> {
 	running: boolean;

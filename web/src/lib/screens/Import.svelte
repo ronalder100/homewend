@@ -10,6 +10,7 @@
 	import { app, refresh } from '#lib/app.svelte.js';
 	import {
 		ApiError,
+		BRING_ALL_BACK,
 		getCards,
 		getImport,
 		getLibrary,
@@ -168,7 +169,7 @@
 		lookAgain();
 	}
 	function backAll(on: boolean) {
-		bringBack = on ? ['all'] : [];
+		bringBack = on ? [BRING_ALL_BACK] : [];
 		lookAgain();
 	}
 
@@ -370,9 +371,9 @@
 			<!-- The card still holds what was deleted from the library: it stays out
 			     unless ticked back, one by its path or all. A ticked one keeps its
 			     place among those left out. -->
-			{@const all = bringBack.includes('all')}
-			{@const named = [...new Set([...bringBack.filter((n) => n !== 'all'), ...(plan.deleted_names ?? [])])].sort()}
-			<section class="years deleted">
+			{@const all = bringBack.includes(BRING_ALL_BACK)}
+			{@const named = [...new Set([...bringBack.filter((n) => n !== BRING_ALL_BACK), ...(plan.deleted_names ?? [])])].sort()}
+			<section class="years">
 				<header>
 					<h2>{text.deletedHead(deletedAll)}</h2>
 					<label class="back"><input type="checkbox" checked={all} onchange={() => backAll(!all)} />{text.bringAllBack}</label>

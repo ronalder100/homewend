@@ -860,8 +860,9 @@ func importArgs(args []string) importWords {
 	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: dir != "" && flags.NArg() > 0}
 }
 
-// bareBringBack brings all back for a --bring-back with no names after it:
-// nothing, another option, or the folder to import.
+// bareBringBack gives an empty value, all as asked reads it, to a
+// --bring-back with no names after it: nothing, another option, or the
+// folder to import.
 func bareBringBack(args []string) []string {
 	var out []string
 	for i, a := range args {
@@ -870,9 +871,9 @@ func bareBringBack(args []string) []string {
 			continue
 		}
 		if i+1 == len(args) || strings.HasPrefix(args[i+1], "-") {
-			out = append(out, library.BringAllBack)
+			out = append(out, "")
 		} else if info, err := os.Stat(args[i+1]); err == nil && info.IsDir() {
-			out = append(out, library.BringAllBack)
+			out = append(out, "")
 		}
 	}
 	return out
@@ -949,7 +950,7 @@ func (w importWords) asked(redates []library.Redate) library.Asked {
 	var back []string
 	for _, v := range w.bringBack {
 		names := commaList(v)
-		if len(names) == 0 { // --bring-back= as typed alone
+		if len(names) == 0 { // --bring-back with no names
 			names = []string{library.BringAllBack}
 		}
 		back = append(back, names...)

@@ -728,8 +728,9 @@ func TestOneDeletedPhotoComesBackByName(t *testing.T) {
 	}
 }
 
-// The twin of a deleted photo brought back comes in with it: the look
-// says so as the copy does, and does not name it as left out.
+// The twin of a deleted photo brought back comes in with it, given its
+// date too: the look says so as the copy does, and does not name it as
+// left out.
 func TestTheTwinOfAPhotoBroughtBackComesInWithIt(t *testing.T) {
 	card := t.TempDir()
 	write(t, card, "DCIM/100/A.JPG", exifPhoto("2019:07:14 10:00:00", "a"))
@@ -751,11 +752,12 @@ func TestTheTwinOfAPhotoBroughtBackComesInWithIt(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(root, "ron", "2019", "07")); err != nil {
 		t.Fatal(err)
 	}
-	asked := Asked{BringBack: []string{"DCIM/100/A.JPG"}}
+	when := time.Date(2019, 8, 1, 0, 0, 0, 0, time.UTC)
+	asked := Asked{BringBack: []string{"DCIM/100/A.JPG"}, Redates: []Redate{{Names: []string{"DCIM/100/A.JPG", "DCIM/101/A.JPG"}, When: when}}}
 	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Root: root, Asked: asked}, nil)
 	done, err2 := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits, Asked: asked}, nil)
 	for _, c := range []Counts{plan.Counts, done.Counts} {
-		if c.BroughtBack != 1 || c.Twins != 1 || c.Deleted != 0 || len(c.DeletedNames) != 0 {
+		if c.BroughtBack != 1 || c.Twins != 1 || c.Redated != 2 || c.Deleted != 0 || len(c.DeletedNames) != 0 {
 			t.Errorf("%+v, %v %v; want one back and its twin with it", c, err, err2)
 		}
 	}

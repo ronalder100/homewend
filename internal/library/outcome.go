@@ -59,14 +59,15 @@ type Counts struct {
 }
 
 // deleted counts a photo deleted from the library, path being below root:
-// brought back, or left out by its path.
-func (c *Counts) deleted(root, path string, back bool) {
+// brought back, or left out by its path. It says back: whether it comes in.
+func (c *Counts) deleted(root, path string, back bool) bool {
 	if back {
 		c.BroughtBack++
-		return
+		return true
 	}
 	c.Deleted++
 	c.DeletedNames = append(c.DeletedNames, relativeTo(root, path))
+	return false
 }
 
 // end decides the Outcome, fresh being what comes in, in this order: what

@@ -342,15 +342,8 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			continue
 		}
 		// The twin of one brought back comes in with it, as the copy says.
-		if deleted && seen[hash] {
-			plan.Twins++
+		if deleted && !seen[hash] && !plan.deleted(f.Root, item.Path, back(item.Path)) {
 			continue
-		}
-		if deleted {
-			plan.deleted(f.Root, item.Path, back(item.Path))
-			if !back(item.Path) {
-				continue
-			}
 		}
 		when, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
