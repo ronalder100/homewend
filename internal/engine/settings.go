@@ -39,9 +39,8 @@ func (s Settings) ProfileFor(id string) string {
 	return name
 }
 
-// ProfileNames are the profiles there are: those of the accounts, those
-// named in the settings, and the folders the library already has — a
-// card imported with no account names its profile once, not every time.
+// ProfileNames are the profiles there are: those of the accounts, and those
+// named in the settings.
 func ProfileNames(accounts []AccountInfo, s Settings) []string {
 	seen := map[string]bool{}
 	var names []string
@@ -56,14 +55,6 @@ func ProfileNames(accounts []AccountInfo, s Settings) []string {
 	}
 	for _, p := range s.Profiles {
 		add(p)
-	}
-	if s.Library != "" {
-		entries, _ := os.ReadDir(s.Library) // no library yet: no folders
-		for _, e := range entries {
-			if e.IsDir() && ValidProfile(e.Name()) {
-				add(e.Name())
-			}
-		}
 	}
 	slices.Sort(names)
 	return names
