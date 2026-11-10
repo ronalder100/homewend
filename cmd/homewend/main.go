@@ -889,19 +889,19 @@ func importArgs(args []string) importWords {
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
-	var dates, also listFlags
+	var dates, include listFlags
 	flags.Var(&dates, "date", "NAMES=WHEN: the right date of photos whose camera had it wrong")
-	flags.Var(&also, "also", "FOLDER: a folder left out (a project, no camera data) brought in too")
+	flags.Var(&include, "include", "FOLDER: a folder that stays out by itself (a project, no camera data) brought in")
 	flags.Parse(args)
 	dir := flags.Arg(0)
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, also: also, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, more: dir != "" && flags.NArg() > 0}
 }
 
 // listFlags are a flag given again and again: each --date, "NAMES=WHEN" as
-// typed; each --also.
+// typed; each --include.
 type listFlags []string
 
 func (d *listFlags) String() string     { return strings.Join(*d, " ") }
@@ -950,29 +950,29 @@ type importWords struct {
 	link    bool
 	profile string
 	dates   listFlags
-	also    listFlags // group folders left out, brought in
+	include listFlags // group folders that stay out by themselves, brought in
 	card    string    // the card found, when no folder was named
 	json    bool
 	more    bool // more than one folder
 }
 
-// choice is the groups --also brings in besides those that come in by
+// choice is the groups --include brings in besides those that come in by
 // themselves; nil when none was named. A folder is named as the dry run
 // says it, with / and from the folder imported.
 func (w importWords) choice() *library.Choice {
-	if len(w.also) == 0 {
+	if len(w.include) == 0 {
 		return nil
 	}
 	c := &library.Choice{}
-	for _, f := range w.also {
-		c.In = append(c.In, alsoFolder(w.dir, f))
+	for _, f := range w.include {
+		c.In = append(c.In, includeFolder(w.dir, f))
 	}
 	return c
 }
 
-// alsoFolder is name as a group folder of dir: as the dry run writes it,
+// includeFolder is name as a group folder of dir: as the dry run writes it,
 // or a path the shell completed, whole or from here, that leads into dir.
-func alsoFolder(dir, name string) string {
+func includeFolder(dir, name string) string {
 	clean := filepath.Clean(name)
 	// "." is the folder itself, as the dry run writes it, wherever the
 	// command runs.
@@ -1128,7 +1128,7 @@ func sayLeftOut(out *printer, groups []library.Group, holds func(i int) string) 
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(holds(i)+" · "+why, faintColour, false))
 	}
 	if len(groups) > 0 {
-		out.say("  " + out.out.paint(text["group also"], faintColour, false))
+		out.say("  " + out.out.paint(text["group include"], faintColour, false))
 	}
 }
 
@@ -1288,7 +1288,7 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	var unknownGroup library.UnknownGroupError
 	switch {
 	case errors.As(err, &unknownGroup):
-		return exitError, fmt.Sprintf(text["bad also"], unknownGroup.Folder), nil, []string{text["bad also hint"]}
+		return exitError, fmt.Sprintf(text["bad include"], unknownGroup.Folder), nil, []string{text["bad include hint"]}
 	case errors.As(err, &notOffered):
 		var years []string
 		for _, e := range notOffered.Offered {

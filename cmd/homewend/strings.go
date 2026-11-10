@@ -123,17 +123,22 @@ Examples:
 	"help import": `homewend import — bring in the photos of a card or a folder
 
 Usage:
-  homewend import [DIR] [--profile NAME] [--link] [--json]
+  homewend import [DIR] [--profile NAME] [--link] [--include FOLDER] [--json]
   homewend import --dry-run [DIR] [--json]
 
 Without DIR, the card that is in: a disk with a camera's DCIM folder on it,
 or one chosen among several.
 
-Copies every photo and video under DIR into the library, reads each copy back
+Copies the photos and videos under DIR into the library, reads each copy back
 to check it, and files it by the date the camera wrote. A photo the library
 already holds is found by its content, whatever its name, and kept once.
 Files that are not photos or videos stay where they are; nothing on DIR
 changes, and nothing is removed from a card.
+
+Some folders stay out by themselves, and are said: a project (a folder with
+.git, package.json and the like), an app's previews (Lightroom, Apple
+Photos), and a folder whose images mostly have no camera's date (scans,
+screenshots, photos sent or saved). A card's DCIM folder always comes in.
 
 With --dry-run nothing is copied: it tells, by year, what would come in.
 
@@ -152,6 +157,9 @@ Flags:
                   which Immich reads, and digiKam or darktable when set to.
                   A photo already in the library moves to its new date.
                   A name in two folders is given by its path. Repeatable
+  --include FOLDER
+                  bring in a folder that stays out by itself, named as
+                  --dry-run lists it ("." for DIR itself). Repeatable
   --json          one JSON object per line, for scripts
 
 Examples:
@@ -159,6 +167,7 @@ Examples:
   homewend import --dry-run
   homewend import /media/card
   homewend import ~/Pictures/old-laptop --link
+  homewend import ~/Backup --include Scans
   homewend import --date DSCF0004.JPG,DSCF0005.JPG=2026-09-14T10:20`,
 
 	"help verify": `homewend verify — count a library again
@@ -340,10 +349,10 @@ Examples:
 	"group project":           "a project (%s): its images stay out",
 	"group previews":          "%s's own previews of other photos: they stay out",
 	"group unsure":            "most have no camera's date: scans, screenshots, photos sent or saved; they stay out",
-	"group also":              "to bring one in too: --also FOLDER",
+	"group include":           "to bring one in: --include FOLDER",
 	"import itself":           "the folder itself (.)",
-	"bad also":                "%s is not a folder of photos in the folder imported",
-	"bad also hint":           "the folders are named as **homewend import --dry-run DIR** lists them",
+	"bad include":             "%s is not a folder of photos in the folder imported",
+	"bad include hint":        "the folders are named as **homewend import --dry-run DIR** lists them",
 	"result import left out":  "Nothing new came in by itself: the folders above stay out",
 	"result plan left out":    "Nothing would come in by itself: the folders above stay out",
 	"import already":          "%d already in the library, found by content",
