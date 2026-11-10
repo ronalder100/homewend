@@ -223,3 +223,12 @@ func TestNoBrowserIsAFailedDependency(t *testing.T) {
 		t.Fatalf("no browser: %d, want 424", w.Code)
 	}
 }
+
+// A library away is said as such, not as a failure to try again.
+func TestALibraryAwayIsGone(t *testing.T) {
+	w := httptest.NewRecorder()
+	reply(w, nil, engine.LibraryGoneError{Root: "/mnt/nas/photos"})
+	if w.Code != http.StatusGone {
+		t.Errorf("status %d, want %d", w.Code, http.StatusGone)
+	}
+}

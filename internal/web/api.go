@@ -238,7 +238,7 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 			reply(w, nil, err)
 			return
 		}
-		root, err := engine.ChosenLibrary()
+		root, err := engine.LibraryHere()
 		if err != nil {
 			reply(w, nil, err)
 			return
@@ -320,6 +320,10 @@ func reply(w http.ResponseWriter, v any, err error) {
 	switch {
 	case errors.Is(err, engine.ErrBadTheme), errors.Is(err, engine.ErrBadProfile):
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	// The library's disk is away: nothing the request did wrong, nothing
+	// to try again until it is back.
+	case errors.As(err, new(engine.LibraryGoneError)):
+		http.Error(w, err.Error(), http.StatusGone)
 	case errors.Is(err, engine.ErrJobRunning), errors.Is(err, engine.ErrImportRunning), errors.Is(err, engine.ErrNoUserYet):
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, takeout.ErrSignedOut):

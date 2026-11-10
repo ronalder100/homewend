@@ -468,7 +468,7 @@
 				: im.problem === 'busy'
 					? text.importBusy
 					: im.problem === 'library-gone'
-						? text.importLibraryGone
+						? text.libraryGone
 						: im.error}
 		</p>
 		<div class="actions"><PrimaryButton onclick={() => (choosing = true)}>{text.lookAgain}</PrimaryButton></div>

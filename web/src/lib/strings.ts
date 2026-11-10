@@ -347,7 +347,7 @@ export const text = {
 	importFailed: 'The import stopped.',
 	importBadProfile: 'A name for whose photos these are cannot hold / or \\, nor be . or ..',
 	importBusy: 'Another import or a download is placing photos in this library. Try again when it ends.',
-	importLibraryGone: 'The library folder is not there: its disk unplugged, or its share not mounted.',
+	libraryGone: 'The library folder is not there: its disk unplugged, or its share not mounted.',
 	lookAgain: 'Look again',
 	seeLibraryNow: 'See the library',
 	copyFolderPath: 'Copy folder path',
