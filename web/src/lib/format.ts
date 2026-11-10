@@ -27,6 +27,8 @@ const clockFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: 
 /** A time of day as the window writes it: 09:41. */
 export function clock(d: Date): string {
 	return clockFormat.format(d);
+}
+
 // A photo's date is the clock its camera showed, kept as UTC: read in UTC,
 // it is that clock, wherever the window runs.
 const takenDayFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
