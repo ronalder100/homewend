@@ -1089,11 +1089,11 @@ func sayImport(out *printer, w importWords, s summary) {
 	// The verbs in one column as wide as this run's longest, "skip" or
 	// "skipped"; the counts right-aligned after them.
 	wide := 0
-	copied := "copy"
+	in := "copy"
 	if w.link {
-		copied = "link"
+		in = "link"
 	}
-	for _, verb := range []string{copied, "skip", "date"} {
+	for _, verb := range []string{in, "skip", "date"} {
 		wide = max(wide, len(w.words("verb "+verb)))
 	}
 	under := strings.Repeat(" ", 2+wide+1+5+2) // below a row's words
@@ -1106,7 +1106,7 @@ func sayImport(out *printer, w importWords, s summary) {
 	note := func(said string) { out.say(under + out.out.paint(said, faintColour, false)) }
 	// What is copied, new or brought back as asked, needs no reason; under
 	// it, by year, and undated.
-	row(copied, s.copied, "", nil)
+	row(in, s.copied, "", nil)
 	for _, y := range s.years {
 		year := y.Year
 		if year == "" {
@@ -1171,17 +1171,14 @@ func sayImport(out *printer, w importWords, s summary) {
 	}
 }
 
-// key is the table's key for this run: a dry run's words are in the
-// conditional, key+" dry", where the table has them.
-func (w importWords) key(key string) string {
-	if _, ok := text[key+" dry"]; ok && w.dryRun {
-		return key + " dry"
+// words are key's words for this run: a dry run's are in the conditional,
+// key+" dry", where the table has them.
+func (w importWords) words(key string) string {
+	if said, ok := text[key+" dry"]; ok && w.dryRun {
+		return said
 	}
-	return key
+	return text[key]
 }
-
-// words are key's words for this run.
-func (w importWords) words(key string) string { return text[w.key(key)] }
 
 // counted is n of a thing, "1 photo" or "3 photos": key names the plural in
 // the table, key+" one" the singular.
