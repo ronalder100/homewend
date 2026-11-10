@@ -79,7 +79,7 @@ export const text = {
 	askProfileField: 'Name',
 	continue: 'Continue',
 	accountGone: 'This account is no longer on this computer. Add it again.',
-	badProfile: 'A name of a folder: no / or \\, not starting with a dot, no spaces around it.',
+	badProfile: 'A name of a folder: no / or \\, and not starting with a dot.',
 	change: 'Change…',
 	chooseFolder: 'Choose a folder',
 	startEverything: 'Start a takeout of everything',

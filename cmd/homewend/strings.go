@@ -145,8 +145,8 @@ With --dry-run nothing is copied: it tells, by year, what would come in.
 
 Flags:
   --dry-run       only tell what would happen
-  --profile NAME  whose photos: the library's folder they go in; asked when
-                  there are several
+  --profile NAME  whose photos: the library's folder they go in; by default
+                  your account's, or the only one; asked when it is unclear
   --link          give each file a second name in the library instead of a
                   copy: no space used, but only for a folder on the library's
                   disk, and a change to one is a change to both
