@@ -420,13 +420,13 @@ func TestIncludeTakesTheFolderByItsName(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := includeFolder(dir, "Backup"); got != "." {
+	if got := includeFolder(dir, "Backup", "Backup"); got != "." {
 		t.Errorf("Backup: %q, want the folder itself", got)
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "Backup"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := includeFolder(dir, "Backup"); got != "Backup" {
+	if got := includeFolder(dir, "Backup", "Backup"); got != "Backup" {
 		t.Errorf("with Backup/ inside: %q, want that folder", got)
 	}
 }

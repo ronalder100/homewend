@@ -773,7 +773,7 @@ func importCommand(args []string) int {
 		if code != exitOK {
 			return code
 		}
-		w.dir, w.card = card.Path, card.Name
+		w.dir, w.card = card.Path, true
 	}
 	dir := w.dir
 	if w.more {
@@ -820,10 +820,11 @@ func importCommand(args []string) int {
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
 	}
 	// What is not a photo or a video, by its name at the top of the card
-	// or the folder: a person knows FFDB/ when they see it. Ten at most.
+	// or the folder: a person knows FFDB/ when they see it. The engine names
+	// a few (library.MaxOthers) and counts the rest.
 	if len(plan.Others) > 0 {
 		where := "import others folder"
-		if w.card != "" {
+		if w.card {
 			where = "import others card"
 		}
 		out.say("  " + out.out.paint(text[where], faintColour, false))
@@ -913,7 +914,7 @@ type importWords struct {
 	include listFlags // group folders that stay out by themselves, brought in
 	// bringBack brings in again what someone deleted from the library
 	bringBack bool
-	card      string // the card found, when no folder was named
+	card      bool // a card was found, no folder named
 	json      bool
 	more      bool // more than one folder
 }
@@ -932,19 +933,20 @@ func (w importWords) choice() *library.Choice {
 		return nil
 	}
 	c := &library.Choice{}
+	top := engine.TopName(w.dir)
 	for _, f := range w.include {
-		c.In = append(c.In, includeFolder(w.dir, f))
+		c.In = append(c.In, includeFolder(w.dir, top, f))
 	}
 	return c
 }
 
 // includeFolder is name as a group folder of dir: as the dry run writes it,
 // or a path the shell completed, whole or from here, that leads into dir.
-func includeFolder(dir, name string) string {
+func includeFolder(dir, top, name string) string {
 	clean := filepath.Clean(name)
 	// The folder itself, as "." or by its own name, as the dry run writes
 	// it — unless a folder inside has that name too.
-	if _, inside := os.Stat(filepath.Join(dir, clean)); clean == "." || (clean == engine.TopName(dir) && inside != nil) {
+	if _, inside := os.Stat(filepath.Join(dir, clean)); clean == "." || (clean == top && inside != nil) {
 		return "."
 	}
 	// A path the shell completed is one that is there from here.
@@ -987,7 +989,7 @@ func findCard(w importWords) (engine.Card, int) {
 
 // sayCard says which card was found, when no folder was named.
 func (w importWords) sayCard(out *printer) {
-	if w.card != "" && !out.json {
+	if w.card && !out.json {
 		out.say("  " + fmt.Sprintf(text["card found"], shellWord(w.dir)))
 		out.say("")
 	}
