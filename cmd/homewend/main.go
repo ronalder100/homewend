@@ -1096,11 +1096,11 @@ func sayImport(out *printer, w importWords, s summary) {
 	for _, verb := range []string{in, "skip", "date"} {
 		wide = max(wide, len(w.words("verb "+verb)))
 	}
-	const count = 5                                // a count's width
-	under := strings.Repeat(" ", 2+wide+1+count+2) // below a row's words
+	const format = "%-*s %5v  %s"                         // the verb, the count, the reason
+	under := "  " + fmt.Sprintf(format, wide, "", "", "") // below a row's reason
 	row := func(verb string, n int, said string, colour color.Color) {
 		if n > 0 {
-			line := strings.TrimSpace(fmt.Sprintf("%-*s %*d  %s", wide, w.words("verb "+verb), count, n, said))
+			line := strings.TrimSpace(fmt.Sprintf(format, wide, w.words("verb "+verb), n, said))
 			out.say("  " + out.out.paint(line, colour, false))
 		}
 	}
