@@ -8,6 +8,7 @@
 	import { getLibrary, getTakeouts, type Takeout } from '#lib/api.js';
 	import { Years } from '#lib/years.svelte.js';
 	import { chooseUrl } from '#lib/places.js';
+	import { day } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
@@ -45,7 +46,6 @@
 		takeouts = [];
 		if (a) getTakeouts(a).then((l) => a === account && (takeouts = l), () => {});
 	});
-	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 	const asked = $derived.by(() => {
 		const by = new Map<number, Asked>();
 		// Newest first, as Google lists them: the first of a year is its last.
@@ -63,7 +63,7 @@
 								? 'partly'
 								: 'ready';
 			const d = new Date(t.Created);
-			by.set(t.year, { state, day: `${d.getDate()} ${months[d.getMonth()]}` });
+			by.set(t.year, { state, day: day(d) });
 		}
 		return by;
 	});
@@ -127,7 +127,7 @@
 	<!-- An old count stays offered when counting again fails: said so, with its day. -->
 	{#if years.counts?.error}<p class="note">
 			{years.counted && years.counts.counted
-				? text.recountFailed(new Date(years.counts.counted).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }))
+				? text.recountFailed(day(new Date(years.counts.counted)))
 				: text.countFailed}
 		</p>{/if}
 

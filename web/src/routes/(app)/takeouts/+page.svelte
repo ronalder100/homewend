@@ -14,7 +14,7 @@
 	import ContextMenu, { folderItems, type MenuItem } from '#lib/components/ContextMenu.svelte';
 	import { app, signIn, sidebarOf, signInAgain, signingInAgain, startFailure, startJob } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, readContents, type Takeout } from '#lib/api.js';
-	import { bytes } from '#lib/format.js';
+	import { bytes, day } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Skeleton from '#lib/components/Skeleton.svelte';
@@ -84,10 +84,8 @@
 	});
 
 	// "1 Oct, 09:14", "Until 8 Oct": the design's dates.
-	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-	const day = { format: (d: Date) => `${d.getDate()} ${months[d.getMonth()]}` };
 	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
-	const when = { format: (d: Date) => `${day.format(d)}, ${clock.format(d)}` };
+	const when = { format: (d: Date) => `${day(d)}, ${clock.format(d)}` };
 
 	function holds(t: Takeout) {
 		if (t.known) return t.year ? text.holdsYear(t.year) : text.holdsAll;
@@ -102,7 +100,7 @@
 	type Act = 'download' | 'resume' | 'retry' | 'timer' | 'more' | '';
 	type Row = { status: string; detail: string; tone: string; act: Act };
 	function rowOf(t: Takeout): Row {
-		const until = t.Expires ? (t.status === 'expired' ? text.since : text.until)(day.format(new Date(t.Expires))) : '';
+		const until = t.Expires ? (t.status === 'expired' ? text.since : text.until)(day(new Date(t.Expires))) : '';
 		const l = t.local;
 		const all = l && l.of > 0 && l.parts === l.of;
 		// While Google still prepares it, it is the preparing row; its parts

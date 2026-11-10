@@ -7,7 +7,7 @@
 	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
-	import { bytes, roughly } from '#lib/format.js';
+	import { bytes, day, roughly } from '#lib/format.js';
 	import { arrived, busy, failure, fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
@@ -94,8 +94,6 @@
 	});
 
 	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
-	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-	const dayOf = (d: Date) => `${d.getDate()} ${months[d.getMonth()]}`;
 	// How long the step going on has lasted, counted here from when it began:
 	// a number that moves says the wait is alive.
 	let stageSince = $state(Date.now());
@@ -164,7 +162,7 @@
 				<div class="numbers">
 					{#if takeout}
 						{@const asked = new Date(takeout.Created)}
-						<div><b>{waited}</b><span>{sameDay(asked) ? text.waitingAskedAt(clock.format(asked)) : text.waitingAskedOn(dayOf(asked))}</span></div>
+						<div><b>{waited}</b><span>{sameDay(asked) ? text.waitingAskedAt(clock.format(asked)) : text.waitingAskedOn(day(asked))}</span></div>
 					{/if}
 					{#if job.lastLooked}
 						<div><b>{text.minAgo(Math.floor((now - new Date(job.lastLooked).getTime()) / 60000))}</b><span>{text.lastLooked}</span></div>
@@ -177,7 +175,7 @@
 					<div><b>{text.gbOf(bytes(job.done), bytes(job.total))}</b><span>{text.downloaded}</span></div>
 					<div><b>{(app.overview?.total ?? 0).toLocaleString('en')}</b><span>{text.inFolder}</span></div>
 					{#if left && !paused}<div><b>{left}</b><span>{text.leftAtSpeed}</span></div>{/if}
-					{#if paused && takeout?.Expires}<div><b>{dayOf(new Date(takeout.Expires))}</b><span>{text.keepsUntil}</span></div>{/if}
+					{#if paused && takeout?.Expires}<div><b>{day(new Date(takeout.Expires))}</b><span>{text.keepsUntil}</span></div>{/if}
 				</div>
 			{/if}
 			<div class="actions">

@@ -16,3 +16,8 @@ export function bytes(n: number): string {
 export function roughly(seconds: number): string {
 	return seconds >= 3600 ? `${Math.round(seconds / 3600)} h` : `${Math.max(1, Math.round(seconds / 60))} min`;
 }
+
+/** A day as the window writes it everywhere: 3 Nov. */
+export function day(d: Date): string {
+	return `${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}`;
+}
