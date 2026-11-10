@@ -188,9 +188,12 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 				}
 			}
 			// It came from the card too: hiding the account it came from
-			// first does not hide it.
-			if err := catalog.addOwner(hash, opt.Account); err != nil {
-				return done, err
+			// first does not hide it. Organize says so for another
+			// profile's.
+			if filedIn(relative, opt.Profile) {
+				if err := catalog.addOwner(hash, opt.Account); err != nil {
+					return done, err
+				}
 			}
 			// A date given now is for a photo already in: the likeliest
 			// case, seen as 2018 in the library after a first import.

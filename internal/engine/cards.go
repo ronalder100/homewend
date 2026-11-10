@@ -38,6 +38,17 @@ func Cards() []Card {
 	return cardsOf(disks)
 }
 
+// cardAt is the card mounted at dir, if a card is: the one place the
+// window and the import ask it.
+func cardAt(dir string) (Card, bool) {
+	for _, c := range Cards() {
+		if c.Path == dir {
+			return c, true
+		}
+	}
+	return Card{}, false
+}
+
 // mountRoots are the folders a Mac or a Linux system mounts the disks it is
 // given in, one disk per folder.
 func mountRoots() []string {

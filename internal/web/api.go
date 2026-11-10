@@ -262,18 +262,16 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 		reply(w, engine.Cards(), nil)
 	})
 	mux.HandleFunc("POST /api/import/plan", func(w http.ResponseWriter, r *http.Request) {
-		var ask engine.ImportAsk
-		if err := json.NewDecoder(r.Body).Decode(&ask); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		ask, ok := askOf(w, r)
+		if !ok {
 			return
 		}
 		err := importing.Plan(ask)
 		reply(w, importing.State(), err)
 	})
 	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
-		var ask engine.ImportAsk
-		if err := json.NewDecoder(r.Body).Decode(&ask); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		ask, ok := askOf(w, r)
+		if !ok {
 			return
 		}
 		err := importing.Import(ask)
@@ -303,6 +301,17 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 		reply(w, importing.State(), nil)
 	})
 	return mux
+}
+
+// askOf is what the page asks of an import, read from the request; a body
+// that does not read is said, and false.
+func askOf(w http.ResponseWriter, r *http.Request) (engine.ImportAsk, bool) {
+	var ask engine.ImportAsk
+	if err := json.NewDecoder(r.Body).Decode(&ask); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return ask, false
+	}
+	return ask, true
 }
 
 // reply writes v as JSON, or the error: a mistake in the request is the

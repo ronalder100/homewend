@@ -48,16 +48,15 @@ func PlanImport(ctx context.Context, dir string, opt library.PlanOptions, emit p
 	if err != nil {
 		return library.ImportPlan{}, err
 	}
-	catalog, err := lookAtLibrary()
+	// A photo the catalog lists and the disk lacks was deleted: the plan
+	// looks for it under the library's folder.
+	var catalog *library.Catalog
+	opt.Root, catalog, err = lookAtLibrary()
 	if err != nil {
 		return library.ImportPlan{}, err
 	}
 	if catalog != nil {
 		defer catalog.Close()
-		// A photo the catalog lists and the disk lacks was deleted.
-		if opt.Root, err = DefaultLibrary(); err != nil {
-			return library.ImportPlan{}, err
-		}
 	}
 	plan, err := library.PlanImport(ctx, dir, folder, catalog, opt, emit)
 	// A card taken out while it is read is said as during the copy: its
@@ -80,7 +79,7 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	}
 	// The photos' badge: the card's name, or the folder's, as the person
 	// put it in or chose it.
-	source := SourceOf(dir)
+	source := sourceOf(dir)
 	dir, folder, err := readFolder(dir)
 	if err != nil {
 		return library.Imported{}, err
@@ -127,14 +126,12 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	return done, err
 }
 
-// SourceOf is the badge of the photos imported from dir, "local/<name>":
+// sourceOf is the badge of the photos imported from dir, "local/<name>":
 // a card's name as its system shows it, or the folder's. The catalog keeps
 // it as it keeps a Google account's, and the window names the photo by it.
-func SourceOf(dir string) string {
-	for _, c := range Cards() {
-		if c.Path == dir && c.Name != "" {
-			return library.LocalSource + c.Name
-		}
+func sourceOf(dir string) string {
+	if c, ok := cardAt(dir); ok && c.Name != "" {
+		return library.LocalSource + c.Name
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -151,16 +148,17 @@ func (e FolderGoneError) Error() string { return e.Dir + " was taken out before 
 
 // lookAtLibrary opens the chosen library's catalog to read it, or nil when
 // no library was chosen or nothing is in it yet.
-func lookAtLibrary() (*library.Catalog, error) {
-	root, err := DefaultLibrary()
+func lookAtLibrary() (root string, catalog *library.Catalog, err error) {
+	root, err = DefaultLibrary()
 	if err != nil || root == "" {
-		return nil, err
+		return "", nil, err
 	}
 	if _, err := os.Stat(root); err != nil {
-		return nil, LibraryGoneError{Root: root}
+		return "", nil, LibraryGoneError{Root: root}
 	}
 	if _, err := os.Stat(catalogPath(root)); errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return root, nil, nil
 	}
-	return library.OpenCatalogReadOnly(catalogPath(root))
+	catalog, err = library.OpenCatalogReadOnly(catalogPath(root))
+	return root, catalog, err
 }

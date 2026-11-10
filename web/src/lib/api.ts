@@ -234,6 +234,8 @@ export interface ImportPlan {
 }
 
 export interface Imported {
+	/** How it ended, as the engine decides it. */
+	outcome: Outcome;
 	placed: number;
 	/** Deleted from the library, left out. */
 	deleted: number;
@@ -272,6 +274,7 @@ export interface ImportState extends Partial<ImportAsk> {
 	card?: boolean;
 	kind?: 'plan' | 'import';
 	/** The file being read or copied, n of of; done of total its bytes. */
+	stage?: 'read' | 'copy';
 	n: number;
 	of: number;
 	name?: string;

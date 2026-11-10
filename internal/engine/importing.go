@@ -12,7 +12,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/library"
@@ -58,6 +57,9 @@ type ImportState struct {
 	// it is copied.
 	Kind string `json:"kind,omitempty"`
 	// The file being read or copied, N of Of; Done of Total its bytes.
+	// Stage says which: "read" (a copy reads first the dates that decide
+	// its folders) or "copy".
+	Stage string `json:"stage,omitempty"`
 	N     int    `json:"n"`
 	Of    int    `json:"of"`
 	Name  string `json:"name,omitempty"`
@@ -156,7 +158,7 @@ func (im *Importing) Import(a ImportAsk) error {
 func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
-	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == a.Dir })
+	_, card := cardAt(a.Dir)
 	im.mu.Lock()
 	defer im.mu.Unlock()
 	if im.state.Running {
@@ -229,7 +231,7 @@ func (s *ImportState) record(e progress.Event) {
 		if e.N != s.N {
 			s.Done, s.Total = 0, 0
 		}
-		s.N, s.Of, s.Name = e.N, e.Of, e.Name
+		s.Stage, s.N, s.Of, s.Name = e.Stage, e.N, e.Of, e.Name
 		if e.Total > 0 {
 			s.Done, s.Total = e.Done, e.Total
 		}

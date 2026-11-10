@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/ronalder100/homewend/internal/library"
 )
 
 // Settings are the choices a person makes in the window. A missing file is
@@ -31,14 +29,10 @@ type Settings struct {
 }
 
 // ProfileFor is the profile of the account id: the one chosen, or the
-// address's name before the @. A card or a folder imported ("local/…") is
-// no account and names none: its photos are in the profile they came into.
+// address's name before the @.
 func (s Settings) ProfileFor(id string) string {
 	if p := s.Profiles[id]; p != "" {
 		return p
-	}
-	if strings.HasPrefix(id, library.LocalSource) {
-		return ""
 	}
 	_, email, _ := strings.Cut(id, "/")
 	name, _, _ := strings.Cut(email, "@")

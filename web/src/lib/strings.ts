@@ -3,6 +3,11 @@
 
 // Every sentence the window shows a person. A second language is a second
 // table with the same keys.
+import type { Outcome } from './api.js';
+
+/** The words of each way an import ends with nothing new. */
+type Ends = Record<Exclude<Outcome, 'new'>, (p: { redated: number }) => string>;
+
 /** n things, the noun in the singular for one: 1 photo, 2,354 photos. */
 const count = (n: number, one: string, many = one + 's') => `${n.toLocaleString('en')} ${n === 1 ? one : many}`;
 
@@ -227,6 +232,7 @@ export const text = {
 	importReading: (name: string) => `Reading ${name}`,
 	importReadingTitle: 'Looking at what comes in.',
 	filesRead: 'files read',
+	datesRead: 'dates read, to know which folders come in',
 	nOf: (n: number, of: number) => `${n.toLocaleString('en')} of ${of.toLocaleString('en')}`,
 	importTop: 'Its top folder',
 	carryOn: 'Carry on',
@@ -285,17 +291,26 @@ export const text = {
 	cancel: 'Cancel',
 	datesGiven: (n: number) => `${count(n, 'photo')} with a date you gave.`,
 	notRedated: (n: number) => `${count(n, 'is', 'are')} filed in another profile: their date is given from there.`,
-	// The plan's lead when nothing new comes in, by how the engine says it ends.
+	// The lead when nothing new comes in, by how the engine says it ends:
+	// of the look, and of the copy. An end with no words is a type error.
 	planLead: {
-		redated: (p: { redated: number }) => `${count(p.redated, 'photo')} already in your library will move to the date you gave.`,
-		'left-out': () => 'Nothing comes in by itself: tick a folder below to bring it in.',
+		redated: (p) => `${count(p.redated, 'photo')} already in your library will move to the date you gave.`,
+		'left-out': () => 'Nothing new comes in by itself; the folders below stay out.',
 		deleted: () => 'The rest is in your library; what you deleted from it stays out.',
 		'known-noted': () => 'What could be read is already in your library.',
 		known: () => 'Everything on it is already in your library.',
 		unread: () => 'None of its photos or videos could be read.',
-		empty: () => 'There are no photos or videos in it.',
-		new: () => ''
-	} as Record<string, (p: { redated: number }) => string>,
+		empty: () => 'There are no photos or videos in it.'
+	} satisfies Ends,
+	doneLead: {
+		redated: (p) => `${count(p.redated, 'photo')} already in your library moved to the date you gave.`,
+		'left-out': () => 'Nothing new came in by itself; the folders left out stay where they are.',
+		deleted: () => 'The rest was in your library already; what you deleted from it stayed out.',
+		'known-noted': () => 'What could be read was in your library already.',
+		known: () => 'Everything on it was in your library already.',
+		unread: () => 'None of its photos or videos could be read.',
+		empty: () => 'There are no photos or videos in it.'
+	} satisfies Ends,
 	monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 	byYearImportLegend: 'photos · videos',
 	leftOut: 'Left out.',
@@ -321,7 +336,8 @@ export const text = {
 	importEndWithoutDesc: 'What came in stays in; the rest can come in next time.',
 	importStopped: 'The import was stopped.',
 	importStoppedLead: 'What came in stays in your library. Look at the card again to bring the rest.',
-	importDone: (n: number) => (n === 0 ? 'Nothing new came in.' : `${count(n, 'photo and video', 'photos and videos')} copied and verified.`),
+	importDone: (n: number) => `${count(n, 'photo and video', 'photos and videos')} copied and verified.`,
+	importNothingNew: 'Nothing new came in.',
 	importDoneLead: 'They are in your library, each one read back and compared.',
 	importPlaced: 'copied now',
 	importRedated: 'with the date you gave',

@@ -233,6 +233,9 @@
 	}
 	// What is in of a year, from its months filed.
 	const filedIn = (filed: Filed, year: string) => Object.values(filed[year] ?? {}).reduce((n, k) => n + k, 0);
+	// "verified / to copy", for a year or a month of the copy.
+	const verified = (n: number, c: { photos: number; videos: number }) =>
+		`${n.toLocaleString('en')} / ${(c.photos + c.videos).toLocaleString('en')}`;
 	const counts = (c: { photos: number; videos: number }) =>
 		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
 	const otherFiles = $derived((plan?.others ?? []).reduce((n, o) => n + o.files, 0));
@@ -251,16 +254,14 @@
 				{@const open = opened.has(y.year)}
 				<button class="year" class:open disabled={!y.months?.length} onclick={() => toggle(y.year)}>
 					<span class="name">{#if y.months?.length}<ChevronRight size={16} />{/if}{y.year || text.noDate}</span>
-					<span class="count">{filed ? `${filedIn(filed, y.year).toLocaleString('en')} / ${(y.photos + y.videos).toLocaleString('en')}` : counts(y)}</span>
+					<span class="count">{filed ? verified(filedIn(filed, y.year), y) : counts(y)}</span>
 				</button>
 				{#if open}
 					{#each y.months ?? [] as m (m.month)}
 						<div class="year month">
 							<span class="name">{text.monthNames[m.month - 1]}</span>
 							<span class="count"
-								>{filed
-									? `${(filed[y.year]?.[m.month] ?? 0).toLocaleString('en')} / ${(m.photos + m.videos).toLocaleString('en')}`
-									: counts(m)}</span
+								>{filed ? verified(filed[y.year]?.[m.month] ?? 0, m) : counts(m)}</span
 							>
 						</div>
 					{/each}
@@ -410,7 +411,7 @@
 		<p class="lead">{text.importCopyingLead}</p>
 		<div class="track"><b style:width="{share * 100}%"></b></div>
 		<div class="numbers">
-			<div><b>{text.nOf(im.n, im.of)}</b><span>{text.importCopied}</span></div>
+			<div><b>{text.nOf(im.n, im.of)}</b><span>{im.stage === 'read' ? text.datesRead : text.importCopied}</span></div>
 			{#if im.total > 0}<div><b>{bytes(im.done)} / {bytes(im.total)}</b><span>{im.name}</span></div>{/if}
 		</div>
 		<div class="actions"><SecondaryButton onclick={() => stopImport().then((s) => (im = s))}>{text.importStop}</SecondaryButton></div>
@@ -437,8 +438,21 @@
 		<!-- I8: what came in; the card can go. -->
 		{@const done = im.imported}
 		<span class="pill" class:ok={view === 'done'}>{#if view === 'done'}<CircleCheck size={14} />{/if}{name}</span>
-		<h1>{view === 'stopped' ? text.importStopped : text.importDone(done?.placed ?? 0)}</h1>
-		<p class="lead">{view === 'stopped' ? text.importStoppedLead : text.importDoneLead}</p>
+		<!-- How it ended, as the engine says it. -->
+		<h1>
+			{view === 'stopped'
+				? text.importStopped
+				: done && done.outcome !== 'new'
+					? text.importNothingNew
+					: text.importDone(done?.placed ?? 0)}
+		</h1>
+		<p class="lead">
+			{view === 'stopped'
+				? text.importStoppedLead
+				: done && done.outcome !== 'new'
+					? text.doneLead[done.outcome](done)
+					: text.importDoneLead}
+		</p>
 		{#if done}
 			<div class="numbers">
 				<div><b>{done.placed.toLocaleString('en')}</b><span>{text.importPlaced}</span></div>

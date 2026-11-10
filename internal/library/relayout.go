@@ -59,7 +59,7 @@ func Relayout(root string, catalog *Catalog, profileOf func(source string) strin
 		profiles := profilesOf(sources, profileOf, fallback)
 		opt := Options{Location: loc, Profile: profiles[0], SeparateMessaging: true}
 		home := old
-		if !within(old, profileRoot(root, opt)) {
+		if !filedIn(p.Path, opt.Profile) {
 			if home, err = destination(old, root, p.capture(), opt, catalog); err != nil {
 				return err
 			}
