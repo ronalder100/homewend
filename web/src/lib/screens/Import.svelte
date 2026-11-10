@@ -49,10 +49,8 @@
 		if (!profile && profiles.length > 0) profile = profiles[0];
 	});
 
-	const name = $derived(nameOf(im?.dir ?? ''));
-	function nameOf(dir: string) {
-		return cards.find((c) => c.path === dir)?.name || dir.split(/[\\/]/).filter(Boolean).pop() || dir;
-	}
+	// How the folder is named on every screen, as the engine names it.
+	const name = $derived(im?.top ?? '');
 	// Said by the engine when the run began: a card taken out is no longer
 	// in the list, and is still a card.
 	const isCard = $derived(!!im?.card);
@@ -395,6 +393,7 @@
 				{#each plan.others as o (o.name)}
 					<div class="year"><span class="name mono">{o.name}</span><span class="count">{o.files.toLocaleString('en')} · {bytes(o.bytes)}</span></div>
 				{/each}
+				{#if plan.others_more}<div class="year"><span class="name">{text.othersMore(plan.others_more)}</span></div>{/if}
 			</section>
 		{/if}
 	{:else if view === 'copying' && im}

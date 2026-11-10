@@ -311,6 +311,7 @@ export const text = {
 	monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 	byYearImportLegend: 'photos · videos',
 	leftOut: 'Left out.',
+	othersMore: (n: number) => `and ${n.toLocaleString('en')} more`,
 	leftOutLead: 'Not photos or videos: they stay where they are.',
 	copyAndVerify: 'Copy and verify',
 	linkIn: 'Bring in as links',

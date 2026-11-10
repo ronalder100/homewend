@@ -827,12 +827,11 @@ func importCommand(args []string) int {
 			where = "import others card"
 		}
 		out.say("  " + out.out.paint(text[where], faintColour, false))
-		for i, o := range plan.Others {
-			if i == maxOthers {
-				out.say("    " + out.out.paint(fmt.Sprintf(text["import others more"], len(plan.Others)-maxOthers), faintColour, false))
-				break
-			}
+		for _, o := range plan.Others {
 			out.say("    " + out.out.paint(o.Name, faintColour, false))
+		}
+		if plan.OthersMore > 0 {
+			out.say("    " + out.out.paint(fmt.Sprintf(text["import others more"], plan.OthersMore), faintColour, false))
 		}
 	}
 	sayImport(out, w, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
@@ -945,8 +944,7 @@ func includeFolder(dir, name string) string {
 	clean := filepath.Clean(name)
 	// The folder itself, as "." or by its own name, as the dry run writes
 	// it — unless a folder inside has that name too.
-	abs, _ := filepath.Abs(dir)
-	if _, inside := os.Stat(filepath.Join(dir, clean)); clean == "." || (clean == filepath.Base(abs) && inside != nil) {
+	if _, inside := os.Stat(filepath.Join(dir, clean)); clean == "." || (clean == engine.TopName(dir) && inside != nil) {
 		return "."
 	}
 	// A path the shell completed is one that is there from here.
@@ -956,16 +954,6 @@ func includeFolder(dir, name string) string {
 		}
 	}
 	return strings.Trim(filepath.ToSlash(clean), "/")
-}
-
-// maxOthers is how many names of what stays out a dry run lists.
-const maxOthers = 10
-
-// topName is the name of the card or the folder imported, as its own top
-// is said: the last part of its path, a card's name included.
-func (w importWords) topName() string {
-	abs, _ := filepath.Abs(w.dir)
-	return filepath.Base(abs)
 }
 
 // findCard is the card to import when no folder was named: the one in, or
@@ -1062,7 +1050,7 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
-			folder = w.topName()
+			folder = engine.TopName(w.dir)
 		}
 		why := text["group "+string(g.Kind)]
 		if g.Mark != "" {

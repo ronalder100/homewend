@@ -235,6 +235,10 @@ export interface ImportPlan extends Counts {
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by its name at the folder's top: "FWUP0013.DAT", "FFDB/". */
 	others: { name: string; files: number; bytes: number }[];
+	/** Those left unnamed past the first ten. */
+	others_more?: number;
+	/** How the folder imported is named: the card's name, or the folder's. */
+	top: string;
 }
 
 export interface Imported extends Counts {
@@ -267,6 +271,8 @@ export interface ImportState extends Partial<ImportAsk> {
 	running: boolean;
 	/** Whether dir was a card when the run began. */
 	card?: boolean;
+	/** How the folder is named on every screen. */
+	top?: string;
 	kind?: 'plan' | 'import';
 	/** The file being read or copied, n of of; done of total its bytes. */
 	stage?: 'read' | 'copy';

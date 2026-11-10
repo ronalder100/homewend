@@ -6,6 +6,7 @@ package library
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -268,5 +269,21 @@ func TestASecondLookReadsNothingAgain(t *testing.T) {
 	plan, err = PlanImport(context.Background(), card, folder, catalog, PlanOptions{Hashes: hashes, Root: lib}, nil)
 	if err != nil || plan.InLibrary != 1 {
 		t.Errorf("second look: %d in the library, %v; want the one the first look read", plan.InLibrary, err)
+	}
+}
+
+// What stays out is named ten at most; the rest are counted.
+func TestWhatStaysOutIsNamedTenAtMost(t *testing.T) {
+	dir := t.TempDir()
+	for i := range 12 {
+		write(t, dir, fmt.Sprintf("doc%02d.pdf", i), []byte("not a photo"))
+	}
+	folder, err := ReadFolder(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{}, nil)
+	if err != nil || len(plan.Others) != MaxOthers || plan.OthersMore != 2 {
+		t.Errorf("%d named, %d more, %v; want %d and 2", len(plan.Others), plan.OthersMore, err, MaxOthers)
 	}
 }

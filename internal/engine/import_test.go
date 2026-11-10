@@ -88,3 +88,16 @@ func TestAnImportedPhotoIsNamedByItsFolder(t *testing.T) {
 		t.Errorf("sources %v, %v; want local/old-laptop", sources, err)
 	}
 }
+
+// A folder is named by the last part of its path; a drive's root by
+// itself, never by a lone separator.
+func TestTheTopIsNamedAfterTheFolder(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "old-laptop")
+	if got := TopName(dir); got != "old-laptop" {
+		t.Errorf("%s: %q", dir, got)
+	}
+	root := string(filepath.Separator)
+	if got := TopName(root); got != root {
+		t.Errorf("the root: %q, want %q", got, root)
+	}
+}

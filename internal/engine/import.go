@@ -59,6 +59,7 @@ func PlanImport(ctx context.Context, dir string, opt library.PlanOptions, emit p
 		defer catalog.Close()
 	}
 	plan, err := library.PlanImport(ctx, dir, folder, catalog, opt, emit)
+	plan.Top = TopName(dir)
 	// A card taken out while it is read is said as during the copy: its
 	// files read after are only unreadable, not an error.
 	if _, gone := os.Stat(dir); gone != nil && !errors.Is(err, context.Canceled) {
@@ -128,15 +129,29 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 // sourceOf is the badge of the photos imported from dir, "local/<name>":
 // a card's name as its system shows it, or the folder's. The catalog keeps
 // it as it keeps a Google account's, and the window names the photo by it.
-func sourceOf(dir string) string {
-	if c, ok := cardAt(dir); ok && c.Name != "" {
-		return library.LocalSource + c.Name
+func sourceOf(dir string) string { return library.LocalSource + TopName(dir) }
+
+// TopName is how the folder imported is named, wherever it is said: a card
+// by its name, a folder by the last part of its path, a drive's root by
+// itself ("/", "E:\\").
+func TopName(dir string) string {
+	c, card := cardAt(dir)
+	return topOf(dir, c, card)
+}
+
+// topOf is TopName, the card already looked for.
+func topOf(dir string, c Card, card bool) string {
+	if card && c.Name != "" {
+		return c.Name
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		abs = dir
 	}
-	return library.LocalSource + filepath.Base(abs)
+	if base := filepath.Base(abs); base != string(filepath.Separator) && base != "." {
+		return base
+	}
+	return abs
 }
 
 // FolderGoneError is the folder being imported gone before the end: a card

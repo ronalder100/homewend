@@ -50,6 +50,8 @@ type ImportState struct {
 	// Card is whether Dir was a card when the run began: one taken out is
 	// waited for, and carries on by itself when it is back.
 	Card bool `json:"card,omitempty"`
+	// Top is how Dir is named on every screen (TopName).
+	Top string `json:"top"`
 	// "plan" while the folder is read to know what comes in, "import" while
 	// it is copied.
 	Kind string `json:"kind,omitempty"`
@@ -137,7 +139,8 @@ func (im *Importing) Import(a ImportAsk) error {
 func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, progress.Func, *ImportState, library.Hashes) error) error {
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
-	_, card := cardAt(a.Dir)
+	c, card := cardAt(a.Dir)
+	top := topOf(a.Dir, c, card)
 	real, err := library.RealPath(a.Dir)
 	if err != nil {
 		real = a.Dir
@@ -171,7 +174,7 @@ func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, p
 			before, filed = im.state.Imported, im.state.Filed
 		}
 	}
-	im.state = ImportState{Running: true, ImportAsk: a, Filed: filed, Kind: kind, Plan: plan, Card: card}
+	im.state = ImportState{Running: true, ImportAsk: a, Top: top, Filed: filed, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {
