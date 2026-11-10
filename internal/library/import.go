@@ -108,11 +108,13 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		}
 		// A file of a few GB is minutes on a card, read once to know it and
 		// once to copy it: its bytes are told, at most a few times a second.
-		var last time.Time
+		// A photo done within the first quarter of a second tells none: a
+		// card of small files would flash its first bytes at each one.
+		last, told := time.Now(), false
 		size := sizeOf(item.Path)
 		tell := func(n int64) {
-			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || n == size {
-				last = now
+			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || (told && n == size) {
+				last, told = now, true
 				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path), Done: n, Total: size})
 			}
 		}

@@ -305,13 +305,12 @@ func TestACopyIsTheSamePhoto(t *testing.T) {
 	}
 }
 
-// A file being copied tells its bytes, ending with all of them.
-func TestACopyTellsItsBytes(t *testing.T) {
+// Small files tell no bytes: a card of photos copied in a blink each would
+// flash its first bytes at every one. A large one tells them as it goes,
+// past a quarter of a second (tried by hand on a 300 MB video).
+func TestSmallFilesTellNoBytes(t *testing.T) {
 	card := cameraCard(t)
 	root := t.TempDir()
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -321,17 +320,17 @@ func TestACopyTellsItsBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	whole := map[string]bool{}
+	var told []string
 	emit := func(e progress.Event) {
-		if e.Stage == progress.Copy && e.Total > 0 && e.Done == e.Total {
-			whole[e.Name] = true
+		if e.Stage == progress.Copy && e.Total > 0 {
+			told = append(told, e.Name)
 		}
 	}
-	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, emit); err != nil {
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: func(int64) error { return nil }}, emit); err != nil {
 		t.Fatal(err)
 	}
-	if len(whole) != len(folder.Items) {
-		t.Errorf("%d files told whole, want %d: %v", len(whole), len(folder.Items), whole)
+	if len(told) > 0 {
+		t.Errorf("bytes told for small files: %v", told)
 	}
 }
 
