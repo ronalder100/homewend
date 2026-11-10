@@ -366,8 +366,6 @@ Examples:
 	"verb link dry":        "link",
 	"verb date":            "dated",
 	"verb date dry":        "date",
-	"row new":              "new",
-	"row back":             "deleted from the library, brought back",
 	"row redated":          "to the date given, in a .xmp beside each",
 	"row redated dry":      "to the date given",
 	"row not redated":      "dates not given: filed in another profile, dated from there",

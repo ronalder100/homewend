@@ -1099,14 +1099,14 @@ func sayImport(out *printer, w importWords, s summary) {
 	under := strings.Repeat(" ", 2+wide+1+5+2) // below a row's words
 	row := func(verb string, n int, said string, colour color.Color) {
 		if n > 0 {
-			line := fmt.Sprintf("%-*s %5d  %s", wide, w.words("verb "+verb), n, said)
+			line := strings.TrimSpace(fmt.Sprintf("%-*s %5d  %s", wide, w.words("verb "+verb), n, said))
 			out.say("  " + out.out.paint(line, colour, false))
 		}
 	}
 	note := func(said string) { out.say(under + out.out.paint(said, faintColour, false)) }
-	row(copied, s.copied-s.BroughtBack, text["row new"], nil)
-	row(copied, s.BroughtBack, text["row back"], nil)
-	// Under what is copied, new or brought back: by year, and undated.
+	// What is copied, new or brought back as asked, needs no reason; under
+	// it, by year, and undated.
+	row(copied, s.copied, "", nil)
 	for _, y := range s.years {
 		year := y.Year
 		if year == "" {
