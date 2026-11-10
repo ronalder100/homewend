@@ -109,6 +109,8 @@ export interface YearCount {
 export interface YearCounts {
 	counted?: string;
 	years?: YearCount[];
+	/** Old: counted again in the background, this one shown meanwhile. */
+	stale?: boolean;
 	counting: boolean;
 	error?: string;
 }

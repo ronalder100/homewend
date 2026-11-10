@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // An account's photos on Google, counted by year: read, asked for once if
-// there is none, and looked at every two seconds while the count runs.
+// there is none or the engine says it is old (the old one shown meanwhile),
+// and looked at every second while the count runs.
 import { countYears, getYears, type YearCounts } from './api.js';
 
 export class Years {
@@ -15,9 +16,10 @@ export class Years {
 	get counted() {
 		return this.counts?.years?.length ? this.counts.years : null;
 	}
-	/** Not known yet: no year is offered rather than ones the account may not have. */
+	/** Not known yet: no year is offered rather than ones the account may not
+	 *  have. An old count counted again stays offered meanwhile. */
 	get finding() {
-		return !this.counts || this.counts.counting;
+		return !this.counted && (!this.counts || this.counts.counting);
 	}
 	get seconds() {
 		return Math.max(0, Math.floor((this.tick - this.since) / 1000));
@@ -38,8 +40,9 @@ export class Years {
 				try {
 					const c = await getYears(a);
 					if (stop) return;
-					if (!c.years && !c.counting && !c.error && !asked) {
+					if ((!c.years || c.stale) && !c.counting && !c.error && !asked) {
 						asked = true;
+						if (c.years) this.counts = c;
 						await countYears(a).catch(() => {});
 						this.since = Date.now();
 						return look();

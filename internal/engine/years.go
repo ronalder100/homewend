@@ -24,7 +24,15 @@ const yearsFile = "homewend-years.json"
 type YearCounts struct {
 	Counted time.Time      `json:"counted"`
 	Years   []gphotos.Year `json:"years"`
+	// Stale is a count older than countsLast: counted again, in the
+	// background, while this one is shown.
+	Stale bool `json:"stale,omitempty"`
 }
+
+// countsLast is how long a count is kept before it is made again: an
+// account gains photos every day, but a year's count matters when one is
+// chosen, and a count holds the account's browser for a minute.
+const countsLast = 7 * 24 * time.Hour
 
 // LoadYearCounts is the account's last count; nil when it was never counted.
 func LoadYearCounts(account string) (*YearCounts, error) {
@@ -43,6 +51,7 @@ func LoadYearCounts(account string) (*YearCounts, error) {
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, fmt.Errorf("reading %s: %w", yearsFile, err)
 	}
+	c.Stale = time.Since(c.Counted) > countsLast
 	return &c, nil
 }
 
