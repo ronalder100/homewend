@@ -244,6 +244,7 @@ export const text = {
 	importFree: 'free on the library\'s disk',
 	importNoRoom: 'There is not enough room on the library\'s disk.',
 	byYearImport: 'By year.',
+	verifiedLegend: 'verified / to copy',
 	whatComesIn: 'What it holds.',
 	whatComesInLegend: 'ticked comes in',
 	whyPhotos: 'Camera files',

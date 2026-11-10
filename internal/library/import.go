@@ -100,7 +100,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 	// look said, unless chosen. A date is read only where it decides a
 	// group, a card's DCIM never; once stopped, none: the copy below
 	// stops before its first file.
-	groups, err := classify(f, func(path string) bool { return ctx.Err() == nil && how.Hashes.dated(path) }, how.Choice)
+	groups, err := classify(f, func(path string) bool { return ctx.Err() == nil && how.Hashes.dated(path) }, how.Choice, emit)
 	if err != nil {
 		return done, err
 	}
@@ -204,6 +204,14 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		done.Placed += placed.Placed
 		done.Bytes += placed.Bytes
 		done.Undated += placed.Undated
+		// Its month, for the window that counts what came in by month.
+		if p, err := catalog.photo(hash); err == nil {
+			month := ""
+			if !p.Taken.IsZero() {
+				month = p.Taken.Format("2006-01")
+			}
+			emit.Emit(progress.Event{Stage: progress.Filed, Name: month})
+		}
 	}
 	return done, nil
 }

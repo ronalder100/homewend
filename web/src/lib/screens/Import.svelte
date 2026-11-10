@@ -218,6 +218,9 @@
 		if (!next.delete(year)) next.add(year);
 		opened = next;
 	}
+	// What is in of a year, from the months filed: "" the undated.
+	const filedIn = (filed: Record<string, number>, year: string) =>
+		Object.entries(filed).reduce((n, [month, k]) => n + ((year ? month.startsWith(year + '-') : month === '') ? k : 0), 0);
 	const counts = (c: { photos: number; videos: number }) =>
 		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
 	const otherFiles = $derived((plan?.others ?? []).reduce((n, o) => n + o.files, 0));
@@ -227,19 +230,27 @@
 </script>
 
 <!-- The years, newest first; a year opened shows its months below it (I8b). -->
-{#snippet byYear(years: ImportPlan['years'])}
+<!-- During the copy (I6), each with what is in and checked, of what to copy. -->
+{#snippet byYear(years: ImportPlan['years'], filed?: Record<string, number>)}
 	{#if years.length > 0}
 		<section class="years">
-			<header><h2>{text.byYearImport}</h2><span>{text.byYearImportLegend}</span></header>
+			<header><h2>{text.byYearImport}</h2><span>{filed ? text.verifiedLegend : text.byYearImportLegend}</span></header>
 			{#each years as y (y.year)}
 				{@const open = opened.has(y.year)}
 				<button class="year" class:open disabled={!y.months?.length} onclick={() => toggle(y.year)}>
 					<span class="name">{#if y.months?.length}<ChevronRight size={16} />{/if}{y.year || text.noDate}</span>
-					<span class="count">{counts(y)}</span>
+					<span class="count">{filed ? `${filedIn(filed, y.year).toLocaleString('en')} / ${(y.photos + y.videos).toLocaleString('en')}` : counts(y)}</span>
 				</button>
 				{#if open}
 					{#each y.months ?? [] as m (m.month)}
-						<div class="year month"><span class="name">{text.monthNames[m.month - 1]}</span><span class="count">{counts(m)}</span></div>
+						<div class="year month">
+							<span class="name">{text.monthNames[m.month - 1]}</span>
+							<span class="count"
+								>{filed
+									? `${(filed[`${y.year}-${String(m.month).padStart(2, '0')}`] ?? 0).toLocaleString('en')} / ${(m.photos + m.videos).toLocaleString('en')}`
+									: counts(m)}</span
+							>
+						</div>
 					{/each}
 				{/if}
 			{/each}
@@ -383,6 +394,7 @@
 			{#if im.total > 0}<div><b>{bytes(im.done)} / {bytes(im.total)}</b><span>{im.name}</span></div>{/if}
 		</div>
 		<div class="actions"><SecondaryButton onclick={() => stopImport().then((s) => (im = s))}>{text.importStop}</SecondaryButton></div>
+		{#if plan}{@render byYear(plan.years, im.filed ?? {})}{/if}
 	{:else if view === 'taken-out' && im}
 		<!-- I7: the card came out; put back, the copy carries on by itself. -->
 		<span class="pill warn">{text.importWaitingFor(name)}</span>

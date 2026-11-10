@@ -231,7 +231,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		}
 		read[item.Path] = facts
 	}
-	groups, err := classify(f, func(path string) bool { return read[path].dated }, opt.Choice)
+	groups, err := classify(f, func(path string) bool { return read[path].dated }, opt.Choice, nil)
 	if err != nil {
 		return plan, err
 	}

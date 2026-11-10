@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/ronalder100/homewend/internal/progress"
 )
 
 // GroupKind is what a group of a folder's photos is, and so whether it comes
@@ -81,7 +83,10 @@ var rawExtensions = map[string]bool{
 // a file's camera wrote a date, asked only where it decides: a folder whose
 // photos mostly have none is unsure. A folder the choice names that is no
 // group is said.
-func classify(f Folder, dated func(path string) bool, choice *Choice) ([]Group, error) {
+//
+// emit hears each date asked, N of Of: a folder of ten thousand photos is a
+// minute of reading before anything is copied.
+func classify(f Folder, dated func(path string) bool, choice *Choice, emit progress.Func) ([]Group, error) {
 	marks := map[string]string{} // folder → its project mark, "" none
 	markOf := func(dir string) string {
 		if m, ok := marks[dir]; ok {
@@ -120,30 +125,41 @@ func classify(f Folder, dated func(path string) bool, choice *Choice) ([]Group, 
 		}
 		g.Paths = append(g.Paths, item.Path)
 	}
+	// The photos whose date decides their group: in a folder of photos
+	// outside DCIM — under it a camera wrote them, as the DCF standard has
+	// every camera do, and a date one lacks is not a doubt. Videos and raw
+	// files say nothing: many cameras' videos carry no date read here, and
+	// a raw file is a camera's.
+	asked := map[string][]string{}
+	var of int
+	for _, folder := range order {
+		underDCIM := folder == "DCIM" || strings.HasPrefix(folder, "DCIM/") || strings.Contains(folder, "/DCIM/") || strings.HasSuffix(folder, "/DCIM")
+		if byFolder[folder].Kind != Photos || underDCIM {
+			continue
+		}
+		for _, p := range byFolder[folder].Paths {
+			if !IsVideo(p) && !rawExtensions[strings.ToLower(filepath.Ext(p))] {
+				asked[folder] = append(asked[folder], p)
+				of++
+			}
+		}
+	}
 	groups := make([]Group, 0, len(order))
+	var n int
 	for _, folder := range order {
 		g := byFolder[folder]
-		// Under DCIM a camera wrote it, as the DCF standard has every
-		// camera do: a date it lacks is a camera's, not a doubt.
-		underDCIM := folder == "DCIM" || strings.HasPrefix(folder, "DCIM/") || strings.Contains(folder, "/DCIM/") || strings.HasSuffix(folder, "/DCIM")
-		if g.Kind == Photos && !underDCIM {
-			// Photos with no camera's date, more than half of them: a
-			// camera writes one in every photo. Videos and raw files say
-			// nothing here: many cameras' videos carry none we read, and a
-			// raw file is a camera's.
-			var photos, undated int
-			for _, p := range g.Paths {
-				ext := strings.ToLower(filepath.Ext(p))
-				if !IsVideo(p) && !rawExtensions[ext] {
-					photos++
-					if !dated(p) {
-						undated++
-					}
-				}
+		// More than half of them with no camera's date: a camera writes
+		// one in every photo.
+		var undated int
+		for _, p := range asked[folder] {
+			n++
+			emit.Emit(progress.Event{Stage: progress.Read, N: n, Of: of})
+			if !dated(p) {
+				undated++
 			}
-			if photos > 0 && undated*2 > photos {
-				g.Kind = Unsure
-			}
+		}
+		if len(asked[folder]) > 0 && undated*2 > len(asked[folder]) {
+			g.Kind = Unsure
 		}
 		groups = append(groups, *g)
 	}

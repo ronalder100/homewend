@@ -259,6 +259,8 @@ export interface ImportState {
 	name?: string;
 	done: number;
 	total: number;
+	/** In the library and checked, by month "2026-09"; "" the undated. */
+	filed?: Record<string, number>;
 	plan?: ImportPlan;
 	/** The folder is on the library's disk: it can come in as hard links. */
 	canLink?: boolean;

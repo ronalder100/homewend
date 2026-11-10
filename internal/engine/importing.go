@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io/fs"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,6 +57,10 @@ type ImportState struct {
 	Name  string `json:"name,omitempty"`
 	Done  int64  `json:"done"`
 	Total int64  `json:"total"`
+	// Filed are the files in the library and checked, by month, "2026-09";
+	// "" the undated. A copy carried on after its card came out goes on
+	// counting.
+	Filed map[string]int `json:"filed,omitempty"`
 
 	Plan *library.ImportPlan `json:"plan,omitempty"`
 	// CanLink is the folder on the library's disk: its photos can come in
@@ -146,16 +151,17 @@ func (im *Importing) start(dir, profile string, redates []library.Redate, choice
 	// A new look makes a new plan: an old one is not shown for it.
 	var plan *library.ImportPlan
 	var before *library.Imported
+	var filed map[string]int
 	if im.state.Dir == dir {
 		card = card || im.state.Card
 		if kind == "import" {
 			plan = im.state.Plan
 		}
 		if im.state.Problem == "taken-out" {
-			before = im.state.Imported
+			before, filed = im.state.Imported, im.state.Filed
 		}
 	}
-	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Choice: choice, Link: link, Kind: kind, Plan: plan, Card: card}
+	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Choice: choice, Link: link, Filed: filed, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {
@@ -193,6 +199,11 @@ func (im *Importing) start(dir, profile string, redates []library.Redate, choice
 
 func (s *ImportState) record(e progress.Event) {
 	switch e.Stage {
+	case progress.Filed:
+		if s.Filed == nil {
+			s.Filed = map[string]int{}
+		}
+		s.Filed[e.Name]++
 	case progress.Read, progress.Copy:
 		// A new file starts at nothing; its bytes follow.
 		if e.N != s.N {
@@ -303,5 +314,8 @@ func (im *Importing) Stop() <-chan struct{} {
 func (im *Importing) State() ImportState {
 	im.mu.Lock()
 	defer im.mu.Unlock()
-	return im.state
+	s := im.state
+	// The run goes on counting in its own map while this one is written out.
+	s.Filed = maps.Clone(s.Filed)
+	return s
 }

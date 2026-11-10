@@ -243,3 +243,29 @@ func TestTheWindowShowsACardsPhotosSmall(t *testing.T) {
 		}
 	}
 }
+
+// The copy counts what came in by month, as the window shows it.
+func TestTheWindowCountsACopyByMonth(t *testing.T) {
+	config(t)
+	if err := SetDefaultLibrary(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	card := filepath.Join(t.TempDir(), "card")
+	if err := os.MkdirAll(filepath.Join(card, "DCIM"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"A.JPG", "B.JPG"} {
+		if err := os.WriteFile(filepath.Join(card, "DCIM", name), []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var im Importing
+	given := []library.Redate{{Names: []string{"A.JPG"}, When: time.Date(2025, 9, 14, 10, 0, 0, 0, time.UTC)}}
+	if err := im.Import(card, "ron", false, given, nil); err != nil {
+		t.Fatal(err)
+	}
+	s := importEnded(t, &im)
+	if s.Filed["2025-09"] != 1 || s.Filed[""] != 1 {
+		t.Errorf("filed %v, want one in 2025-09 and one undated", s.Filed)
+	}
+}
