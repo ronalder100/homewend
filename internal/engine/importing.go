@@ -68,6 +68,10 @@ type ImportState struct {
 	// year "" month 0, the undated. A copy carried on after its card came
 	// out goes on counting.
 	Filed map[string]map[int]int `json:"filed,omitempty"`
+	// Moved of Bytes are the folder's bytes gone through so far, for the
+	// pace of the copy and the time left.
+	Moved int64 `json:"moved"`
+	Bytes int64 `json:"bytes"`
 
 	Plan *library.ImportPlan `json:"plan,omitempty"`
 	// CanLink is the folder on the library's disk: its photos can come in
@@ -212,6 +216,8 @@ func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, p
 
 func (s *ImportState) record(e progress.Event) {
 	switch e.Stage {
+	case progress.Moved:
+		s.Moved, s.Bytes = e.Done, e.Total
 	case progress.Filed:
 		if s.Filed == nil {
 			s.Filed = map[string]map[int]int{}

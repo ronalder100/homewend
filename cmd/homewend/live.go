@@ -38,9 +38,49 @@ type printer struct {
 	shown     string    // the export in the table: finding it is not news
 	lastSaid  string    // the step last heard: heard again at once, it is not news
 	asked     time.Time // when Google was asked
-	rate      float64   // bytes a second, smoothed over the current part
-	lastAt    time.Time
-	lastDone  int64
+	part      pace      // of the part downloading
+	run       pace      // of the folder importing
+	moved     progress.Event
+}
+
+// pace is bytes a second, smoothed over what came last, for the time left.
+type pace struct {
+	rate float64
+	at   time.Time
+	done int64
+}
+
+// see takes done bytes at t; a second at least between two looks, so that
+// a burst of small files does not swing it.
+func (s *pace) see(t time.Time, done int64) {
+	if s.at.IsZero() {
+		s.at, s.done = t, done
+		return
+	}
+	dt := t.Sub(s.at).Seconds()
+	if dt < 1 {
+		return
+	}
+	seen := float64(done-s.done) / dt
+	if s.rate == 0 {
+		s.rate = seen
+	} else {
+		s.rate = 0.7*s.rate + 0.3*seen
+	}
+	s.at, s.done = t, done
+}
+
+// said is " · 18 MB/s · 2m10s left" once the pace is known, else "".
+func (s pace) said(done, total int64) string {
+	if s.rate <= 0 {
+		return ""
+	}
+	said := fmt.Sprintf(text["pace"], size(int64(s.rate)))
+	// Under a second left is no time to say.
+	if left := time.Duration(float64(total-done) / s.rate * float64(time.Second)).Round(time.Second); left > 0 {
+		said += fmt.Sprintf(text["download left"], left)
+	}
+	return said
 }
 
 func newPrinter(json bool) *printer {
@@ -156,18 +196,11 @@ func (p *printer) event(e progress.Event) {
 		}
 		p.say(p.out.done(fmt.Sprintf(text["found"], engine.ShortID(e.Name)), details))
 	case progress.Download:
-		p.partStart, p.rate, p.lastAt, p.lastDone = t, 0, t, e.Done
+		p.partStart, p.part = t, pace{}
+		p.part.see(t, e.Done)
 		p.now(p.downloading(e))
 	case progress.Receiving:
-		if dt := t.Sub(p.lastAt).Seconds(); dt > 0 {
-			seen := float64(e.Done-p.lastDone) / dt
-			if p.rate == 0 {
-				p.rate = seen
-			} else {
-				p.rate = 0.7*p.rate + 0.3*seen
-			}
-		}
-		p.lastAt, p.lastDone = t, e.Done
+		p.part.see(t, e.Done)
 		p.now(p.downloading(e))
 	case progress.Downloaded:
 		took := t.Sub(p.partStart).Round(time.Second)
@@ -183,10 +216,17 @@ func (p *printer) event(e progress.Event) {
 			p.sortStart = t
 		}
 		p.now(going{said: text["sorting"], bar: fraction(int64(e.N), int64(e.Of)), details: fmt.Sprintf("%d of %d", e.N, e.Of)})
+	case progress.Moved:
+		p.run.see(t, e.Done)
+		p.moved = e
 	case progress.Copy:
-		// Files counted, and the bytes of a large one while it is copied.
+		// Files counted and the run's pace with the time left; until the
+		// pace is known, the bytes of a large file while it is copied. One
+		// line, short enough for a narrow terminal.
 		details := fmt.Sprintf("%d of %d", e.N, e.Of)
-		if e.Total > 0 && e.Done < e.Total {
+		if said := p.run.said(p.moved.Done, p.moved.Total); said != "" {
+			details += said
+		} else if e.Total > 0 && e.Done < e.Total {
 			details += fmt.Sprintf(" · %s of %s", size(e.Done), size(e.Total))
 		}
 		p.now(going{said: text["copying"], bar: fraction(int64(e.N), int64(e.Of)), details: details})
@@ -203,11 +243,7 @@ func (p *printer) event(e progress.Event) {
 // downloading is the line of a part coming down: its bar, how much, and how
 // long is left once the pace is known.
 func (p *printer) downloading(e progress.Event) going {
-	details := fmt.Sprintf(text["download sizes"], size(e.Done), size(e.Total))
-	if p.rate > 0 {
-		left := time.Duration(float64(e.Total-e.Done) / p.rate * float64(time.Second))
-		details += fmt.Sprintf(text["download left"], left.Round(time.Second))
-	}
+	details := fmt.Sprintf(text["download sizes"], size(e.Done), size(e.Total)) + p.part.said(e.Done, e.Total)
 	return going{said: fmt.Sprintf(text["downloading"], e.N, e.Of), bar: fraction(e.Done, e.Total), details: details}
 }
 

@@ -3,6 +3,7 @@
 
 // What the window knows: the settings and the library's overview, read from
 // the engine and kept in step with it.
+import { forget, pace } from './pace.js';
 import { goto } from '$app/navigation';
 import { onDestroy } from 'svelte';
 import {
@@ -45,16 +46,9 @@ export const app = $state<{
 	picked: {}
 });
 
-const samples: Record<string, { t: number; done: number }[]> = {};
-
 function measure(account: string, j: JobState) {
-	const now = Date.now();
-	const s = (samples[account] = [
-		...(samples[account] ?? []).filter((x) => now - x.t < 60000 && x.done <= j.done),
-		{ t: now, done: j.done }
-	]);
-	const rate = (j.done - s[0].done) / ((now - s[0].t) / 1000);
-	if (j.running && j.total > 0 && rate > 0) app.left[account] = (j.total - j.done) / rate;
+	const p = j.running ? pace(account, j.done, j.total) : null;
+	if (p) app.left[account] = p.left;
 	else delete app.left[account];
 }
 
@@ -72,7 +66,7 @@ export function watchJobs(): () => void {
 			if (accounts.some((a) => a.id === id)) continue;
 			delete app.jobs[id];
 			delete app.left[id];
-			delete samples[id];
+			forget(id);
 		}
 		for (const a of accounts) {
 			const w = writes[a.id];

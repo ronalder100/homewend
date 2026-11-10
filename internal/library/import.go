@@ -102,7 +102,20 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 	done.LeftOut = leftOut(groups, how.Choice)
 	items := slices.DeleteFunc(slices.Clone(f.Items), func(item Item) bool { return !in[item.Path] })
 	seen := map[string]bool{}
+	// The run's pace: its files' bytes gone through, each read once to be
+	// known and, when new, once to be copied, half of its size for each.
+	sizes := make([]int64, len(items))
+	var all, handled int64
 	for i, item := range items {
+		sizes[i] = sizeOf(item.Path)
+		all += sizes[i]
+	}
+	moved := func(n int64) { emit.Emit(progress.Event{Stage: progress.Moved, Done: n, Total: all}) }
+	for i, item := range items {
+		if i > 0 {
+			handled += sizes[i-1]
+		}
+		moved(handled)
 		if err := ctx.Err(); err != nil {
 			return done, err
 		}
@@ -110,12 +123,17 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		// once to copy it: its bytes are told, at most a few times a second.
 		// A photo done within the first quarter of a second tells none: a
 		// card of small files would flash its first bytes at each one.
-		last, told := time.Now(), false
-		size := sizeOf(item.Path)
+		last, told, copying := time.Now(), false, false
+		size := sizes[i]
 		tell := func(n int64) {
 			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || (told && n == size) {
 				last, told = now, true
 				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path), Done: n, Total: size})
+				if copying {
+					moved(handled + size/2 + n/2)
+				} else {
+					moved(handled + n/2)
+				}
 			}
 		}
 		emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path)})
@@ -183,6 +201,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		if dated {
 			capture.When, capture.Source = when, FromGiven
 		}
+		copying = true
 		placed, err := bringIn(item.Path, i, root, catalog, opt, how.Link, how.Fits, capture, tell)
 		if err != nil {
 			return done, err
@@ -211,6 +230,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		}
 		emit.Emit(e)
 	}
+	moved(all)
 	done.end(done.Placed)
 	return done, nil
 }

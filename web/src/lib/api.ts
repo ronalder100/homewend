@@ -281,6 +281,9 @@ export interface ImportState extends Partial<ImportAsk> {
 	done: number;
 	total: number;
 	filed?: Filed;
+	/** The folder's bytes gone through, of all of them: the copy's pace. */
+	moved?: number;
+	bytes?: number;
 	plan?: ImportPlan;
 	/** The folder is on the library's disk: it can come in as hard links. */
 	canLink?: boolean;

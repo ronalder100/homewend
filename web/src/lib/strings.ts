@@ -167,6 +167,8 @@ export const text = {
 	inFolder: 'photos in your folder',
 	leftAtSpeed: 'left at this speed',
 	aboutTime: (s: string) => `about ${s}`,
+	perSecond: (size: string) => `${size}/s`,
+	speed: 'copied a second',
 
 	takeoutsTitle: 'Takeouts',
 	takeoutCol: 'TAKEOUT',

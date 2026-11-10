@@ -283,6 +283,7 @@ Examples:
 	"downloading":           "Downloading part %d of %d",
 	"download sizes":        "%s of %s",
 	"download left":         " · %s left",
+	"pace":                  " · %s/s",
 	"downloaded":            "Downloaded part **%d of %d**",
 	"downloaded in":         " · %s in %s",
 	"network":               "Waiting for the network to come back",

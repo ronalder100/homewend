@@ -26,7 +26,8 @@
 		type Redate,
 		type ImportState
 	} from '#lib/api.js';
-	import { bytes, takenDay } from '#lib/format.js';
+	import { bytes, roughly, takenDay } from '#lib/format.js';
+	import { pace } from '#lib/pace.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
@@ -230,6 +231,8 @@
 	const counts = (c: { photos: number; videos: number }) =>
 		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
 	const fits = $derived(!plan || !free || plan.bytes <= free);
+	// The copy's speed and time left, as a download's are measured.
+	const run = $derived(im?.running && im.kind === 'import' ? pace('import', im.moved ?? 0, im.bytes ?? 0) : null);
 	const fileShare = $derived(im && im.total > 0 ? im.done / im.total : 0);
 	const share = $derived(im && im.of > 0 ? (im.n - 1 + fileShare) / im.of : 0);
 </script>
@@ -404,6 +407,10 @@
 		<div class="numbers">
 			<div><b>{text.nOf(im.n, im.of)}</b><span>{im.stage === 'read' ? text.datesRead : text.importCopied}</span></div>
 			{#if im.total > 0}<div><b>{bytes(im.done)} / {bytes(im.total)}</b><span>{im.name}</span></div>{/if}
+			{#if run}
+				<div><b>{text.perSecond(bytes(run.rate))}</b><span>{text.speed}</span></div>
+				<div><b>{text.aboutTime(roughly(run.left))}</b><span>{text.leftAtSpeed}</span></div>
+			{/if}
 		</div>
 		<div class="actions"><SecondaryButton onclick={() => stopImport().then((s) => (im = s))}>{text.importStop}</SecondaryButton></div>
 		{#if plan}{@render byYear(plan.years, im.filed ?? {})}{/if}
