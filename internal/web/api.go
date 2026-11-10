@@ -164,7 +164,7 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 			http.Error(w, "a folder is needed", http.StatusBadRequest)
 			return
 		}
-		reply(w, map[string]string{"dir": body.Dir}, engine.SetDefaultLibrary(body.Dir))
+		reply(w, map[string]string{"dir": body.Dir}, engine.ChooseLibrary(body.Dir))
 	})
 	// Bringing photos home runs in the engine; the page asks where it stands.
 	mux.HandleFunc("POST /api/get", func(w http.ResponseWriter, r *http.Request) {

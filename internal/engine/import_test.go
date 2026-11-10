@@ -101,3 +101,19 @@ func TestTheTopIsNamedAfterTheFolder(t *testing.T) {
 		t.Errorf("the root: %q, want %q", got, root)
 	}
 }
+
+// A library typed that does not exist yet is made when it is chosen: the
+// first import into it is not told its disk is away.
+func TestAChosenLibraryIsMade(t *testing.T) {
+	config(t)
+	root := filepath.Join(t.TempDir(), "new", "lib")
+	if err := ChooseLibrary(root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(root); err != nil {
+		t.Errorf("not made: %v", err)
+	}
+	if got, _ := DefaultLibrary(); got != root {
+		t.Errorf("kept %q, want %q", got, root)
+	}
+}

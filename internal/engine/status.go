@@ -41,6 +41,17 @@ func DefaultLibrary() (string, error) {
 	return old, os.Remove(filepath.Join(dir, libraryFile))
 }
 
+// ChooseLibrary makes dir the library folder from now on, as a person
+// chooses it: a folder typed that does not exist yet is made. A library
+// kept from before is not made again when its disk is away
+// (LibraryGoneError): that is SetDefaultLibrary's.
+func ChooseLibrary(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return SetDefaultLibrary(dir)
+}
+
 // SetDefaultLibrary keeps dir as the library folder from now on.
 func SetDefaultLibrary(dir string) error {
 	s, err := LoadSettings()

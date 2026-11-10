@@ -638,7 +638,7 @@ func libraryFor(ctx context.Context, given string, asJSON bool) (string, int) {
 	if answer == "" {
 		answer = proposed
 	}
-	if err := engine.SetDefaultLibrary(answer); err != nil {
+	if err := engine.ChooseLibrary(answer); err != nil {
 		return "", newPrinter(asJSON).fail(err)
 	}
 	return answer, exitOK
