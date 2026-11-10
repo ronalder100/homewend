@@ -81,6 +81,9 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	if !ValidProfile(profile) {
 		return library.Imported{}, ErrBadProfile
 	}
+	// The photos' badge: the card's name, or the folder's, as the person
+	// put it in or chose it.
+	source := SourceOf(dir)
 	dir, folder, err := readFolder(dir)
 	if err != nil {
 		return library.Imported{}, err
@@ -116,7 +119,8 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 		return nil
 	}
 	how.Fits = fits
-	done, err := library.Import(ctx, folder, root, catalog, library.Options{Profile: profile, SeparateMessaging: true}, how, emit)
+	opt := library.Options{Profile: profile, SeparateMessaging: true, Account: source}
+	done, err := library.Import(ctx, folder, root, catalog, opt, how, emit)
 	// A card taken out halfway, during a copy or between two, is not a run
 	// that ended or failed: it is one to resume. A stop asked for is said
 	// as a stop.
@@ -124,6 +128,22 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 		return done, FolderGoneError{Dir: dir}
 	}
 	return done, err
+}
+
+// SourceOf is the badge of the photos imported from dir, "local/<name>":
+// a card's name as its system shows it, or the folder's. The catalog keeps
+// it as it keeps a Google account's, and the window names the photo by it.
+func SourceOf(dir string) string {
+	for _, c := range Cards() {
+		if c.Path == dir && c.Name != "" {
+			return "local/" + c.Name
+		}
+	}
+	name := filepath.Base(filepath.Clean(dir))
+	if abs, err := filepath.Abs(dir); err == nil {
+		name = filepath.Base(abs)
+	}
+	return "local/" + name
 }
 
 // FolderGoneError is the folder being imported gone before the end: a card

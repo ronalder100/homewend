@@ -55,3 +55,36 @@ func TestACardTakenOutHalfwayIsSaid(t *testing.T) {
 		t.Errorf("placed %d, want the one copied before", done.Placed)
 	}
 }
+
+// A folder's photos carry its name as their source, and stay in the grid
+// when every Google account is hidden.
+func TestAnImportedPhotoIsNamedByItsFolder(t *testing.T) {
+	config(t)
+	root := t.TempDir()
+	if err := SetDefaultLibrary(root); err != nil {
+		t.Fatal(err)
+	}
+	card := filepath.Join(t.TempDir(), "old-laptop")
+	if err := os.MkdirAll(filepath.Join(card, "DCIM"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(card, "DCIM", "A.JPG"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Import(context.Background(), card, "ron", library.ImportOptions{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := library.OpenCatalog(catalogPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	shown, err := catalog.Page(library.Filter{Accounts: []string{}, Limit: 10})
+	if err != nil || len(shown) != 1 {
+		t.Fatalf("%d shown with every account hidden, %v; want the imported one", len(shown), err)
+	}
+	_, sources, err := catalog.About(shown[0].Hash)
+	if err != nil || len(sources) != 1 || sources[0] != "local/old-laptop" {
+		t.Errorf("sources %v, %v; want local/old-laptop", sources, err)
+	}
+}

@@ -58,7 +58,8 @@ func (o *Organized) Add(more Organized) {
 
 // Options for an organise pass.
 type Options struct {
-	// Account is the source the photos came from, "google/<address>": the
+	// Account is the source the photos came from, "google/<address>", or
+	// "local/<name>" for a card or a folder imported: the
 	// catalog keeps it as their badge, and the window shows or hides them.
 	Account string
 

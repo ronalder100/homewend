@@ -389,13 +389,15 @@ func (c *Catalog) addOwner(hash, account string) error {
 	return err
 }
 
-// ownedBy is the SQL that keeps the photos of these accounts, and those of
-// nobody's (recorded before owners were kept); nil accounts keeps them all.
+// ownedBy is the SQL that keeps the photos of these accounts, those of
+// nobody's (recorded before owners were kept), and those a card or a folder
+// brought in ("local/…"): hiding an account hides what came from it, not a card's
+// photos it happened to hold too. Nil accounts keeps them all.
 func ownedBy(accounts []string) (string, []any) {
 	if accounts == nil {
 		return "", nil
 	}
-	clause := "(hash NOT IN (SELECT hash FROM owners)"
+	clause := "(hash NOT IN (SELECT hash FROM owners) OR hash IN (SELECT hash FROM owners WHERE account LIKE 'local/%')"
 	var args []any
 	if len(accounts) > 0 {
 		clause += " OR hash IN (SELECT hash FROM owners WHERE account IN (?" + strings.Repeat(",?", len(accounts)-1) + "))"
