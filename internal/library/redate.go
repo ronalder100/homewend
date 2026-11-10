@@ -90,8 +90,17 @@ func named(name string, f Folder) (string, error) {
 			if err != nil {
 				continue
 			}
-			rel = filepath.ToSlash(rel)
-			if strings.EqualFold(rel, want) || (!strings.Contains(want, "/") && strings.EqualFold(filepath.Base(item.Path), want)) {
+			if strings.EqualFold(filepath.ToSlash(rel), want) {
+				found = append(found, item.Path)
+			}
+		}
+		// A bare name is the path of a file at the folder's top first,
+		// then any file's name: A.JPG beside edited/A.JPG is the top one.
+		if len(found) > 0 || strings.Contains(want, "/") {
+			return found
+		}
+		for _, item := range f.Items {
+			if strings.EqualFold(filepath.Base(item.Path), want) {
 				found = append(found, item.Path)
 			}
 		}

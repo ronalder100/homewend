@@ -32,7 +32,11 @@
 	// The days the camera says, oldest first; the files with no date last.
 	const days = $derived.by(() => {
 		const by = new Map<string, ImportFile[]>();
-		for (const f of files) by.set(dayKey(f), [...(by.get(dayKey(f)) ?? []), f]);
+		for (const f of files) {
+			const list = by.get(dayKey(f));
+			if (list) list.push(f);
+			else by.set(dayKey(f), [f]);
+		}
 		return [...by.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
 	});
 	// The date given to each file already, by its path.
@@ -58,7 +62,9 @@
 	// picked photo's own until changed.
 	let when = $state('');
 	$effect(() => {
-		if (!when && first) when = first.toISOString().slice(0, 16);
+		// Nothing picked: the next photos picked bring their own time.
+		if (chosen.length === 0) when = '';
+		else if (!when && first) when = first.toISOString().slice(0, 16);
 	});
 	const whenDate = $derived(when ? new Date(when + ':00Z') : null);
 	const goesTo = $derived(
@@ -125,7 +131,7 @@
 				{#if goesTo}
 					<p class="where">
 						{text.goInto}
-						<b>{goesTo}</b>{#if first && last && last > first}{text.keepingBetween(Math.round((last.getTime() - first.getTime()) / 1000))}{/if}.
+						<b>{goesTo}</b>{#if first && last && Math.round((last.getTime() - first.getTime()) / 1000) > 0}{text.keepingBetween(Math.round((last.getTime() - first.getTime()) / 1000))}{/if}.
 						{text.xmpBeside(chosen[0].path.split('/').pop() ?? '')}
 					</p>
 				{/if}

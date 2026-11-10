@@ -179,6 +179,32 @@ export interface ImportFile {
 	/** The camera's clock, as UTC; none, no date. */
 	taken?: string;
 	video?: boolean;
+	/** Its group's folder. */
+	group: string;
+	/** An image of a few hundred pixels at most: an icon, a logo. */
+	small?: boolean;
+}
+
+/** A group of the folder's photos: its own folders, a project, an app's previews. */
+export interface ImportGroup {
+	folder: string;
+	kind: 'photos' | 'unsure' | 'project' | 'previews';
+	/** What made it so: "package.json", "Lightroom". */
+	mark?: string;
+	/** Comes in whole. */
+	in: boolean;
+	photos: number;
+	videos: number;
+	in_library: number;
+	first?: string;
+	last?: string;
+}
+
+/** Which groups come in: left out, brought in against their kind, photos picked one by one. */
+export interface Choice {
+	out: string[];
+	in: string[];
+	pick: string[];
 }
 
 export interface ImportPlan {
@@ -192,6 +218,7 @@ export interface ImportPlan {
 	redated: number;
 	not_redated: number;
 	files: ImportFile[];
+	groups: ImportGroup[];
 	/** Newest first; "" is the photos with no date. */
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by the folder it sits in. */
@@ -216,6 +243,9 @@ export interface ImportState {
 	/** Whose photos they are, for a copy taken up again. */
 	profile?: string;
 	redates?: Redate[];
+	choice?: Choice;
+	/** Hard links, not copies. */
+	link?: boolean;
 	/** Whether dir was a card when the run began. */
 	card?: boolean;
 	kind?: 'plan' | 'import';
@@ -237,10 +267,15 @@ export interface ImportState {
 }
 
 export const getCards = () => call<Card[]>('GET', '/api/cards');
-export const planImport = (dir: string, profile: string, redates: Redate[] = []) =>
-	call<ImportState>('POST', '/api/import/plan', { dir, profile, redates });
-export const startImport = (dir: string, profile: string, link = false, redates: Redate[] = []) =>
-	call<ImportState>('POST', '/api/import', { dir, profile, link, redates });
+export const planImport = (dir: string, profile: string, redates: Redate[] = [], choice: Choice | null = null) =>
+	call<ImportState>('POST', '/api/import/plan', { dir, profile, redates, choice });
+export const startImport = (
+	dir: string,
+	profile: string,
+	link = false,
+	redates: Redate[] = [],
+	choice: Choice | null = null
+) => call<ImportState>('POST', '/api/import', { dir, profile, link, redates, choice });
 export const importThumbUrl = (path: string) => `/api/import/thumb?${q({ file: path })}`;
 export const getImport = () => call<ImportState>('GET', '/api/import');
 export const stopImport = () => call<ImportState>('POST', '/api/import/stop');

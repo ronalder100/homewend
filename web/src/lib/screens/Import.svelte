@@ -7,7 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { ChevronRight, CircleCheck, Folder, HardDrive, Loader, TriangleAlert } from '@lucide/svelte';
-	import { app } from '#lib/app.svelte.js';
+	import { app, refresh } from '#lib/app.svelte.js';
 	import {
 		ApiError,
 		getCards,
@@ -17,6 +17,8 @@
 		startImport,
 		stopImport,
 		type Card,
+		type Choice,
+		type ImportGroup,
 		type ImportPlan,
 		type Redate,
 		type ImportState
@@ -26,6 +28,7 @@
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 	import ImportDates from './ImportDates.svelte';
+	import ImportPick from './ImportPick.svelte';
 
 	let im = $state<ImportState | null>(null);
 	let cards = $state<Card[]>([]);
@@ -91,6 +94,9 @@
 			if (im?.running || im?.problem === 'taken-out') {
 				choosing = false;
 				if (im.profile) profile = im.profile;
+				// What was given before the window closed goes on with it.
+				redates = im.redates ?? [];
+				choice = im.choice ?? null;
 			}
 		});
 		lookCards();
@@ -106,6 +112,11 @@
 
 	// The card put back in: the look or the copy carries on by itself. What
 	// is in already is found by content and not copied again.
+	// What came in is in the sidebar's counts and years at once.
+	$effect(() => {
+		if (view === 'done' || view === 'stopped') refresh();
+	});
+
 	let restarting = false;
 	$effect(() => {
 		if (!restarting && view === 'taken-out' && im?.dir && im.profile && cards.some((c) => c.path === im?.dir)) {
@@ -116,8 +127,8 @@
 	const carryOn = () =>
 		start(() =>
 			im!.kind === 'plan'
-				? planImport(im!.dir!, im!.profile!, im!.redates)
-				: startImport(im!.dir!, im!.profile!, false, im!.redates)
+				? planImport(im!.dir!, im!.profile!, im!.redates, im!.choice)
+				: startImport(im!.dir!, im!.profile!, !!im!.link, im!.redates, im!.choice)
 		);
 
 	async function start(call: () => Promise<ImportState>) {
@@ -136,6 +147,8 @@
 		// The room left is read again for each card: an import before took some.
 		getLibrary().then((l) => (free = l.free), () => {});
 		redates = [];
+		link = false;
+		choice = null;
 		start(() => planImport(dir, profile));
 	}
 
@@ -144,6 +157,35 @@
 	// twice.
 	let redates = $state<Redate[]>([]);
 	let dating = $state(false);
+
+	// Which of the folder's groups come in (I4), and the photos picked from
+	// one that stays out (I5): null, each as its kind says. A change looks
+	// again, which reads nothing twice.
+	let choice = $state<Choice | null>(null);
+	let picking = $state<string | null>(null);
+	function rechoose(next: Choice) {
+		choice = next;
+		start(() => planImport(im!.dir!, im!.profile || profile, redates, choice));
+	}
+	const without = (list: string[], s: string) => list.filter((x) => x !== s);
+	function tick(g: ImportGroup) {
+		const c = choice ?? { out: [], in: [], pick: [] };
+		rechoose(
+			g.in
+				? { ...c, in: without(c.in, g.folder), out: [...without(c.out, g.folder), g.folder] }
+				: { ...c, out: without(c.out, g.folder), in: [...without(c.in, g.folder), g.folder] }
+		);
+	}
+	const pickedIn = (g: string) => (choice?.pick ?? []).filter((p) => plan?.files.some((f) => f.path === p && f.group === g));
+	function pick(g: string, paths: string[]) {
+		const c = choice ?? { out: [], in: [], pick: [] };
+		const others = c.pick.filter((p) => !plan?.files.some((f) => f.path === p && f.group === g));
+		picking = null;
+		rechoose({ ...c, pick: [...others, ...paths] });
+	}
+	const range = (g: ImportGroup) =>
+		g.first && g.last ? text.takenRange(monthDay.format(new Date(g.first)), monthDay.format(new Date(g.last))) : '';
+	const monthDay = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
 	function give(names: string[], when: string) {
 		// A photo given a date again keeps only the last.
 		const others = redates
@@ -151,7 +193,7 @@
 			.filter((r) => r.names.length > 0);
 		redates = [...others, { names, when }];
 		dating = false;
-		start(() => planImport(im!.dir!, im!.profile || profile, redates));
+		start(() => planImport(im!.dir!, im!.profile || profile, redates, choice));
 	}
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
@@ -236,6 +278,14 @@
 		<div class="track"><b style:width="{share * 100}%"></b></div>
 		{#if im.of > 0}<div class="numbers"><div><b>{text.nOf(im.n, im.of)}</b><span>{text.filesRead}</span></div></div>{/if}
 		<div class="actions"><SecondaryButton onclick={() => stopImport().then((s) => ((im = s), (choosing = true)))}>{text.importStop}</SecondaryButton></div>
+	{:else if view === 'plan' && plan && im && picking !== null && plan.groups.some((g) => g.folder === picking)}
+		<ImportPick
+			group={plan.groups.find((g) => g.folder === picking)!}
+			files={plan.files}
+			picked={pickedIn(picking)}
+			onpick={(paths) => pick(picking!, paths)}
+			onback={() => (picking = null)}
+		/>
 	{:else if view === 'plan' && plan && im && dating}
 		<ImportDates files={plan.files} {redates} onuse={give} onback={() => (dating = false)} />
 	{:else if view === 'plan' && plan && im}
@@ -266,7 +316,7 @@
 		<div class="actions">
 			<PrimaryButton
 				disabled={(!fits && !link) || plan.photos + plan.videos + plan.redated === 0}
-				onclick={() => start(() => startImport(im!.dir!, im!.profile || profile, link && !!im!.canLink, redates))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
+				onclick={() => start(() => startImport(im!.dir!, im!.profile || profile, link && !!im!.canLink, redates, choice))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
 			>
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
 		</div>
@@ -278,6 +328,33 @@
 			{/if}
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
+		{#if plan.groups.length > 0}
+			<!-- I4: one row per group, with why; a project is one row, not its folders. -->
+			<section class="years groups">
+				<header><h2>{text.whatComesIn}</h2><span>{text.whatComesInLegend}</span></header>
+				{#each plan.groups as g (g.folder)}
+					{@const picks = pickedIn(g.folder).length}
+					<div class="group" class:out={!g.in}>
+						<input type="checkbox" checked={g.in} onchange={() => tick(g)} aria-label={g.folder} />
+						<span class="what">
+							<b class="mono">{g.folder === '.' ? text.importTop : g.folder}</b>
+							<small>
+								{g.kind === 'photos'
+									? [range(g) || text.whyPhotos, g.in_library ? text.nInLibrary(g.in_library) : ''].filter(Boolean).join(' · ')
+									: g.kind === 'project'
+										? text.whyProject(g.mark ?? '')
+										: g.kind === 'previews'
+											? text.whyPreviews(g.mark ?? '')
+											: text.whyUnsure}
+							</small>
+							{#if !g.in}<button class="link" onclick={() => (picking = g.folder)}>{text.choosePhotosInside(picks)}</button>{/if}
+						</span>
+						<span class="tag {g.kind}">{text.groupKind[g.kind]}</span>
+						<span class="count">{!g.in && picks ? `${picks} / ` : ''}{(g.photos + g.videos).toLocaleString('en')}</span>
+					</div>
+				{/each}
+			</section>
+		{/if}
 		{@render byYear(plan.years)}
 		{#if plan.others.length > 0}
 			<section class="years">
@@ -632,6 +709,54 @@
 	}
 	.year.month .name {
 		font-weight: 400;
+		color: var(--muted);
+	}
+	.group {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 12px 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.group input {
+		margin-top: 4px;
+		accent-color: var(--accent);
+	}
+	.group .what {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+	}
+	.group .what b {
+		color: var(--fg);
+		overflow-wrap: anywhere;
+	}
+	.group .what small {
+		color: var(--muted);
+		font-size: var(--text-callout);
+	}
+	.group.out .what b {
+		color: var(--muted);
+	}
+	.tag {
+		padding: 2px 8px;
+		border-radius: 999px;
+		font-size: var(--text-footnote);
+		font-weight: 600;
+		background: var(--ok-soft);
+		color: var(--ok);
+		white-space: nowrap;
+	}
+	.tag.unsure {
+		background: var(--warn-soft);
+		color: var(--warn);
+	}
+	.tag.project,
+	.tag.previews {
+		background: var(--soft);
 		color: var(--muted);
 	}
 	.mono {

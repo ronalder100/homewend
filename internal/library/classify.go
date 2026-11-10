@@ -131,6 +131,14 @@ func classify(f Folder, dates map[string]time.Time) []Group {
 		}
 		groups = append(groups, *g)
 	}
+	// What comes in first, then what is to decide, then what stays out.
+	rank := map[GroupKind]int{Photos: 0, Unsure: 1, Project: 2, Previews: 3}
+	slices.SortStableFunc(groups, func(a, b Group) int {
+		if d := rank[a.Kind] - rank[b.Kind]; d != 0 {
+			return d
+		}
+		return strings.Compare(a.Folder, b.Folder)
+	})
 	return groups
 }
 

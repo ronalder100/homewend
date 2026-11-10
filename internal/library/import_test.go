@@ -592,3 +592,18 @@ func TestADryRunTakesAPathFromHereAndKnowsTheProfile(t *testing.T) {
 		t.Errorf("from inside the folder: %+v, %v; want 1 that would move", plan, err)
 	}
 }
+
+// A bare name is the file at the folder's top before another of the same
+// name further down: A.JPG beside edited/A.JPG.
+func TestABareNameIsTheTopFileFirst(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "A.JPG", []byte("top"))
+	write(t, dir, "edited/A.JPG", []byte("edited"))
+	folder, err := ReadFolder(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := named("a.jpg", folder); err != nil || got != filepath.Join(dir, "A.JPG") {
+		t.Errorf("a.jpg: %s, %v; want the top one", got, err)
+	}
+}

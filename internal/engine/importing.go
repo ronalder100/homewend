@@ -43,6 +43,7 @@ type ImportState struct {
 	Profile string           `json:"profile,omitempty"`
 	Redates []library.Redate `json:"redates,omitempty"`
 	Choice  *library.Choice  `json:"choice,omitempty"`
+	Link    bool             `json:"link,omitempty"` // hard links, not copies
 	// Card is whether Dir was a card when the run began: one taken out is
 	// waited for, and carries on by itself when it is back.
 	Card bool `json:"card,omitempty"`
@@ -84,13 +85,22 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate, choice 
 	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
+	// Kept by the folder as the look reads it, a link to it followed: the
+	// path a thumbnail is asked by is made from it.
+	real, err := filepath.Abs(dir)
+	if err == nil {
+		real, err = filepath.EvalSymlinks(real)
+	}
+	if err != nil {
+		real = dir
+	}
 	im.mu.Lock()
-	if im.hashesOf != dir {
-		im.hashes, im.hashesOf = library.Hashes{}, dir
+	if im.hashesOf != real {
+		im.hashes, im.hashesOf = library.Hashes{}, real
 	}
 	hashes := im.hashes
 	im.mu.Unlock()
-	return im.start(dir, profile, redates, choice, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+	return im.start(dir, profile, redates, choice, false, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
 		plan, err := PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Hashes: hashes, Choice: choice}, emit)
 		if err == nil {
 			s.Plan = &plan
@@ -107,14 +117,14 @@ func (im *Importing) Import(dir, profile string, link bool, redates []library.Re
 	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
-	return im.start(dir, profile, redates, choice, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+	return im.start(dir, profile, redates, choice, link, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
 		done, err := Import(ctx, dir, profile, library.ImportOptions{Link: link, Redates: redates, Choice: choice}, emit)
 		s.Imported = &done
 		return err
 	})
 }
 
-func (im *Importing) start(dir, profile string, redates []library.Redate, choice *library.Choice, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+func (im *Importing) start(dir, profile string, redates []library.Redate, choice *library.Choice, link bool, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
 	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
@@ -138,7 +148,7 @@ func (im *Importing) start(dir, profile string, redates []library.Redate, choice
 			before = im.state.Imported
 		}
 	}
-	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Choice: choice, Kind: kind, Plan: plan, Card: card}
+	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Choice: choice, Link: link, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {

@@ -128,10 +128,19 @@ func (h Hashes) of(path string) (string, error) {
 	return hash, err
 }
 
-// Hash is the content of path as a look read it, if it did.
+// Hash is the content of path as a look read it, if it did and the file
+// has not changed since: another card in the same place, with the same
+// names, is other photos.
 func (h Hashes) Hash(path string) (string, bool) {
 	k, ok := h[path]
-	return k.hash, ok
+	if !ok {
+		return "", false
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Size() != k.size || !info.ModTime().Equal(k.mod) {
+		return "", false
+	}
+	return k.hash, true
 }
 
 // ImportOther is a folder's files that stay out.

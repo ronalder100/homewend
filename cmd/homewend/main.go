@@ -865,6 +865,8 @@ func importCommand(args []string) int {
 	switch {
 	case plan.Photos+plan.Videos > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
+	case leftOut:
+		out.say(out.out.summary(text["result import left out"]))
 	case plan.InLibrary+plan.Twins > 0 && plan.Unreadable > 0:
 		out.say(out.out.summary(text["result import none read"]))
 	case plan.InLibrary+plan.Twins > 0:

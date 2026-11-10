@@ -224,6 +224,19 @@ func TestTheWindowShowsACardsPhotosSmall(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Errorf("no thumbnail made: %v", err)
 	}
+	// Through a link to the folder, as a home on Fedora Silverblue or a
+	// Mac's /tmp is, the same photo is found.
+	via := filepath.Join(t.TempDir(), "via")
+	if err := os.Symlink(card, via); err != nil {
+		t.Fatal(err)
+	}
+	if err := im.Plan(via, "ron", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	importEnded(t, &im)
+	if _, err := im.Thumbnail(context.Background(), "DCIM/IMG_0001.JPG"); err != nil {
+		t.Errorf("through a link: %v", err)
+	}
 	for _, other := range []string{"../../etc/passwd", "DCIM/IMG_0002.JPG"} {
 		if _, err := im.Thumbnail(context.Background(), other); !errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("%s: %v, want none", other, err)
