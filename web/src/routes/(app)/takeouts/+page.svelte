@@ -14,7 +14,7 @@
 	import ContextMenu, { folderItems, type MenuItem } from '#lib/components/ContextMenu.svelte';
 	import { app, signIn, sidebarOf, signInAgain, signingInAgain, startFailure, startJob } from '#lib/app.svelte.js';
 	import { ApiError, folderOf, getTakeouts, readContents, type Takeout } from '#lib/api.js';
-	import { bytes, day } from '#lib/format.js';
+	import { bytes, clock, day } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Skeleton from '#lib/components/Skeleton.svelte';
@@ -84,8 +84,6 @@
 	});
 
 	// "1 Oct, 09:14", "Until 8 Oct": the design's dates.
-	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
-	const when = { format: (d: Date) => `${day(d)}, ${clock.format(d)}` };
 
 	function holds(t: Takeout) {
 		if (t.known) return t.year ? text.holdsYear(t.year) : text.holdsAll;
@@ -217,7 +215,7 @@
 						<td>
 							<span class="name"><Archive size={16} /><span><b>{holds(t)}</b><small>{t.id}</small></span></span>
 						</td>
-						<td>{when.format(new Date(t.Created))}</td>
+						<td>{day(new Date(t.Created))}, {clock(new Date(t.Created))}</td>
 						<td>{t.Bytes ? bytes(t.Bytes) : '—'}{t.Parts?.length ? ` · ${text.parts(t.Parts.length)}` : ''}</td>
 						<td>
 							<span class="status {r.tone}"><i></i><span><b>{r.status}</b>{#if r.detail}<small>{r.detail}</small>{/if}</span></span>

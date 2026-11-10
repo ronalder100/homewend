@@ -7,7 +7,7 @@
 	import { app, jobsKnown, resumeJob, shownJob } from '#lib/app.svelte.js';
 	import { getLatest, getTakeouts, stopJob, type GridPhoto, type Takeout } from '#lib/api.js';
 	import { onMount } from 'svelte';
-	import { bytes, day, roughly } from '#lib/format.js';
+	import { bytes, clock, day, roughly } from '#lib/format.js';
 	import { arrived, busy, failure, fraction, headline } from '#lib/job.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
@@ -93,7 +93,6 @@
 		return () => clearInterval(t);
 	});
 
-	const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 	// How long the step going on has lasted, counted here from when it began:
 	// a number that moves says the wait is alive.
 	let stageSince = $state(Date.now());
@@ -162,7 +161,7 @@
 				<div class="numbers">
 					{#if takeout}
 						{@const asked = new Date(takeout.Created)}
-						<div><b>{waited}</b><span>{sameDay(asked) ? text.waitingAskedAt(clock.format(asked)) : text.waitingAskedOn(day(asked))}</span></div>
+						<div><b>{waited}</b><span>{sameDay(asked) ? text.waitingAskedAt(clock(asked)) : text.waitingAskedOn(day(asked))}</span></div>
 					{/if}
 					{#if job.lastLooked}
 						<div><b>{text.minAgo(Math.floor((now - new Date(job.lastLooked).getTime()) / 60000))}</b><span>{text.lastLooked}</span></div>
