@@ -427,7 +427,7 @@ func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 // A dry run says what it would do, "copy" and "skip"; the copy what it
 // did, "copied" and "skipped".
 func TestTheSummarySaysTheRunsTense(t *testing.T) {
-	s := summary{Counts: library.Counts{BroughtBack: 1, InLibrary: 3, Outcome: library.OutcomeNew}, copied: 2, last: "fresh"}
+	s := summary{Counts: library.Counts{InLibrary: 3, Outcome: library.OutcomeNew}, copied: 2, last: "fresh"}
 	for dry, want := range map[bool][]string{true: {"copy ", "skip "}, false: {"copied", "skipped"}} {
 		out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{dryRun: dry}, s) })
 		for _, w := range want {

@@ -162,9 +162,9 @@ Flags:
                   bring in a folder that stays out by itself, named as
                   --dry-run lists it ("." for DIR itself). Repeatable
   --bring-back [NAMES]
-                  bring in again photos deleted from the library, by name
-                  as the run lists them, or all when no name follows: by
-                  default a card that still holds them leaves them out.
+                  bring in again photos deleted from the library, by their
+                  name on the card (the window and --json list them), or all
+                  when no name follows: by default they are left out.
                   Repeatable
   --json          one JSON object per line, for scripts
 
