@@ -36,6 +36,7 @@ type printer struct {
 	what      string    // the photos asked for: "2025 photos"
 	signedIn  bool      // the sign-in is said: checking it again is not news
 	shown     string    // the export in the table: finding it is not news
+	lastSaid  string    // the step last said without a terminal: said again, it is not news
 	asked     time.Time // when Google was asked
 	rate      float64   // bytes a second, smoothed over the current part
 	lastAt    time.Time
@@ -79,7 +80,7 @@ func (p *printer) line(kind string, value any, line string) {
 }
 
 // now shows the step going on, in place of the one before; without a
-// terminal it is said once, as a line.
+// terminal it is said once, as a line, however often it is heard.
 func (p *printer) now(g going) {
 	if p.json {
 		return
@@ -88,7 +89,8 @@ func (p *printer) now(g going) {
 		p.live.set(g)
 		return
 	}
-	if g.bar < 0 && g.said != "" {
+	if g.bar < 0 && g.said != "" && g.said != p.lastSaid {
+		p.lastSaid = g.said
 		fmt.Println(signGoing + " " + p.out.marked(g.said, nil))
 	}
 }

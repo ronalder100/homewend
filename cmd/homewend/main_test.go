@@ -380,3 +380,24 @@ func TestADateIsReadAsTyped(t *testing.T) {
 		}
 	}
 }
+
+// Without a terminal, Google preparing is said once, not at each look: a
+// run sent to a file waits for hours.
+func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	p := &printer{out: lookFor(w)}
+	for range 3 {
+		p.event(progress.Event{Stage: progress.Waiting, Name: "job"})
+	}
+	os.Stdout = stdout
+	w.Close()
+	out, _ := io.ReadAll(r)
+	if n := strings.Count(string(out), signGoing+" "); n != 1 {
+		t.Errorf("said %d times:\n%s", n, out)
+	}
+}
