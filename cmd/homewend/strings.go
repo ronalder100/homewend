@@ -337,7 +337,7 @@ Examples:
 	"bad profile":           "a profile is a name: no / or \\, and not starting with a dot",
 	"folder gone":           "%s was taken out before the end: what was copied is in the library",
 	"folder gone hint":      "put it back, then run: **%s**",
-	"card found":            "The card %s, at %s",
+	"card found":            "Found a card: %s, at %s",
 	"no card":               "no card found: no disk with a camera's DCIM folder is in",
 	"no card hint":          "put the card in, or name a folder: **homewend import DIR**",
 	"cards found":           "more than one card is in: %s",
