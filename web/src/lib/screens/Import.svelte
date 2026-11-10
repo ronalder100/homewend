@@ -141,7 +141,7 @@
 			// A second click while the first one runs: that run is the one shown.
 			if (e instanceof ApiError && e.status === 409) return load();
 			const said = e instanceof ApiError && e.status === 400 ? text.importBadProfile : (e as Error).message;
-			im = { running: false, n: 0, of: 0, done: 0, total: 0, error: said };
+			im = { running: false, n: 0, of: 0, done: 0, total: 0, moved: 0, bytes: 0, error: said };
 		}
 	}
 	function look(dir: string) {
