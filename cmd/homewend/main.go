@@ -862,7 +862,7 @@ func importCommand(args []string) int {
 	case plan.Photos+plan.Videos > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
 	default:
-		sayNothingNew(out, true, len(leftOut) > 0, plan.Deleted, plan.InLibrary+plan.Twins, plan.Unreadable, dir)
+		sayNothingNew(out, true, plan.Redated, len(leftOut) > 0, plan.Deleted, plan.InLibrary+plan.Twins, plan.Unreadable, dir)
 	}
 	return exitOK
 }
@@ -1089,21 +1089,23 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.result(fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)))
 	case done.Placed > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)))
-	case done.Redated > 0:
-		out.say(out.out.result(fmt.Sprintf(text["result redated"], done.Redated)))
 	default:
-		sayNothingNew(out, false, len(done.LeftOut) > 0, done.Deleted, done.InLibrary+done.Twins, done.Unreadable, w.dir)
+		sayNothingNew(out, false, done.Redated, len(done.LeftOut) > 0, done.Deleted, done.InLibrary+done.Twins, done.Unreadable, w.dir)
 	}
 	return exitOK
 }
 
 // sayNothingNew is the last line of a dry run or a copy that brings
 // nothing in, one for both, so that the two never tell the same folder
-// apart: folders left out first (new or not, they are what to look at),
-// then photos deleted from the library, then what was already in, read or
-// not, then nothing at all.
-func sayNothingNew(out *printer, dry, leftOut bool, deleted, known, unreadable int, dir string) {
+// apart: photos moved to a date given first, then folders left out (new
+// or not, they are what to look at), then photos deleted from the
+// library, then what was already in, read or not, then nothing at all.
+func sayNothingNew(out *printer, dry bool, redated int, leftOut bool, deleted, known, unreadable int, dir string) {
 	switch {
+	case redated > 0 && dry:
+		out.say(out.out.result(fmt.Sprintf(text["result plan redated"], redated)))
+	case redated > 0:
+		out.say(out.out.result(fmt.Sprintf(text["result redated"], redated)))
 	case leftOut && dry:
 		out.say(out.out.summary(text["result plan left out"]))
 	case leftOut:

@@ -331,6 +331,7 @@ Examples:
 	"name twice hint":         "say which, by its path: **--date %s=…**",
 	"not redated":             "%d are filed in another profile: their date is given from there",
 	"result redated":          "Nothing new to copy: %d moved to the date you gave",
+	"result plan redated":     "Nothing new to copy: %d would move to the date you gave",
 	"plan redated":            "%d of them would move to the date you gave",
 	"imported redated":        "%d with the date you gave, written in a .xmp beside each",
 	"no such photo":           "%s is not among the photos and videos of the folder",
