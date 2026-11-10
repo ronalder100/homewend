@@ -250,7 +250,7 @@ export const text = {
 	nInLibrary: (n: number) => `${n.toLocaleString('en')} already in your library`,
 	whyProject: (mark: string) => `A project: ${mark} beside the images, most of them its own icons and pictures`,
 	whyPreviews: (app: string) => `${app}'s own previews of photos kept elsewhere`,
-	whyUnsure: 'Real images, but no camera\'s date: sent, received or saved, maybe copies of yours',
+	whyUnsure: 'Images with no camera\'s date: scans, screenshots, photos sent or saved, maybe copies of yours',
 	groupKind: { photos: 'Photos', unsure: 'Unsure', project: 'Project', previews: 'Not photos' } as Record<string, string>,
 	choosePhotosInside: (n: number) => (n ? `Choose photos inside · ${n} picked` : 'Choose photos inside'),
 	whichAreYours: 'Which of these are your photos?',

@@ -819,26 +819,24 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
 	}
-	// The groups that stay out unless named, each with why.
-	var leftOut bool
+	// The groups that stay out unless named, each with why; and whether
+	// any of them holds something the library has not.
+	var leftOut []library.Group
+	var newOut bool
 	for _, g := range plan.Groups {
-		if g.In {
-			continue
+		if !g.In {
+			leftOut = append(leftOut, g.Group)
+			newOut = newOut || g.Photos+g.Videos > g.InLibrary
 		}
-		folder := g.Folder
-		if folder == "." {
-			folder = text["import top"]
-		}
-		why := text["group "+string(g.Kind)]
-		if g.Mark != "" {
-			why = fmt.Sprintf(why, g.Mark)
-		}
-		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(mediaCount(g.Photos, g.Videos)+" · "+why, faintColour, false))
-		leftOut = true
 	}
-	if leftOut {
-		out.say("  " + out.out.paint(text["group also"], faintColour, false))
-	}
+	sayLeftOut(out, leftOut, func(i int) string {
+		for _, g := range plan.Groups {
+			if g.Folder == leftOut[i].Folder {
+				return mediaCount(g.Photos, g.Videos)
+			}
+		}
+		return ""
+	})
 	for _, o := range plan.Others {
 		folder := o.Folder
 		if folder == "." {
@@ -865,8 +863,10 @@ func importCommand(args []string) int {
 	switch {
 	case plan.Photos+plan.Videos > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
-	case leftOut:
-		out.say(out.out.summary(text["result import left out"]))
+	case newOut:
+		out.say(out.out.summary(text["result plan left out"]))
+	case len(leftOut) > 0:
+		out.say(out.out.result(text["result import none"]))
 	case plan.InLibrary+plan.Twins > 0 && plan.Unreadable > 0:
 		out.say(out.out.summary(text["result import none read"]))
 	case plan.InLibrary+plan.Twins > 0:
@@ -965,9 +965,28 @@ func (w importWords) choice() *library.Choice {
 	}
 	c := &library.Choice{}
 	for _, f := range w.also {
-		c.In = append(c.In, strings.Trim(filepath.ToSlash(filepath.Clean(f)), "/"))
+		c.In = append(c.In, alsoFolder(w.dir, f))
 	}
 	return c
+}
+
+// alsoFolder is name as a group folder of dir: as the dry run writes it,
+// or a path the shell completed, whole or from here, that leads into dir.
+func alsoFolder(dir, name string) string {
+	clean := filepath.Clean(name)
+	if _, err := os.Stat(clean); err == nil || filepath.IsAbs(clean) {
+		real := func(p string) string {
+			p, _ = filepath.Abs(p)
+			if r, err := filepath.EvalSymlinks(p); err == nil {
+				return r
+			}
+			return p
+		}
+		if rel, err := filepath.Rel(real(dir), real(clean)); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return strings.Trim(filepath.ToSlash(clean), "/")
 }
 
 // findCard is the card to import when no folder was named: the one in, or
@@ -1066,6 +1085,7 @@ func importCopy(w importWords, args []string) int {
 	if done.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(done.Unreadable, "import unreadable"), warnColour, false))
 	}
+	sayLeftOut(out, done.LeftOut, func(i int) string { return counted(len(done.LeftOut[i].Paths), "files") })
 	out.say("")
 	switch {
 	case done.Placed > 0 && w.link:
@@ -1080,10 +1100,31 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.result(text["result import none"]))
 	case done.Unreadable > 0:
 		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], w.dir)))
+	case len(done.LeftOut) > 0:
+		out.say(out.out.summary(text["result import left out"]))
 	default:
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], w.dir)))
 	}
 	return exitOK
+}
+
+// sayLeftOut says the groups of a folder that stay out, each with why and
+// how many it holds, and how to bring one in.
+func sayLeftOut(out *printer, groups []library.Group, holds func(i int) string) {
+	for i, g := range groups {
+		folder := g.Folder
+		if folder == "." {
+			folder = text["import itself"]
+		}
+		why := text["group "+string(g.Kind)]
+		if g.Mark != "" {
+			why = fmt.Sprintf(why, g.Mark)
+		}
+		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(holds(i)+" · "+why, faintColour, false))
+	}
+	if len(groups) > 0 {
+		out.say("  " + out.out.paint(text["group also"], faintColour, false))
+	}
 }
 
 // counted is n of a thing, "1 photo" or "3 photos": key names the plural in
@@ -1239,7 +1280,10 @@ func explain(err error) (code int, said string, causes, hints []string) {
 	var unknown library.UnknownNameError
 	var ambiguous library.AmbiguousNameError
 	var folderGone engine.FolderGoneError
+	var unknownGroup library.UnknownGroupError
 	switch {
+	case errors.As(err, &unknownGroup):
+		return exitError, fmt.Sprintf(text["bad also"], unknownGroup.Folder), nil, []string{text["bad also hint"]}
 	case errors.As(err, &notOffered):
 		var years []string
 		for _, e := range notOffered.Offered {

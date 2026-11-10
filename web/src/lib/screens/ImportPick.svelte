@@ -27,7 +27,9 @@
 
 	// Picked from where the person left it; changed here only.
 	let picked = $state(untrack(() => new Set(before)));
-	let all = $state(false);
+	// A project opens on its likely photos; a group with no camera's dates
+	// has none such, and opens on all of it.
+	let all = $state(untrack(() => group.kind !== 'project'));
 	const mine = $derived(files.filter((f) => f.group === group.folder));
 	// A camera's date and a real size: a photo. No date but a real size:
 	// maybe one. A few hundred pixels: an icon or a logo.

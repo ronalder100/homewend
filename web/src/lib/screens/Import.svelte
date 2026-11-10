@@ -31,6 +31,7 @@
 	import ImportPick from './ImportPick.svelte';
 
 	let im = $state<ImportState | null>(null);
+	const plan = $derived(im?.plan);
 	let cards = $state<Card[]>([]);
 	let free = $state(0);
 	// An import that ended before this window opened is not shown again: the
@@ -110,13 +111,13 @@
 		return () => clearInterval(t);
 	});
 
-	// The card put back in: the look or the copy carries on by itself. What
-	// is in already is found by content and not copied again.
 	// What came in is in the sidebar's counts and years at once.
 	$effect(() => {
 		if (view === 'done' || view === 'stopped') refresh();
 	});
 
+	// The card put back in: the look or the copy carries on by itself. What
+	// is in already is found by content and not copied again.
 	let restarting = false;
 	$effect(() => {
 		if (!restarting && view === 'taken-out' && im?.dir && im.profile && cards.some((c) => c.path === im?.dir)) {
@@ -176,10 +177,18 @@
 				: { ...c, out: without(c.out, g.folder), in: [...without(c.in, g.folder), g.folder] }
 		);
 	}
-	const pickedIn = (g: string) => (choice?.pick ?? []).filter((p) => plan?.files.some((f) => f.path === p && f.group === g));
+	// Each file's group, by its path: a folder may hold a hundred thousand.
+	const groupOf = $derived(new Map((plan?.files ?? []).map((f) => [f.path, f.group])));
+	const pickedIn = (g: string) => (choice?.pick ?? []).filter((p) => groupOf.get(p) === g);
+	// What would come in: the files of the groups in, and those picked.
+	const coming = $derived.by(() => {
+		const whole = new Set((plan?.groups ?? []).filter((g) => g.in).map((g) => g.folder));
+		const picked = new Set(choice?.pick ?? []);
+		return (plan?.files ?? []).filter((f) => whole.has(f.group) || picked.has(f.path));
+	});
 	function pick(g: string, paths: string[]) {
 		const c = choice ?? { out: [], in: [], pick: [] };
-		const others = c.pick.filter((p) => !plan?.files.some((f) => f.path === p && f.group === g));
+		const others = c.pick.filter((p) => groupOf.get(p) !== g);
 		picking = null;
 		rechoose({ ...c, pick: [...others, ...paths] });
 	}
@@ -200,7 +209,6 @@
 		if (picked) look(picked);
 	}
 
-	const plan = $derived(im?.plan);
 	// Hard links rather than copies: asked each time, copy unless said.
 	let link = $state(false);
 	// The years opened to show their months.
@@ -287,7 +295,7 @@
 			onback={() => (picking = null)}
 		/>
 	{:else if view === 'plan' && plan && im && dating}
-		<ImportDates files={plan.files} {redates} onuse={give} onback={() => (dating = false)} />
+		<ImportDates files={coming} {redates} onuse={give} onback={() => (dating = false)} />
 	{:else if view === 'plan' && plan && im}
 		<!-- I3: what comes in, by year; what stays out. -->
 		<span class="pill">{name}</span>

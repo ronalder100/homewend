@@ -5,6 +5,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -86,5 +87,35 @@ func TestAProjectImportedWholeStaysOut(t *testing.T) {
 	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{}, nil)
 	if err != nil || len(plan.Groups) != 1 || plan.Groups[0].Folder != "." || plan.Groups[0].Kind != Project || plan.Photos != 0 {
 		t.Errorf("%+v, %v; want the whole folder one project, nothing in", plan.Groups, err)
+	}
+}
+
+// A camera's raw files are a camera's, a date read or not; a folder named
+// in a choice that is none of the folder's is said; and a copy says what
+// stayed out.
+func TestRawFilesComeInAndWhatStaysOutIsSaid(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "Pictures/Trip/IMG_0001.CR3", []byte("a Canon raw, its date where no reader here looks"))
+	write(t, dir, "Scans/1987-christmas.png", []byte("a scan"))
+	folder, err := ReadFolder(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{}, nil)
+	if err != nil || plan.Photos != 1 {
+		t.Fatalf("%d photos would come in, %v; want the raw file", plan.Photos, err)
+	}
+	if _, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{Choice: &Choice{In: []string{"Scan"}}}, nil); !errors.As(err, new(UnknownGroupError)) {
+		t.Errorf("a folder mistyped: %v, want it said", err)
+	}
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: func(int64) error { return nil }}, nil)
+	if err != nil || done.Placed != 1 || len(done.LeftOut) != 1 || done.LeftOut[0].Folder != "Scans" {
+		t.Errorf("copied %d, left out %+v, %v; want the raw in and Scans said", done.Placed, done.LeftOut, err)
 	}
 }

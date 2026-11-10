@@ -109,38 +109,83 @@ type Hashes map[string]readHash
 type readHash struct {
 	size int64
 	mod  time.Time
-	hash string
+	fileFacts
+	// small, once asked: an icon's size; smallKnown, whether asked.
+	small, smallKnown bool
 }
 
-// of is the content of path, read only when not known.
-func (h Hashes) of(path string) (string, error) {
+// fileFacts are what a look reads of a file: its content, and the date its
+// camera wrote, when it wrote one.
+type fileFacts struct {
+	hash  string
+	taken time.Time
+	dated bool
+}
+
+// facts are path's, read only when not known.
+func (h Hashes) facts(path string) (fileFacts, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return "", err
+		return fileFacts{}, err
 	}
 	if k, ok := h[path]; ok && k.size == info.Size() && k.mod.Equal(info.ModTime()) {
-		return k.hash, nil
+		return k.fileFacts, nil
 	}
 	hash, err := hashOf(path)
-	if err == nil && h != nil {
-		h[path] = readHash{size: info.Size(), mod: info.ModTime(), hash: hash}
+	if err != nil {
+		return fileFacts{}, err
 	}
-	return hash, err
+	facts := fileFacts{hash: hash}
+	facts.taken, _, facts.dated = cameraDate(path)
+	if h != nil {
+		h[path] = readHash{size: info.Size(), mod: info.ModTime(), fileFacts: facts}
+	}
+	return facts, nil
+}
+
+// small is small(path), kept with its facts when they are.
+func (h Hashes) small(path string) bool {
+	k, ok := h[path]
+	if ok && k.smallKnown {
+		return k.small
+	}
+	s := small(path)
+	if ok {
+		k.small, k.smallKnown = s, true
+		h[path] = k
+	}
+	return s
+}
+
+// dated is whether the camera wrote a date in path, as a look read it; one
+// not read is read now.
+func (h Hashes) dated(path string) bool {
+	if facts, ok := h.known(path); ok {
+		return facts.dated
+	}
+	_, _, ok := cameraDate(path)
+	return ok
+}
+
+// known are path's facts as a look read them, while the file is unchanged.
+func (h Hashes) known(path string) (fileFacts, bool) {
+	k, ok := h[path]
+	if !ok {
+		return fileFacts{}, false
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Size() != k.size || !info.ModTime().Equal(k.mod) {
+		return fileFacts{}, false
+	}
+	return k.fileFacts, true
 }
 
 // Hash is the content of path as a look read it, if it did and the file
 // has not changed since: another card in the same place, with the same
 // names, is other photos.
 func (h Hashes) Hash(path string) (string, bool) {
-	k, ok := h[path]
-	if !ok {
-		return "", false
-	}
-	info, err := os.Stat(path)
-	if err != nil || info.Size() != k.size || !info.ModTime().Equal(k.mod) {
-		return "", false
-	}
-	return k.hash, true
+	facts, ok := h.known(path)
+	return facts.hash, ok
 }
 
 // ImportOther is a folder's files that stay out.
@@ -166,8 +211,30 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		return ImportPlan{}, err
 	}
 	plan := ImportPlan{Unreadable: f.Unreadable, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
-	cameras := cameraDates(f)
-	groups := classify(f, cameras)
+	// Every file read once, its content and its camera's date, before
+	// the groups are known: what the groups are depends on the dates.
+	hashes := opt.Hashes
+	if hashes == nil {
+		hashes = Hashes{}
+	}
+	read := map[string]fileFacts{}
+	for i, item := range f.Items {
+		// A card is minutes to read: a stop is heard between two files.
+		if err := ctx.Err(); err != nil {
+			return plan, err
+		}
+		emit.Emit(progress.Event{Stage: progress.Read, N: i + 1, Of: len(f.Items)})
+		facts, err := hashes.facts(item.Path)
+		if err != nil {
+			plan.Unreadable++
+			continue
+		}
+		read[item.Path] = facts
+	}
+	groups, err := classify(f, func(path string) bool { return read[path].dated }, opt.Choice)
+	if err != nil {
+		return plan, err
+	}
 	in := chosen(f, groups, opt.Choice)
 	byPath := map[string]*ImportGroup{}
 	plan.Groups = make([]ImportGroup, len(groups))
@@ -179,18 +246,12 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 	}
 	seen := map[string]bool{}
 	years := map[string]*ImportYear{}
-	for i, item := range f.Items {
-		// A card is minutes to read: a stop is heard between two files.
-		if err := ctx.Err(); err != nil {
-			return plan, err
+	for _, item := range f.Items {
+		facts, ok := read[item.Path]
+		if !ok {
+			continue // unreadable, counted
 		}
-		emit.Emit(progress.Event{Stage: progress.Read, N: i + 1, Of: len(f.Items)})
-		hash, err := opt.Hashes.of(item.Path)
-		if err != nil {
-			plan.Unreadable++
-			continue
-		}
-		camera, hasDate := cameras[item.Path]
+		hash, camera, hasDate := facts.hash, facts.taken, facts.dated
 		group := byPath[item.Path]
 		file := ImportFile{Path: relativeTo(dir, item.Path), Video: IsVideo(item.Path), Group: group.Folder}
 		if hasDate {
@@ -198,7 +259,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		}
 		// The size of an image only where the person picks among them.
 		if group.Kind == Project || group.Kind == Unsure {
-			file.Small = small(item.Path)
+			file.Small = hashes.small(item.Path)
 		}
 		plan.Files = append(plan.Files, file)
 		if file.Video {

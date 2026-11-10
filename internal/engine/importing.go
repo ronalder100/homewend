@@ -117,8 +117,15 @@ func (im *Importing) Import(dir, profile string, link bool, redates []library.Re
 	if !ValidProfile(profile) {
 		return ErrBadProfile
 	}
+	// The dates the look read decide the groups again without a read.
+	im.mu.Lock()
+	var hashes library.Hashes
+	if real, err := filepath.EvalSymlinks(dir); err == nil && real == im.hashesOf {
+		hashes = im.hashes
+	}
+	im.mu.Unlock()
 	return im.start(dir, profile, redates, choice, link, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		done, err := Import(ctx, dir, profile, library.ImportOptions{Link: link, Redates: redates, Choice: choice}, emit)
+		done, err := Import(ctx, dir, profile, library.ImportOptions{Link: link, Redates: redates, Choice: choice, Hashes: hashes}, emit)
 		s.Imported = &done
 		return err
 	})

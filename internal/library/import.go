@@ -32,6 +32,9 @@ type Imported struct {
 	NotRedated int `json:"not_redated"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
+	// The groups that stayed out, by their kind or as chosen: said, so
+	// that no photo stays out unseen.
+	LeftOut []Group `json:"left_out,omitempty"`
 }
 
 // redate gives a photo of the library its date, and counts it given or
@@ -60,6 +63,9 @@ type ImportOptions struct {
 	// Choice is which of the folder's groups come in; nil, each as its
 	// kind says, as the look before it said.
 	Choice *Choice
+	// Hashes are what a look before read of the folder, when it did: the
+	// dates that decide a group are not read again.
+	Hashes Hashes
 }
 
 // arrivals is where a file from a folder waits, copied and read back, for
@@ -91,8 +97,19 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 	}
 	defer os.RemoveAll(arrivals(root))
 	// A project's icons, an app's previews: left where they are, as the
-	// look said, unless chosen.
-	in := chosen(f, classify(f, cameraDates(f)), how.Choice)
+	// look said, unless chosen. A date is read only where it decides a
+	// group, a card's DCIM never; once stopped, none: the copy below
+	// stops before its first file.
+	groups, err := classify(f, func(path string) bool { return ctx.Err() == nil && how.Hashes.dated(path) }, how.Choice)
+	if err != nil {
+		return done, err
+	}
+	in := chosen(f, groups, how.Choice)
+	for _, g := range groups {
+		if !how.Choice.GroupIn(g) {
+			done.LeftOut = append(done.LeftOut, g)
+		}
+	}
 	items := slices.DeleteFunc(slices.Clone(f.Items), func(item Item) bool { return !in[item.Path] })
 	seen := map[string]bool{}
 	for i, item := range items {

@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
 
 // GroupKind is what a group of a folder's photos is, and so whether it comes
@@ -65,9 +64,24 @@ type Choice struct {
 // In is whether a group comes in by its kind alone.
 func (k GroupKind) In() bool { return k == Photos }
 
-// classify puts each photo and video of f in its group. dates are the
-// camera's, by path: a folder whose photos mostly have none is unsure.
-func classify(f Folder, dates map[string]time.Time) []Group {
+// UnknownGroupError is a folder chosen in or out that is no group of the
+// folder: a name mistyped, or a folder named from elsewhere.
+type UnknownGroupError struct{ Folder string }
+
+func (e UnknownGroupError) Error() string { return e.Folder + " is not a folder of photos here" }
+
+// rawExtensions are a camera's raw files: a camera's, whatever date can be
+// read of them (a Canon CR3 keeps it where no reader here looks).
+var rawExtensions = map[string]bool{
+	".dng": true, ".cr2": true, ".cr3": true, ".nef": true, ".arw": true, ".raf": true,
+	".orf": true, ".rw2": true, ".pef": true, ".srw": true,
+}
+
+// classify puts each photo and video of f in its group. dated says whether
+// a file's camera wrote a date, asked only where it decides: a folder whose
+// photos mostly have none is unsure. A folder the choice names that is no
+// group is said.
+func classify(f Folder, dated func(path string) bool, choice *Choice) ([]Group, error) {
 	marks := map[string]string{} // folder → its project mark, "" none
 	markOf := func(dir string) string {
 		if m, ok := marks[dir]; ok {
@@ -114,13 +128,15 @@ func classify(f Folder, dates map[string]time.Time) []Group {
 		underDCIM := folder == "DCIM" || strings.HasPrefix(folder, "DCIM/") || strings.Contains(folder, "/DCIM/") || strings.HasSuffix(folder, "/DCIM")
 		if g.Kind == Photos && !underDCIM {
 			// Photos with no camera's date, more than half of them: a
-			// camera writes one in every photo. Videos say nothing here,
-			// many cameras' do not carry one.
+			// camera writes one in every photo. Videos and raw files say
+			// nothing here: many cameras' videos carry none we read, and a
+			// raw file is a camera's.
 			var photos, undated int
 			for _, p := range g.Paths {
-				if !IsVideo(p) {
+				ext := strings.ToLower(filepath.Ext(p))
+				if !IsVideo(p) && !rawExtensions[ext] {
 					photos++
-					if _, ok := dates[p]; !ok {
+					if !dated(p) {
 						undated++
 					}
 				}
@@ -139,7 +155,14 @@ func classify(f Folder, dates map[string]time.Time) []Group {
 		}
 		return strings.Compare(a.Folder, b.Folder)
 	})
-	return groups
+	if choice != nil {
+		for _, name := range slices.Concat(choice.In, choice.Out) {
+			if !slices.ContainsFunc(groups, func(g Group) bool { return g.Folder == name }) {
+				return nil, UnknownGroupError{Folder: name}
+			}
+		}
+	}
+	return groups, nil
 }
 
 // groupOf is the group of path, below root: the shallowest project or
@@ -157,9 +180,9 @@ func groupOf(root, path string, markOf func(string) string) (folder string, kind
 		switch {
 		case strings.HasSuffix(name, ".lrdata"):
 			return at, Previews, "Lightroom"
-		case strings.HasSuffix(name, ".photoslibrary"):
+		case strings.HasSuffix(name, ".photoslibrary"), strings.HasSuffix(name, ".photolibrary"), strings.HasSuffix(name, ".aplibrary"):
 			// Apple Photos keeps the photos in originals (Masters before
-			// 2015); the rest are its previews.
+			// 2015, and in iPhoto and Aperture); the rest are its previews.
 			if i+1 < len(dirs) && (dirs[i+1] == "originals" || dirs[i+1] == "Masters") {
 				return at + "/" + dirs[i+1], Photos, ""
 			}
@@ -201,18 +224,6 @@ func chosen(f Folder, groups []Group, choice *Choice) map[string]bool {
 		}
 	}
 	return in
-}
-
-// cameraDates are the dates the cameras wrote in f's photos and videos,
-// by path; one with none is not in it.
-func cameraDates(f Folder) map[string]time.Time {
-	dates := map[string]time.Time{}
-	for _, item := range f.Items {
-		if when, _, ok := cameraDate(item.Path); ok {
-			dates[item.Path] = when
-		}
-	}
-	return dates
 }
 
 // small is whether the image at path is a few hundred pixels at most, read
