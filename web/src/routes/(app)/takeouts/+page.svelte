@@ -83,7 +83,6 @@
 		);
 	});
 
-
 	function holds(t: Takeout) {
 		if (t.known) return t.year ? text.holdsYear(t.year) : text.holdsAll;
 		const y = t.years ?? [];
