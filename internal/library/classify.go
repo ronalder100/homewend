@@ -229,7 +229,10 @@ func leftOut(groups []Group, choice *Choice) []OutGroup {
 	var out []OutGroup
 	for _, g := range groups {
 		if !choice.GroupIn(g) {
-			out = append(out, OutGroup{Group: g, Files: len(g.Paths)})
+			// Its files counted, not kept: the look's state carries it.
+			files := len(g.Paths)
+			g.Paths = nil
+			out = append(out, OutGroup{Group: g, Files: files})
 		}
 	}
 	return out

@@ -214,7 +214,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 	if err != nil {
 		return ImportPlan{}, err
 	}
-	plan := ImportPlan{Counts: Counts{Unreadable: f.Unreadable, BroughtBack: opt.BringBack}, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
+	plan := ImportPlan{Counts: Counts{Unreadable: f.Unreadable}, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
 	// Every file read once, its content and its camera's date, before
 	// the groups are known: what the groups are depends on the dates.
 	hashes := opt.Hashes

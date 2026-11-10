@@ -7,7 +7,7 @@
 	import { Check, ChevronRight, Film } from '@lucide/svelte';
 	import { importThumbUrl, type ImportFile, type Redate } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
-	import { takenDay, takenTime } from '#lib/format.js';
+	import { takenAt, takenDay, takenTime } from '#lib/format.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 
@@ -69,7 +69,6 @@
 	const goesTo = $derived(
 		whenDate ? `${whenDate.getUTCFullYear()}/${String(whenDate.getUTCMonth() + 1).padStart(2, '0')}` : ''
 	);
-	const said = (d: Date) => `${takenDay(d)}, ${takenTime(d)}`;
 
 	function use() {
 		if (!whenDate || chosen.length === 0) return;
@@ -123,7 +122,7 @@
 				<b class="picked">{text.photosPicked(chosen.length)}</b>
 				{#if first && last}
 					<span class="label">{text.cameraSays}</span>
-					<span>{first.getTime() === last.getTime() ? said(first) : `${said(first)} – ${takenTime(last)}`}</span>
+					<span>{first.getTime() === last.getTime() ? takenAt(first) : `${takenAt(first)} – ${takenTime(last)}`}</span>
 				{/if}
 				<label class="label" for="when">{text.takenOn}</label>
 				<input id="when" type="datetime-local" bind:value={when} />

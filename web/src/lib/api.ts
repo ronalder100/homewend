@@ -221,7 +221,6 @@ export interface Counts {
 	not_redated: number;
 	/** Deleted from the library: counted always, in again only when brought back. */
 	deleted: number;
-	brought_back?: boolean;
 	unreadable: number;
 	outcome: Outcome;
 }

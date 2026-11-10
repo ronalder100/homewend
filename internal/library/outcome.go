@@ -37,10 +37,9 @@ type Counts struct {
 	Redated int `json:"redated"`
 	// Given a date but filed in another profile, whose date it is to give.
 	NotRedated int `json:"not_redated"`
-	// Photos the library had and someone deleted from it; they come in
-	// again only when BroughtBack.
-	Deleted     int  `json:"deleted"`
-	BroughtBack bool `json:"brought_back,omitempty"`
+	// Photos the library had and someone deleted from it: brought back,
+	// they are counted as new too; else they stay out.
+	Deleted int `json:"deleted"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 	// The groups that stay out, by their kind or as chosen: said, so that
@@ -62,7 +61,7 @@ func (c *Counts) end(fresh int) {
 		c.Outcome = OutcomeRedated
 	case len(c.LeftOut) > 0:
 		c.Outcome = OutcomeLeftOut
-	case c.Deleted > 0 && !c.BroughtBack:
+	case c.Deleted > 0: // brought back, they came in as new
 		c.Outcome = OutcomeDeleted
 	case known > 0 && c.Unreadable > 0:
 		c.Outcome = OutcomeKnownNoted

@@ -43,3 +43,8 @@ export function takenDay(d: Date): string {
 export function takenTime(d: Date): string {
 	return takenTimeFormat.format(d);
 }
+
+/** When a photo was taken: 14 July 2019, 18:32. */
+export function takenAt(d: Date): string {
+	return `${takenDay(d)}, ${takenTime(d)}`;
+}

@@ -826,7 +826,7 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
-	sayCounts(out, true, plan.Counts, 0)
+	sayCounts(out, true, plan.Counts, 0, w.bringBack)
 	out.say("")
 	sayOutcome(out, plan.Counts, true, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)), dir)
 	return exitOK
@@ -1028,7 +1028,7 @@ func importCopy(w importWords, args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done, "dir": w.dir})
 		return exitOK
 	}
-	sayCounts(out, false, done.Counts, done.Undated)
+	sayCounts(out, false, done.Counts, done.Undated, w.bringBack)
 	out.say("")
 	fresh := fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)
 	if w.link {
@@ -1042,7 +1042,7 @@ func importCopy(w importWords, args []string) int {
 // copy filed, before its last line, one way for both: the groups
 // that stay out with why and how to bring one in, then what is in, moved,
 // twice, undated, left to another profile, deleted, unreadable.
-func sayCounts(out *printer, dry bool, c library.Counts, undated int) {
+func sayCounts(out *printer, dry bool, c library.Counts, undated int, bringBack bool) {
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
@@ -1078,7 +1078,7 @@ func sayCounts(out *printer, dry bool, c library.Counts, undated int) {
 		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], c.NotRedated), warnColour, false))
 	}
 	switch {
-	case c.Deleted > 0 && c.BroughtBack:
+	case c.Deleted > 0 && bringBack:
 		out.say("  " + counted(c.Deleted, "deleted back"))
 	case c.Deleted > 0:
 		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))

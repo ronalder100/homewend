@@ -341,7 +341,7 @@
 		{#if !fits && !link}<p class="problem"><TriangleAlert size={16} />{text.importNoRoom}</p>{/if}
 		<div class="actions">
 			<PrimaryButton
-				disabled={(!fits && !link) || plan.photos + plan.videos + plan.redated === 0}
+				disabled={(!fits && !link) || plan.outcome !== 'new' && plan.outcome !== 'redated'}
 				onclick={() => start(() => startImport({ ...asking(), link: link && !!im!.canLink }))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
 			>
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
@@ -446,7 +446,7 @@
 				<div><b>{done.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
 				{#if done.undated > 0}<div><b>{done.undated.toLocaleString('en')}</b><span>{text.importUndated}</span></div>{/if}
 				{#if done.redated > 0}<div><b>{done.redated.toLocaleString('en')}</b><span>{text.importRedated}</span></div>{/if}
-				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{done.brought_back ? text.importDeletedBack : text.importDeletedOut}</span></div>{/if}
+				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{im.bring_back ? text.importDeletedBack : text.importDeletedOut}</span></div>{/if}
 				{#if done.unreadable > 0}<div class="warn"><b>{done.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			</div>
 		{/if}

@@ -74,7 +74,7 @@ func arrivals(root string) string { return filepath.Join(root, WorkDir, "import"
 // the rest. fits is asked before each copy whether the library's disk has
 // room for it.
 func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Options, how ImportOptions, emit progress.Func) (Imported, error) {
-	done := Imported{Counts: Counts{Unreadable: f.Unreadable, BroughtBack: how.BringBack}}
+	done := Imported{Counts: Counts{Unreadable: f.Unreadable}}
 	// A name the folder does not have, or has twice, is said before
 	// anything is copied.
 	dates, err := given(how.Redates, f)
@@ -185,29 +185,29 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		if err != nil {
 			return done, err
 		}
-		// A date given goes beside the copy too, for the photo apps that
-		// read it there.
-		if dated {
-			if relative, known, err := catalog.PathOf(hash); err == nil && known {
-				if err := writeXMP(filepath.Join(root, filepath.FromSlash(relative)), when); err != nil {
-					return done, err
-				}
-				done.Redated++
-			}
-		}
 		done.Placed += placed.Placed
 		done.Bytes += placed.Bytes
 		done.Undated += placed.Undated
+		filed, err := catalog.photo(hash)
+		if err != nil {
+			continue
+		}
+		// A date given goes beside the copy too, for the photo apps that
+		// read it there.
+		if dated {
+			if err := writeXMP(filepath.Join(root, filepath.FromSlash(filed.Path)), when); err != nil {
+				return done, err
+			}
+			done.Redated++
+		}
 		// Its month, for the window that counts what came in by month: as
 		// it was filed, the catalog's date. bringIn dates it as the look
 		// does (the date given, else the camera's), so the two agree.
-		if p, err := catalog.photo(hash); err == nil {
-			e := progress.Event{Stage: progress.Filed}
-			if !p.Taken.IsZero() {
-				e.Name, e.N = strconv.Itoa(p.Taken.Year()), int(p.Taken.Month())
-			}
-			emit.Emit(e)
+		e := progress.Event{Stage: progress.Filed}
+		if !filed.Taken.IsZero() {
+			e.Name, e.N = strconv.Itoa(filed.Taken.Year()), int(filed.Taken.Month())
 		}
+		emit.Emit(e)
 	}
 	done.end(done.Placed)
 	return done, nil
