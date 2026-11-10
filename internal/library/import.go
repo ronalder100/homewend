@@ -128,12 +128,13 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		tell := func(n int64) {
 			if now := time.Now(); now.Sub(last) > 250*time.Millisecond || (told && n == size) {
 				last, told = now, true
-				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path), Done: n, Total: size})
+				// The pace first: the line said with the Copy carries it.
 				if copying {
 					moved(handled + size/2 + n/2)
 				} else {
 					moved(handled + n/2)
 				}
+				emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path), Done: n, Total: size})
 			}
 		}
 		emit.Emit(progress.Event{Stage: progress.Copy, N: i + 1, Of: len(items), Name: filepath.Base(item.Path)})

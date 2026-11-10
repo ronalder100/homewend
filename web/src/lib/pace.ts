@@ -16,7 +16,7 @@ export function pace(key: string, done: number, total: number): { rate: number; 
 		{ t: now, done }
 	]);
 	const rate = (done - s[0].done) / ((now - s[0].t) / 1000);
-	return total > 0 && rate > 0 ? { rate, left: (total - done) / rate } : null;
+	return rate > 0 ? { rate, left: (total - done) / rate } : null;
 }
 
 /** Forgets key's pace: an account gone. */

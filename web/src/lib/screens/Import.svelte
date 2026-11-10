@@ -234,7 +234,7 @@
 		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
 	const fits = $derived(!plan || !free || plan.bytes <= free);
 	// The copy's speed and time left, as a download's are measured.
-	const run = $derived(im?.running && im.kind === 'import' ? pace('import', im.moved ?? 0, im.bytes ?? 0) : null);
+	const run = $derived(im?.running && im.kind === 'import' ? pace('import', im.moved, im.bytes) : null);
 	const fileShare = $derived(im && im.total > 0 ? im.done / im.total : 0);
 	const share = $derived(im && im.of > 0 ? (im.n - 1 + fileShare) / im.of : 0);
 </script>
