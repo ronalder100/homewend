@@ -333,7 +333,7 @@
 		<!-- I3: what comes in, by year; what stays out. -->
 		<span class="pill">{name}</span>
 		<h1>{text.toCopy(plan.photos, plan.videos)}</h1>
-		{#if plan.photos + plan.videos === 0}<p class="lead">{plan.redated > 0 ? text.planRedated(plan.redated) : text.nothingNewLead}</p>{:else if plan.in_library > 0}<p class="lead">{text.toCopyLead}</p>{/if}
+		{#if plan.photos + plan.videos === 0}<p class="lead">{plan.redated > 0 ? text.planRedated(plan.redated) : plan.deleted > 0 ? text.onlyDeletedLead : text.nothingNewLead}</p>{:else if plan.in_library > 0}<p class="lead">{text.toCopyLead}</p>{/if}
 		<div class="numbers">
 			<div><b>{bytes(plan.bytes)}</b><span>{text.importToCopy}</span></div>
 			<div><b>{plan.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
@@ -369,11 +369,11 @@
 			{/if}
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
-		{#if deletedSeen > 0}
+		{#if deletedSeen > 0 || bringBack}
 			<!-- The card still holds what was deleted from the library: it stays out unless asked back. -->
 			<label class="note back">
 				<input type="checkbox" bind:checked={bringBack} onchange={lookAgain} />
-				{bringBack ? text.bringingBack(deletedSeen) : text.deletedStayOut(deletedSeen)}
+				{bringBack ? (deletedSeen ? text.bringingBack(deletedSeen) : text.bringingBackAll) : text.deletedStayOut(deletedSeen)}
 			</label>
 		{/if}
 		{#if plan.groups.length > 0}

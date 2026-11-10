@@ -168,6 +168,8 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// this profile.
 			if !how.BringBack {
 				done.Deleted++
+				// Its twin further on is deleted too, not a photo in.
+				delete(seen, hash)
 				continue
 			}
 			if err := catalog.forget(hash); err != nil {
@@ -183,6 +185,11 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 				if _, err := Organize([]Item{{Path: home}}, root, catalog, opt, nil); err != nil {
 					return done, err
 				}
+			}
+			// It came from the card too: hiding the account it came from
+			// first does not hide it.
+			if err := catalog.addOwner(hash, opt.Account); err != nil {
+				return done, err
 			}
 			// A date given now is for a photo already in: the likeliest
 			// case, seen as 2018 in the library after a first import.

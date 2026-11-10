@@ -292,14 +292,15 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			if err != nil {
 				return plan, err
 			}
-			// As the copy decides: listed, and gone from the disk.
-			_, gone := os.Lstat(filepath.Join(opt.Root, filepath.FromSlash(path)))
-			switch {
-			case known && opt.Root != "" && errors.Is(gone, fs.ErrNotExist):
-				deleted = true
-			case known:
-				held = path
-				group.InLibrary++
+			if known {
+				// As the copy decides: listed, and gone from the disk.
+				_, gone := os.Lstat(filepath.Join(opt.Root, filepath.FromSlash(path)))
+				if opt.Root != "" && errors.Is(gone, fs.ErrNotExist) {
+					deleted = true
+				} else {
+					held = path
+					group.InLibrary++
+				}
 			}
 		}
 		if !in[item.Path] {

@@ -123,7 +123,8 @@ Examples:
 	"help import": `homewend import — bring in the photos of a card or a folder
 
 Usage:
-  homewend import [DIR] [--profile NAME] [--link] [--include FOLDER] [--json]
+  homewend import [DIR] [--profile NAME] [--link] [--include FOLDER]
+                  [--bring-back] [--json]
   homewend import --dry-run [DIR] [--json]
 
 Without DIR, the card that is in: a disk with a camera's DCIM folder on it,
@@ -353,7 +354,9 @@ Examples:
 	"group unsure":            "most have no camera's date: scans, screenshots, photos sent or saved; they stay out",
 	"group include":           "to bring one in: --include FOLDER",
 	"result import deleted":   "Nothing new: the photos deleted from the library stay out",
-	"import deleted":          "%s deleted from the library stay out · to bring them back: --bring-back",
+	"import deleted":          "%s · to bring back: --bring-back",
+	"deleted":                 "%d deleted from the library stay out",
+	"deleted one":             "1 deleted from the library stays out",
 	"import itself":           "the folder itself (.)",
 	"bad include":             "%s is not a folder of photos in the folder imported",
 	"bad include hint":        "the folders are named as **homewend import --dry-run DIR** lists them",

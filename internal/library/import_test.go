@@ -614,3 +614,42 @@ func TestABareNameIsTheTopFileFirst(t *testing.T) {
 		t.Errorf("a.jpg: %s, %v; want the top one", got, err)
 	}
 }
+
+// A photo already in the library, met again on a card, has the card for a
+// source too; a deleted photo's twin given a date stays out with it.
+func TestAKnownPhotoTakesTheCardAndADeletedTwinStaysOut(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/A.JPG", exifPhoto("2018:01:01 00:01:36", "a"))
+	write(t, card, "DCIM/B.JPG", exifPhoto("2019:07:14 10:00:00", "b"))
+	write(t, card, "DCIM/sub/B.JPG", exifPhoto("2019:07:14 10:00:00", "b"))
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fits := func(int64) error { return nil }
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron", Account: "google/ron@example.com"}, ImportOptions{Fits: fits}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, "ron", "2019", "07", "B.JPG")); err != nil {
+		t.Fatal(err)
+	}
+	given := []Redate{{Names: []string{"DCIM/sub/B.JPG"}, When: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron", Account: "local/EOS_DIGITAL"}, ImportOptions{Fits: fits, Redates: given}, nil)
+	if err != nil || done.Deleted != 2 {
+		t.Fatalf("%+v, %v; want B and its twin left out as deleted", done, err)
+	}
+	hash, err := hashOf(filepath.Join(card, "DCIM", "A.JPG"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, sources, err := catalog.About(hash)
+	if err != nil || len(sources) != 2 {
+		t.Errorf("sources %v, %v; want Google and the card", sources, err)
+	}
+}

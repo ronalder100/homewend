@@ -868,14 +868,14 @@ func importCommand(args []string) int {
 		out.say(out.out.summary(text["result plan left out"]))
 	case len(leftOut) > 0:
 		out.say(out.out.result(text["result import none"]))
+	case plan.Deleted > 0:
+		out.say(out.out.result(text["result import deleted"]))
 	case plan.InLibrary+plan.Twins > 0 && plan.Unreadable > 0:
 		out.say(out.out.summary(text["result import none read"]))
 	case plan.InLibrary+plan.Twins > 0:
 		out.say(out.out.result(text["result import none"]))
 	case plan.Unreadable > 0:
 		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], dir)))
-	case plan.Deleted > 0:
-		out.say(out.out.result(text["result import deleted"]))
 	default:
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
 	}
@@ -1106,6 +1106,8 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.result(fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)))
 	case done.Redated > 0:
 		out.say(out.out.result(fmt.Sprintf(text["result redated"], done.Redated)))
+	case done.Deleted > 0:
+		out.say(out.out.result(text["result import deleted"]))
 	case done.InLibrary+done.Twins > 0 && done.Unreadable > 0:
 		out.say(out.out.summary(text["result import none read"]))
 	case done.InLibrary+done.Twins > 0:
@@ -1114,8 +1116,6 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], w.dir)))
 	case len(done.LeftOut) > 0:
 		out.say(out.out.summary(text["result import left out"]))
-	case done.Deleted > 0:
-		out.say(out.out.result(text["result import deleted"]))
 	default:
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], w.dir)))
 	}
@@ -1126,7 +1126,7 @@ func importCopy(w importWords, args []string) int {
 // the library, and how to bring them back.
 func sayDeleted(out *printer, n int) {
 	if n > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(n, "photos")), faintColour, false))
+		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(n, "deleted")), faintColour, false))
 	}
 }
 

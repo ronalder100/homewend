@@ -29,10 +29,14 @@ type Settings struct {
 }
 
 // ProfileFor is the profile of the account id: the one chosen, or the
-// address's name before the @.
+// address's name before the @. A card or a folder imported ("local/…") is
+// no account and names none: its photos are in the profile they came into.
 func (s Settings) ProfileFor(id string) string {
 	if p := s.Profiles[id]; p != "" {
 		return p
+	}
+	if strings.HasPrefix(id, "local/") {
+		return ""
 	}
 	_, email, _ := strings.Cut(id, "/")
 	name, _, _ := strings.Cut(email, "@")

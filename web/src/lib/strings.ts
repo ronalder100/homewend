@@ -270,6 +270,8 @@ export const text = {
 	ofImagesIn: (n: number, folder: string) => `of ${count(n, 'image')} in ${folder}`,
 	bringInThese: (n: number) => (n ? `Bring in these ${n.toLocaleString('en')}` : 'Bring in none'),
 	deletedStayOut: (n: number) => `${count(n, 'photo')} you deleted from the library ${n === 1 ? 'stays' : 'stay'} out. Tick to bring ${n === 1 ? 'it' : 'them'} back.`,
+	bringingBackAll: 'The photos you deleted from the library come back in.',
+	onlyDeletedLead: 'The rest is in your library; what you deleted from it stays out.',
 	bringingBack: (n: number) => `${count(n, 'photo')} you deleted from the library ${n === 1 ? 'comes' : 'come'} back in.`,
 	anyDatesWrong: 'Any dates wrong?',
 	anyDatesWrongLead: 'A camera whose clock was reset dates its photos wrong. Tick them and give them the right date.',
