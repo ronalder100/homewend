@@ -12,7 +12,8 @@ const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 const util = require('node:util');
 const { autoUpdater } = require('electron-updater');
-const tokens = require('./tokens.json').variables;
+// The design system's colours, light and dark, as the page reads them.
+const colours = require('./tokens.json').color.tokens;
 
 // What the app and its engine say goes to a file as well: opened from the
 // menu or the Finder, nobody sees the terminal. One file, in Electron's
@@ -104,7 +105,7 @@ function menu() {
 
 function theme(name) {
 	const mode = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-	return tokens[name].value.find((v) => v.theme.mode === mode).value;
+	return colours.find((t) => t.name === name).value[mode];
 }
 
 function overlay() {
