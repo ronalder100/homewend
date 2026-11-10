@@ -301,7 +301,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 				continue
 			}
 		}
-		_, dated := dates[item.Path]
+		given, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
 		// the folder has it.
 		if held != "" {
@@ -330,7 +330,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			plan.Bytes += info.Size()
 		}
 		year, month := "", 0
-		when, ok := dates[item.Path]
+		when, ok := given, dated
 		if !ok {
 			when, ok = camera, hasDate
 		}
@@ -352,9 +352,8 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			}
 			m = &y.Months[month-1]
 		}
-		video := IsVideo(item.Path)
 		count := func(photos, videos *int) {
-			if video {
+			if file.Video {
 				*videos++
 			} else {
 				*photos++

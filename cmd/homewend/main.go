@@ -826,9 +826,7 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
-	sayCounts(out, true, plan.Counts, 0, w.bringBack)
-	out.say("")
-	sayOutcome(out, plan.Counts, true, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)), dir)
+	sayImport(out, w, true, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
 	return exitOK
 }
 
@@ -1028,21 +1026,19 @@ func importCopy(w importWords, args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done, "dir": w.dir})
 		return exitOK
 	}
-	sayCounts(out, false, done.Counts, done.Undated, w.bringBack)
-	out.say("")
 	fresh := fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)
 	if w.link {
 		fresh = fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)
 	}
-	sayOutcome(out, done.Counts, false, fresh, w.dir)
+	sayImport(out, w, false, done.Counts, done.Undated, fresh)
 	return exitOK
 }
 
-// sayCounts says what a look (dry) or its copy counted, and the undated a
-// copy filed, before its last line, one way for both: the groups
-// that stay out with why and how to bring one in, then what is in, moved,
-// twice, undated, left to another profile, deleted, unreadable.
-func sayCounts(out *printer, dry bool, c library.Counts, undated int, bringBack bool) {
+// sayImport says how a look (dry) or its copy went, one way for both:
+// the groups that stay out with why and how to bring one in, what is in,
+// moved, twice, undated (a copy's), left to another profile, deleted,
+// unreadable; then its last line, fresh when something comes in.
+func sayImport(out *printer, w importWords, dry bool, c library.Counts, undated int, fresh string) {
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
@@ -1078,7 +1074,7 @@ func sayCounts(out *printer, dry bool, c library.Counts, undated int, bringBack 
 		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], c.NotRedated), warnColour, false))
 	}
 	switch {
-	case c.Deleted > 0 && bringBack:
+	case c.Deleted > 0 && w.bringBack:
 		out.say("  " + counted(c.Deleted, "deleted back"))
 	case c.Deleted > 0:
 		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))
@@ -1086,6 +1082,8 @@ func sayCounts(out *printer, dry bool, c library.Counts, undated int, bringBack 
 	if c.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(c.Unreadable, "import unreadable"), warnColour, false))
 	}
+	out.say("")
+	sayOutcome(out, c, dry, fresh, w.dir)
 }
 
 // sayOutcome is the last line of a look (dry) or a copy, in the words of

@@ -104,7 +104,7 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	// Asked before each copy, of the new photos only: a copy that fills
 	// the disk helps nobody, and a card mostly in the library already needs
 	// room for what is new on it.
-	fits := func(size int64) error {
+	how.Fits = func(size int64) error {
 		free, err := Free(root)
 		if err != nil {
 			return err
@@ -114,7 +114,6 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 		}
 		return nil
 	}
-	how.Fits = fits
 	opt := library.Options{Profile: profile, SeparateMessaging: true, Account: source}
 	done, err := library.Import(ctx, folder, root, catalog, opt, how, emit)
 	// A card taken out halfway, during a copy or between two, is not a run

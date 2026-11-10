@@ -138,7 +138,6 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		if err != nil {
 			return done, err
 		}
-		home := filepath.Join(root, filepath.FromSlash(relative))
 		if deleted {
 			// The arrivals were emptied, so it is no move left halfway
 			// either. It stays out unless asked back; brought back, it is
@@ -161,6 +160,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// so it cannot move it. In this profile, the card is a source
 			// too: hiding the account it came from first does not hide it.
 			if !filedIn(relative, opt.Profile) {
+				home := filepath.Join(root, filepath.FromSlash(relative))
 				if _, err := Organize([]Item{{Path: home}}, root, catalog, opt, nil); err != nil {
 					return done, err
 				}
