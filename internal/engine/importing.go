@@ -95,8 +95,7 @@ func (im *Importing) Plan(a ImportAsk) error {
 	if !ValidProfile(a.Profile) {
 		return ErrBadProfile
 	}
-	hashes := im.hashesFor(a.Dir)
-	return im.start(a, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+	return im.start(a, "plan", func(ctx context.Context, emit progress.Func, s *ImportState, hashes library.Hashes) error {
 		plan, err := PlanImport(ctx, a.Dir, library.PlanOptions{Asked: a.Asked, Profile: a.Profile, Hashes: hashes}, emit)
 		if err == nil {
 			s.Plan = &plan
@@ -127,8 +126,7 @@ func (im *Importing) Import(a ImportAsk) error {
 		return ErrBadProfile
 	}
 	// The dates the look read decide the groups again without a read.
-	hashes := im.hashesFor(a.Dir)
-	return im.start(a, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+	return im.start(a, "import", func(ctx context.Context, emit progress.Func, s *ImportState, hashes library.Hashes) error {
 		how := library.ImportOptions{Asked: a.Asked, Link: a.Link, Hashes: hashes}
 		done, err := Import(ctx, a.Dir, a.Profile, how, emit)
 		s.Imported = &done
@@ -136,15 +134,27 @@ func (im *Importing) Import(a ImportAsk) error {
 	})
 }
 
-func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, progress.Func, *ImportState, library.Hashes) error) error {
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
 	_, card := cardAt(a.Dir)
+	real, err := library.RealPath(a.Dir)
+	if err != nil {
+		real = a.Dir
+	}
 	im.mu.Lock()
 	defer im.mu.Unlock()
 	if im.state.Running {
 		return ErrImportRunning
 	}
+	// What the last look read of the folder, for this look, this copy and
+	// the thumbnails; another folder starts afresh. Kept by the folder as
+	// the look reads it, a link to it followed: a thumbnail's path is made
+	// from it.
+	if im.hashesOf != real {
+		im.hashes, im.hashesOf = library.Hashes{}, real
+	}
+	hashes := im.hashes
 	ctx, cancel := context.WithCancel(context.Background())
 	// The plan of the same folder is kept for the copy that follows it, and
 	// what came in before a card went out for the screen that waits for it.
@@ -171,7 +181,7 @@ func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, p
 			im.mu.Lock()
 			im.state.record(e)
 			im.mu.Unlock()
-		}, &out)
+		}, &out, hashes)
 		im.mu.Lock()
 		defer im.mu.Unlock()
 		s := &im.state
@@ -243,23 +253,6 @@ func importProblem(err error) (problem string, need, free int64) {
 		return "no-link", 0, 0
 	}
 	return "", 0, 0
-}
-
-// hashesFor is what the last look read of dir, for its next look, its copy
-// and its thumbnails; another folder starts afresh. Kept by the folder as
-// the look reads it, a link to it followed: a thumbnail's path is made
-// from it.
-func (im *Importing) hashesFor(dir string) library.Hashes {
-	real, err := library.RealPath(dir)
-	if err != nil {
-		real = dir
-	}
-	im.mu.Lock()
-	defer im.mu.Unlock()
-	if im.hashesOf != real {
-		im.hashes, im.hashesOf = library.Hashes{}, real
-	}
-	return im.hashes
 }
 
 // Thumbnail is the thumbnail of a file of the folder last looked at, by

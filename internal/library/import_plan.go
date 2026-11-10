@@ -209,7 +209,6 @@ type ImportOther struct {
 // Dates given are counted as the import would file the photos: a name the
 // folder does not have is said here too, before the import.
 func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt PlanOptions, emit progress.Func) (ImportPlan, error) {
-	profile := opt.Profile
 	dates, err := given(opt.Redates, f)
 	if err != nil {
 		return ImportPlan{}, err
@@ -301,7 +300,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 				continue
 			}
 		}
-		given, dated := dates[item.Path]
+		when, dated := dates[item.Path]
 		// The library first: a photo it holds is in it however many times
 		// the folder has it.
 		if held != "" {
@@ -309,7 +308,7 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			// As redateInLibrary decides: by the profile it is filed in.
 			switch {
 			case !dated:
-			case !filedIn(held, profile):
+			case !filedIn(held, opt.Profile):
 				plan.NotRedated++
 			default:
 				plan.Redated++
@@ -330,11 +329,11 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			plan.Bytes += info.Size()
 		}
 		year, month := "", 0
-		when, ok := given, dated
-		if !ok {
-			when, ok = camera, hasDate
+		// Filed by the date given, else the camera's.
+		if !dated {
+			when = camera
 		}
-		if ok {
+		if dated || hasDate {
 			year, month = strconv.Itoa(when.Year()), int(when.Month())
 		}
 		y := years[year]

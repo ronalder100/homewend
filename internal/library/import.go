@@ -190,7 +190,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		done.Undated += placed.Undated
 		filed, err := catalog.photo(hash)
 		if err != nil {
-			continue
+			return done, err
 		}
 		// A date given goes beside the copy too, for the photo apps that
 		// read it there.

@@ -43,7 +43,9 @@ type Counts struct {
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 	// The groups that stay out, by their kind or as chosen: said, so that
-	// no photo stays out unseen.
+	// no photo stays out unseen. A look's Groups hold them too, among all,
+	// for the window's table; this list is what a look and its copy share,
+	// for the end and the command line.
 	LeftOut []OutGroup `json:"left_out,omitempty"`
 	// How it ends, for every screen and line that says it.
 	Outcome Outcome `json:"outcome"`

@@ -826,7 +826,7 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
-	sayImport(out, w, true, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
+	sayImport(out, w, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
 	return exitOK
 }
 
@@ -1030,15 +1030,15 @@ func importCopy(w importWords, args []string) int {
 	if w.link {
 		fresh = fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)
 	}
-	sayImport(out, w, false, done.Counts, done.Undated, fresh)
+	sayImport(out, w, done.Counts, done.Undated, fresh)
 	return exitOK
 }
 
-// sayImport says how a look (dry) or its copy went, one way for both:
-// the groups that stay out with why and how to bring one in, what is in,
-// moved, twice, undated (a copy's), left to another profile, deleted,
-// unreadable; then its last line, fresh when something comes in.
-func sayImport(out *printer, w importWords, dry bool, c library.Counts, undated int, fresh string) {
+// sayImport says how a look (a dry run) or its copy went, one way for
+// both: the groups that stay out with why and how to bring one in, what is
+// in, moved, twice, undated (a copy's), left to another profile, deleted,
+// unreadable; then its last line.
+func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh string) {
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
@@ -1053,16 +1053,12 @@ func sayImport(out *printer, w importWords, dry bool, c library.Counts, undated 
 	if len(c.LeftOut) > 0 {
 		out.say("  " + out.out.paint(text["group include"], faintColour, false))
 	}
-	redated := "redated"
-	if dry {
-		redated = "redated dry"
-	}
 	for _, line := range []struct {
 		n    int
 		said string
 	}{
 		{c.InLibrary, fmt.Sprintf(text["import already"], c.InLibrary)},
-		{c.Redated, fmt.Sprintf(text[redated], c.Redated)},
+		{c.Redated, fmt.Sprintf(w.words("redated"), c.Redated)},
 		{c.Twins, fmt.Sprintf(text["import twins"], c.Twins)},
 		{undated, fmt.Sprintf(text["imported undated"], undated)},
 	} {
@@ -1083,22 +1079,12 @@ func sayImport(out *printer, w importWords, dry bool, c library.Counts, undated 
 		out.say("  " + out.out.paint(counted(c.Unreadable, "import unreadable"), warnColour, false))
 	}
 	out.say("")
-	sayOutcome(out, c, dry, fresh, w.dir)
-}
-
-// sayOutcome is the last line of a look (dry) or a copy, in the words of
-// how the engine says it ended: fresh when something comes in, else the
-// outcome's own, a look's in the conditional.
-func sayOutcome(out *printer, c library.Counts, dry bool, fresh, dir string) {
+	// The last line: fresh when something comes in, else the outcome's own.
 	if c.Outcome == library.OutcomeNew {
 		out.say(out.out.result(fresh))
 		return
 	}
-	said, ok := text["outcome "+string(c.Outcome)+" dry"]
-	if !dry || !ok {
-		said = text["outcome "+string(c.Outcome)]
-	}
-	said = strings.NewReplacer("{n}", strconv.Itoa(c.Redated), "{dir}", dir).Replace(said)
+	said := strings.NewReplacer("{n}", strconv.Itoa(c.Redated), "{dir}", w.dir).Replace(w.words("outcome " + string(c.Outcome)))
 	// What happened as asked is said as done; what is to look at, as a
 	// summary.
 	switch c.Outcome {
@@ -1107,6 +1093,15 @@ func sayOutcome(out *printer, c library.Counts, dry bool, fresh, dir string) {
 	default:
 		out.say(out.out.summary(said))
 	}
+}
+
+// words are key's words for this run: a dry run's in the conditional,
+// key+" dry", where the table has them.
+func (w importWords) words(key string) string {
+	if said, ok := text[key+" dry"]; ok && w.dryRun {
+		return said
+	}
+	return text[key]
 }
 
 // counted is n of a thing, "1 photo" or "3 photos": key names the plural in
