@@ -283,7 +283,7 @@ func TestAPhotoDeletedFromTheLibraryStaysOutUnlessBroughtBack(t *testing.T) {
 	if err != nil || done.Deleted != 1 || done.Placed != 0 {
 		t.Errorf("%+v, %v; want the deleted photo left out and said", done, err)
 	}
-	done, err = Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Fits: fits, BringBack: true}, nil)
+	done, err = Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Asked: Asked{BringBack: true}, Fits: fits}, nil)
 	if err != nil || done.Placed != 1 {
 		t.Errorf("%+v, %v; want the deleted photo placed again", done, err)
 	}
@@ -353,7 +353,7 @@ func TestADateGivenGoesWithThePhoto(t *testing.T) {
 		t.Fatal(err)
 	}
 	when := time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)
-	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0004.JPG", "DSCF0005.JPG"}, When: when}}}
+	how := ImportOptions{Fits: func(int64) error { return nil }, Asked: Asked{Redates: []Redate{{Names: []string{"DSCF0004.JPG", "DSCF0005.JPG"}, When: when}}}}
 	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, how, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -391,7 +391,7 @@ func TestADateForANameNotThereIsSaid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0099.JPG"}, When: time.Now()}}}
+	how := ImportOptions{Fits: func(int64) error { return nil }, Asked: Asked{Redates: []Redate{{Names: []string{"DSCF0099.JPG"}, When: time.Now()}}}}
 	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, how, nil)
 	var unknown UnknownNameError
 	if !errors.As(err, &unknown) || unknown.Name != "DSCF0099.JPG" || done.Placed != 0 {
@@ -413,7 +413,7 @@ func importDated(t *testing.T, card, root string, redates []Redate) (Imported, e
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: func(int64) error { return nil }, Redates: redates}, nil)
+	return Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Asked: Asked{Redates: redates}, Fits: func(int64) error { return nil }}, nil)
 }
 
 // The likeliest use: a first import shows 2018 in the library, and the
@@ -486,7 +486,7 @@ func TestADryRunCountsTheDatesGiven(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), card, folder, nil, PlanOptions{Redates: []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}}, nil)
+	plan, err := PlanImport(context.Background(), card, folder, nil, PlanOptions{Asked: Asked{Redates: []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}}}, nil)
 	if err != nil || len(plan.Years) != 1 || plan.Years[0].Year != "2026" {
 		t.Errorf("%+v, %v; want 2026", plan.Years, err)
 	}
@@ -509,7 +509,7 @@ func TestADateFromAnotherProfileLeavesThePhoto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	how := ImportOptions{Fits: func(int64) error { return nil }, Redates: []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}}
+	how := ImportOptions{Fits: func(int64) error { return nil }, Asked: Asked{Redates: []Redate{{Names: []string{"DSCF0004.JPG"}, When: time.Date(2026, 9, 14, 10, 20, 0, 0, time.UTC)}}}}
 	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ann"}, how, nil)
 	catalog.Close()
 	if err != nil {
@@ -557,7 +557,7 @@ func TestADryRunSaysWhatADateWouldMove(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{filepath.Join(card, "DCIM", "DSCF0004.JPG"), "./DCIM/DSCF0004.JPG"} {
-		plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Redates: []Redate{{Names: []string{name}, When: time.Now()}}}, nil)
+		plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Asked: Asked{Redates: []Redate{{Names: []string{name}, When: time.Now()}}}, Root: root}, nil)
 		if err != nil || plan.Redated != 1 {
 			t.Errorf("%s: %+v, %v; want 1 that would move", name, plan, err)
 		}
@@ -586,16 +586,16 @@ func TestADryRunTakesAPathFromHereAndKnowsTheProfile(t *testing.T) {
 	t.Chdir(filepath.Dir(card))
 	name := filepath.Join(filepath.Base(card), "DCIM", "DSCF0004.JPG")
 	dates := []Redate{{Names: []string{name}, When: time.Now()}}
-	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Profile: "ron", Redates: dates}, nil); err != nil || plan.Redated != 1 {
+	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Asked: Asked{Redates: dates}, Profile: "ron", Root: root}, nil); err != nil || plan.Redated != 1 {
 		t.Errorf("%s from here: %+v, %v; want 1 that would move", name, plan, err)
 	}
-	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Profile: "bob", Redates: dates}, nil); err != nil || plan.Redated != 0 || plan.NotRedated != 1 {
+	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Asked: Asked{Redates: dates}, Profile: "bob", Root: root}, nil); err != nil || plan.Redated != 0 || plan.NotRedated != 1 {
 		t.Errorf("from another profile: %+v, %v; want 1 left to its own", plan, err)
 	}
 	// Run from inside the folder, a path below it still names it.
 	t.Chdir(filepath.Join(card, "DCIM"))
 	dates = []Redate{{Names: []string{"DCIM/DSCF0004.JPG"}, When: time.Now()}}
-	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Profile: "ron", Redates: dates}, nil); err != nil || plan.Redated != 1 {
+	if plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Asked: Asked{Redates: dates}, Profile: "ron", Root: root}, nil); err != nil || plan.Redated != 1 {
 		t.Errorf("from inside the folder: %+v, %v; want 1 that would move", plan, err)
 	}
 }
@@ -640,7 +640,7 @@ func TestAKnownPhotoTakesTheCardAndADeletedTwinStaysOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	given := []Redate{{Names: []string{"DCIM/sub/B.JPG"}, When: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}
-	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron", Account: "local/EOS_DIGITAL"}, ImportOptions{Fits: fits, Redates: given}, nil)
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron", Account: "local/EOS_DIGITAL"}, ImportOptions{Asked: Asked{Redates: given}, Fits: fits}, nil)
 	if err != nil || done.Deleted != 2 {
 		t.Fatalf("%+v, %v; want B and its twin left out as deleted", done, err)
 	}

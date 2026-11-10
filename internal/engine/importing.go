@@ -37,13 +37,10 @@ type Importing struct {
 // ImportAsk is what the window asks of a look or a copy, as it sends it;
 // kept in the state, for a copy taken up again.
 type ImportAsk struct {
-	Dir     string           `json:"dir"`
-	Profile string           `json:"profile"` // whose photos they are
-	Redates []library.Redate `json:"redates,omitempty"`
-	Choice  *library.Choice  `json:"choice,omitempty"`
-	Link    bool             `json:"link,omitempty"` // hard links, not copies
-	// BringBack brings in again what someone deleted from the library.
-	BringBack bool `json:"bring_back,omitempty"`
+	Dir     string `json:"dir"`
+	Profile string `json:"profile"` // whose photos they are
+	library.Asked
+	Link bool `json:"link,omitempty"` // hard links, not copies
 }
 
 // ImportState is where the window's import stands.
@@ -111,7 +108,7 @@ func (im *Importing) Plan(a ImportAsk) error {
 	hashes := im.hashes
 	im.mu.Unlock()
 	return im.start(a, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		plan, err := PlanImport(ctx, a.Dir, library.PlanOptions{Profile: a.Profile, Redates: a.Redates, Hashes: hashes, Choice: a.Choice, BringBack: a.BringBack}, emit)
+		plan, err := PlanImport(ctx, a.Dir, library.PlanOptions{Asked: a.Asked, Profile: a.Profile, Hashes: hashes}, emit)
 		if err == nil {
 			s.Plan = &plan
 			s.CanLink = canLink(a.Dir)
@@ -148,7 +145,7 @@ func (im *Importing) Import(a ImportAsk) error {
 	}
 	im.mu.Unlock()
 	return im.start(a, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		how := library.ImportOptions{Link: a.Link, Redates: a.Redates, Choice: a.Choice, Hashes: hashes, BringBack: a.BringBack}
+		how := library.ImportOptions{Asked: a.Asked, Link: a.Link, Hashes: hashes}
 		done, err := Import(ctx, a.Dir, a.Profile, how, emit)
 		s.Imported = &done
 		return err

@@ -57,7 +57,9 @@ func TestAFolderListsItsMediaAndWhatElseIsThere(t *testing.T) {
 func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	card := cameraCard(t)
 	// The library already holds the photo of 2026, under another name.
-	catalog, err := OpenCatalog(filepath.Join(t.TempDir(), "catalog.db"))
+	lib := t.TempDir()
+	write(t, lib, "2026/08/renamed.jpg", []byte("the library's file"))
+	catalog, err := OpenCatalog(filepath.Join(lib, "catalog.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +78,7 @@ func TestThePlanCountsByYearAndFindsWhatIsAlreadyThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{}, nil)
+	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Root: lib}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +153,7 @@ func TestAFolderNameIsNotADate(t *testing.T) {
 	}
 	// With no camera's date it is unsure, and comes in when ticked.
 	choice := &Choice{In: []string{"Photos from 2019"}}
-	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{Choice: choice}, nil)
+	plan, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{Asked: Asked{Choice: choice}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +255,9 @@ func TestASecondLookReadsNothingAgain(t *testing.T) {
 	known := hashes[path]
 	known.hash = "said by the first look"
 	hashes[path] = known
-	catalog, err := OpenCatalog(filepath.Join(t.TempDir(), "catalog.db"))
+	lib := t.TempDir()
+	write(t, lib, "2026/08/DSCF0001.JPG", []byte("the library's file"))
+	catalog, err := OpenCatalog(filepath.Join(lib, "catalog.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +265,7 @@ func TestASecondLookReadsNothingAgain(t *testing.T) {
 	if err := catalog.Put(Photo{Hash: known.hash, Path: "2026/08/DSCF0001.JPG", Name: "DSCF0001.JPG"}); err != nil {
 		t.Fatal(err)
 	}
-	plan, err = PlanImport(context.Background(), card, folder, catalog, PlanOptions{Hashes: hashes}, nil)
+	plan, err = PlanImport(context.Background(), card, folder, catalog, PlanOptions{Hashes: hashes, Root: lib}, nil)
 	if err != nil || plan.InLibrary != 1 {
 		t.Errorf("second look: %d in the library, %v; want the one the first look read", plan.InLibrary, err)
 	}

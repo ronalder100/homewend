@@ -261,7 +261,7 @@ func TestTheWindowCountsACopyByMonth(t *testing.T) {
 	}
 	var im Importing
 	given := []library.Redate{{Names: []string{"A.JPG"}, When: time.Date(2025, 9, 14, 10, 0, 0, 0, time.UTC)}}
-	if err := im.Import(ImportAsk{Dir: card, Profile: "ron", Redates: given}); err != nil {
+	if err := im.Import(ImportAsk{Asked: library.Asked{Redates: given}, Dir: card, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
 	s := importEnded(t, &im)

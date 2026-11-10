@@ -57,7 +57,7 @@ func TestAMessyFolderIsToldApart(t *testing.T) {
 	// The WhatsApp folder ticked, Greece left out, one photo picked from
 	// the project: that is what comes in.
 	choice := &Choice{In: []string{"Downloads/WhatsApp Images"}, Out: []string{"Pictures/Greece 2019"}, Pick: []string{"code/family-site/public/img/us.jpg"}}
-	plan, err = PlanImport(context.Background(), dir, folder, nil, PlanOptions{Choice: choice}, nil)
+	plan, err = PlanImport(context.Background(), dir, folder, nil, PlanOptions{Asked: Asked{Choice: choice}}, nil)
 	if err != nil || plan.Photos != 3 {
 		t.Errorf("chosen: %d photos, %v; want WhatsApp's, the card's and the one picked", plan.Photos, err)
 	}
@@ -69,7 +69,7 @@ func TestAMessyFolderIsToldApart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer catalog.Close()
-	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Choice: choice, Fits: func(int64) error { return nil }}, nil)
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Asked: Asked{Choice: choice}, Fits: func(int64) error { return nil }}, nil)
 	if err != nil || done.Placed != 3 {
 		t.Errorf("copied %d, %v; want 3", done.Placed, err)
 	}
@@ -105,7 +105,7 @@ func TestRawFilesComeInAndWhatStaysOutIsSaid(t *testing.T) {
 	if err != nil || plan.Photos != 1 {
 		t.Fatalf("%d photos would come in, %v; want the raw file", plan.Photos, err)
 	}
-	if _, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{Choice: &Choice{In: []string{"Scan"}}}, nil); !errors.As(err, new(UnknownGroupError)) {
+	if _, err := PlanImport(context.Background(), dir, folder, nil, PlanOptions{Asked: Asked{Choice: &Choice{In: []string{"Scan"}}}}, nil); !errors.As(err, new(UnknownGroupError)) {
 		t.Errorf("a folder mistyped: %v, want it said", err)
 	}
 	root := t.TempDir()

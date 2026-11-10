@@ -804,7 +804,7 @@ func importCommand(args []string) int {
 	}
 	ctx, stop := interrupted()
 	defer stop()
-	plan, err := engine.PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Choice: w.choice(), BringBack: w.bringBack}, out.event)
+	plan, err := engine.PlanImport(ctx, dir, library.PlanOptions{Asked: w.asked(redates), Profile: profile}, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -826,8 +826,7 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
-	c := importCounts{Counts: plan.Counts}
-	sayCounts(out, true, c)
+	sayCounts(out, true, plan.Counts, 0)
 	out.say("")
 	sayOutcome(out, plan.Counts, true, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)), dir)
 	return exitOK
@@ -911,6 +910,12 @@ type importWords struct {
 	card      string // the card found, when no folder was named
 	json      bool
 	more      bool // more than one folder
+}
+
+// asked is what the person said on the command line, as the engine hears
+// it: the dates given, the groups included, the deleted brought back.
+func (w importWords) asked(redates []library.Redate) library.Asked {
+	return library.Asked{Redates: redates, Choice: w.choice(), BringBack: w.bringBack}
 }
 
 // choice is the groups --include brings in besides those that come in by
@@ -1015,7 +1020,7 @@ func importCopy(w importWords, args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	done, err := engine.Import(ctx, w.dir, profile, library.ImportOptions{Link: w.link, Redates: redates, Choice: w.choice(), BringBack: w.bringBack}, out.event)
+	done, err := engine.Import(ctx, w.dir, profile, library.ImportOptions{Asked: w.asked(redates), Link: w.link}, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -1023,8 +1028,7 @@ func importCopy(w importWords, args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done, "dir": w.dir})
 		return exitOK
 	}
-	c := importCounts{Counts: done.Counts, undated: done.Undated}
-	sayCounts(out, false, c)
+	sayCounts(out, false, done.Counts, done.Undated)
 	out.say("")
 	fresh := fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)
 	if w.link {
@@ -1034,17 +1038,11 @@ func importCopy(w importWords, args []string) int {
 	return exitOK
 }
 
-// importCounts are what a look or a copy says before its last line: the
-// engine's counts, and the undated a copy filed.
-type importCounts struct {
-	library.Counts
-	undated int
-}
-
-// sayCounts says them, one way for a look (dry) and its copy: the groups
+// sayCounts says what a look (dry) or its copy counted, and the undated a
+// copy filed, before its last line, one way for both: the groups
 // that stay out with why and how to bring one in, then what is in, moved,
 // twice, undated, left to another profile, deleted, unreadable.
-func sayCounts(out *printer, dry bool, c importCounts) {
+func sayCounts(out *printer, dry bool, c library.Counts, undated int) {
 	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
@@ -1070,7 +1068,7 @@ func sayCounts(out *printer, dry bool, c importCounts) {
 		{c.InLibrary, fmt.Sprintf(text["import already"], c.InLibrary)},
 		{c.Redated, fmt.Sprintf(text[redated], c.Redated)},
 		{c.Twins, fmt.Sprintf(text["import twins"], c.Twins)},
-		{c.undated, fmt.Sprintf(text["imported undated"], c.undated)},
+		{undated, fmt.Sprintf(text["imported undated"], undated)},
 	} {
 		if line.n > 0 {
 			out.say("  " + line.said)

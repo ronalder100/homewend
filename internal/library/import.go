@@ -51,18 +51,11 @@ type ImportOptions struct {
 	Link bool
 	// Fits is asked before each copy whether the library's disk has room.
 	Fits func(size int64) error
-	// Redates are dates given to photos whose camera had them wrong.
-	Redates []Redate
-	// Choice is which of the folder's groups come in; nil, each as its
-	// kind says, as the look before it said.
-	Choice *Choice
+	// What the person said, as the look before it heard it.
+	Asked
 	// Hashes are what a look before read of the folder, when it did: the
 	// dates that decide a group are not read again.
 	Hashes Hashes
-	// BringBack brings in again the photos the library had and someone
-	// deleted from it. Without it they stay out, counted: a card still
-	// holds what was deleted, and would bring it back at every import.
-	BringBack bool
 }
 
 // arrivals is where a file from a folder waits, copied and read back, for
@@ -222,11 +215,11 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 
 // libraryHolds is where the library holds the photo of hash, below root,
 // and whether someone deleted it: listed in the catalog, gone from the disk.
-// A disk that answers late is not a deletion. With no root, nothing is
-// taken for deleted. The look and the copy judge a photo here, alike.
+// A disk that answers late is not a deletion. The look and the copy judge
+// a photo here, alike.
 func libraryHolds(catalog *Catalog, root, hash string) (path string, known, deleted bool, err error) {
 	path, known, err = catalog.PathOf(hash)
-	if err != nil || !known || root == "" {
+	if err != nil || !known {
 		return path, known, false, err
 	}
 	_, gone := os.Lstat(filepath.Join(root, filepath.FromSlash(path)))

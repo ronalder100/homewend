@@ -79,22 +79,31 @@ type ImportGroup struct {
 
 // PlanOptions are what a look is for.
 type PlanOptions struct {
+	// What the person said, as the copy will hear it.
+	Asked
 	// Profile, when not "", is whose import it would be: a photo another
 	// profile holds is not its to date.
 	Profile string
-	// Redates are dates given to photos whose camera had them wrong.
-	Redates []Redate
 	// Hashes, when not nil, keeps each file's content as read, for the
 	// next look at the same folder: one with dates given reads nothing
 	// again.
 	Hashes Hashes
-	// Choice is which groups come in; nil, each as its kind says.
-	Choice *Choice
 	// Root is the library's folder, when there is a catalog: a photo it
 	// lists and its disk no longer holds was deleted.
 	Root string
-	// BringBack counts a deleted photo as coming in again (ImportOptions).
-	BringBack bool
+}
+
+// Asked is what the person says of an import, the same for its look and
+// its copy, and as the window sends it.
+type Asked struct {
+	// Dates given to photos whose camera had them wrong.
+	Redates []Redate `json:"redates,omitempty"`
+	// Which groups come in; nil, each as its kind says.
+	Choice *Choice `json:"choice,omitempty"`
+	// Bring in again the photos the library had and someone deleted from
+	// it. Without it they stay out, counted: a card still holds what was
+	// deleted, and would bring it back at every import.
+	BringBack bool `json:"bring_back,omitempty"`
 }
 
 // Hashes are the contents of a folder's files, by path, as a look read
@@ -307,18 +316,16 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			}
 			continue
 		}
-		if seen[hash] {
-			plan.Twins++
-			if dated {
-				plan.Redated++
-			}
-			continue
-		}
-		seen[hash] = true
-		// A new photo given a date is moved to it too, as the copy counts.
+		// Not in the library: given a date, it moves to it, a twin too, as
+		// the copy counts.
 		if dated {
 			plan.Redated++
 		}
+		if seen[hash] {
+			plan.Twins++
+			continue
+		}
+		seen[hash] = true
 		if info, err := os.Stat(item.Path); err == nil {
 			plan.Bytes += info.Size()
 		}
