@@ -358,7 +358,7 @@ func TestImportReadsItsFolderWhereverTheFlagsAre(t *testing.T) {
 		{[]string{"/card", "--json", "--dry-run"}, "/card", true, false},
 		{[]string{"/card"}, "/card", false, false},
 		{[]string{"--dry-run", "/card", "/other"}, "/card", true, true},
-		{[]string{"/card", "/other", "--dry-run"}, "/card", true, true},
+		{[]string{"/card", "/other", "--dry-run"}, "/card", false, true},
 		{[]string{"--dry-run"}, "", true, false},
 	} {
 		w := importArgs(c.args)
@@ -467,11 +467,15 @@ func TestDeletedLeftOutAreNamed(t *testing.T) {
 	}
 }
 
-// A photo's name typed where the folder goes is the deleted photo to
-// bring back from the card, as the dry run named it.
-func TestAPhotoNameWhereTheFolderGoesBringsItBack(t *testing.T) {
-	w := importArgs([]string{"--dry-run", "DCIM/100_FUJI/DSCF0003.JPG", "DSCF0010.JPG"})
-	if got := strings.Join(w.asked(nil).BringBack, " "); w.dir != "" || w.more || got != "DCIM/100_FUJI/DSCF0003.JPG DSCF0010.JPG" {
-		t.Errorf("dir %q, more %v, back %q; want both brought back from the card", w.dir, w.more, got)
+// A photo's name typed where the folder goes is not a folder: the person
+// is told how a deleted photo is brought back.
+func TestAPhotoNameWhereTheFolderGoesSaysBringBack(t *testing.T) {
+	out := capturedFrom(t, &os.Stderr, func() { importCommand([]string{"--dry-run", "DCIM/100_FUJI/DSCF0003.JPG"}) })
+	if !strings.Contains(out, "--bring-back DCIM/100_FUJI/DSCF0003.JPG") {
+		t.Errorf("%q, want the --bring-back way", out)
+	}
+	out = capturedFrom(t, &os.Stderr, func() { importCommand([]string{"--dry-run", "trip.2024"}) })
+	if strings.Contains(out, "--bring-back") {
+		t.Errorf("%q: a folder with a dot is no photo", out)
 	}
 }

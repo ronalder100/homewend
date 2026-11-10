@@ -27,8 +27,8 @@ var (
 // IsVideo is whether the file is a video, by its extension.
 func IsVideo(path string) bool { return videoExtensions[strings.ToLower(filepath.Ext(path))] }
 
-// isMedia is whether the file is a photo or a video, by its extension.
-func isMedia(path string) bool {
+// IsMedia is whether the file is a photo or a video, by its extension.
+func IsMedia(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return photoExtensions[ext] || videoExtensions[ext]
 }
@@ -79,7 +79,7 @@ func ReadFolder(dir string) (Folder, error) {
 		if entry.IsDir() {
 			return nil
 		}
-		if !isMedia(path) {
+		if !IsMedia(path) {
 			f.Others = append(f.Others, path)
 			return nil
 		}

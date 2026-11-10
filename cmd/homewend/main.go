@@ -779,6 +779,11 @@ func importCommand(args []string) int {
 		return w.failed(text["import one folder"], text["one folder hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
+		// A photo's name typed where the folder goes: the dry run named it
+		// among those deleted, to bring back.
+		if library.IsMedia(dir) {
+			return w.failed(fmt.Sprintf(text["import not found"], dir), fmt.Sprintf(text["import not found photo"], dir))
+		}
 		return w.failed(fmt.Sprintf(text["import not found"], dir))
 	} else if !info.IsDir() {
 		return w.failed(fmt.Sprintf(text["import not a folder"], dir))
@@ -853,29 +858,11 @@ func importArgs(args []string) importWords {
 	flags.Var(&dates, "date", "NAMES=WHEN: the right date of photos whose camera had it wrong")
 	flags.Var(&include, "include", "FOLDER: a folder that stays out by itself (a project, no camera data) brought in")
 	flags.Parse(bareBringBack(args))
-	var dir string
-	var more bool
-	for flags.NArg() > 0 {
-		switch word := flags.Arg(0); {
-		case isPhotoName(word):
-			// A photo's name, not a folder: the deleted one the dry run
-			// named, to bring back from the card.
-			back = append(back, word)
-		case dir == "":
-			dir = word
-		default:
-			more = true
-		}
+	dir := flags.Arg(0)
+	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: more}
-}
-
-// isPhotoName is whether word, typed where the folder goes, names a photo
-// of the card instead: nothing there by that path, and a file's extension.
-func isPhotoName(word string) bool {
-	_, err := os.Stat(word)
-	return err != nil && filepath.Ext(word) != ""
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: dir != "" && flags.NArg() > 0}
 }
 
 // bareBringBack gives an empty value, all as asked reads it, to a
