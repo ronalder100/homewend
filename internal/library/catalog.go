@@ -389,6 +389,10 @@ func (c *Catalog) addOwner(hash, account string) error {
 	return err
 }
 
+// LocalSource begins the source of a card or a folder imported,
+// "local/<its name>": no account, never hidden with one.
+const LocalSource = "local/"
+
 // ownedBy is the SQL that keeps the photos of these accounts, those of
 // nobody's (recorded before owners were kept), and those a card or a folder
 // brought in ("local/…"): hiding an account hides what came from it, not a card's
@@ -397,7 +401,7 @@ func ownedBy(accounts []string) (string, []any) {
 	if accounts == nil {
 		return "", nil
 	}
-	clause := "(hash NOT IN (SELECT hash FROM owners) OR hash IN (SELECT hash FROM owners WHERE account LIKE 'local/%')"
+	clause := "(hash NOT IN (SELECT hash FROM owners) OR hash IN (SELECT hash FROM owners WHERE account LIKE '" + LocalSource + "%')"
 	var args []any
 	if len(accounts) > 0 {
 		clause += " OR hash IN (SELECT hash FROM owners WHERE account IN (?" + strings.Repeat(",?", len(accounts)-1) + "))"

@@ -17,7 +17,9 @@
 		startImport,
 		stopImport,
 		type Card,
+		againImport,
 		type Choice,
+		type Filed,
 		type ImportAsk,
 		type ImportGroup,
 		type ImportPlan,
@@ -127,10 +129,8 @@
 			carryOn().finally(() => (restarting = false));
 		}
 	});
-	const carryOn = () =>
-		start(() =>
-			im!.kind === 'plan' ? planImport(asked(im!)) : startImport(asked(im!))
-		);
+	// The engine keeps what was asked, and runs it again.
+	const carryOn = () => start(againImport);
 
 	async function start(call: () => Promise<ImportState>) {
 		choosing = false;
@@ -171,15 +171,6 @@
 	// What the person has said so far, for the next look or the copy.
 	const asking = (): ImportAsk => ({ dir: im!.dir!, profile: im!.profile || profile, redates, choice, bringBack });
 	const lookAgain = () => start(() => planImport(asking()));
-	// What a run asked, as the state keeps it: for a copy taken up again.
-	const asked = (s: ImportState): ImportAsk => ({
-		dir: s.dir!,
-		profile: s.profile!,
-		redates: s.redates,
-		choice: s.choice,
-		link: s.link,
-		bringBack: s.bringBack
-	});
 
 	// Which of the folder's groups come in (I4), and the photos picked from
 	// one that stays out (I5): null, each as its kind says. A change looks
@@ -240,9 +231,8 @@
 		if (!next.delete(year)) next.add(year);
 		opened = next;
 	}
-	// What is in of a year, from the months filed: "" the undated.
-	const filedIn = (filed: Record<string, number>, year: string) =>
-		Object.entries(filed).reduce((n, [month, k]) => n + ((year ? month.startsWith(year + '-') : month === '') ? k : 0), 0);
+	// What is in of a year, from its months filed.
+	const filedIn = (filed: Filed, year: string) => Object.values(filed[year] ?? {}).reduce((n, k) => n + k, 0);
 	const counts = (c: { photos: number; videos: number }) =>
 		`${c.photos ? c.photos.toLocaleString('en') : '—'}${c.videos ? ` · ${c.videos.toLocaleString('en')}` : ''}`;
 	const otherFiles = $derived((plan?.others ?? []).reduce((n, o) => n + o.files, 0));
@@ -253,7 +243,7 @@
 
 <!-- The years, newest first; a year opened shows its months below it (I8b). -->
 <!-- During the copy (I6), each with what is in and checked, of what to copy. -->
-{#snippet byYear(years: ImportPlan['years'], filed?: Record<string, number>)}
+{#snippet byYear(years: ImportPlan['years'], filed?: Filed)}
 	{#if years.length > 0}
 		<section class="years">
 			<header><h2>{text.byYearImport}</h2><span>{filed ? text.verifiedLegend : text.byYearImportLegend}</span></header>
@@ -269,7 +259,7 @@
 							<span class="name">{text.monthNames[m.month - 1]}</span>
 							<span class="count"
 								>{filed
-									? `${(filed[`${y.year}-${String(m.month).padStart(2, '0')}`] ?? 0).toLocaleString('en')} / ${(m.photos + m.videos).toLocaleString('en')}`
+									? `${(filed[y.year]?.[m.month] ?? 0).toLocaleString('en')} / ${(m.photos + m.videos).toLocaleString('en')}`
 									: counts(m)}</span
 							>
 						</div>
@@ -333,7 +323,8 @@
 		<!-- I3: what comes in, by year; what stays out. -->
 		<span class="pill">{name}</span>
 		<h1>{text.toCopy(plan.photos, plan.videos)}</h1>
-		{#if plan.photos + plan.videos === 0}<p class="lead">{plan.redated > 0 ? text.planRedated(plan.redated) : plan.deleted > 0 ? text.onlyDeletedLead : text.nothingNewLead}</p>{:else if plan.in_library > 0}<p class="lead">{text.toCopyLead}</p>{/if}
+		<!-- How it ends, as the engine says it, for this screen and the command line alike. -->
+		{#if plan.outcome !== 'new'}<p class="lead">{text.planLead[plan.outcome](plan)}</p>{:else if plan.in_library > 0}<p class="lead">{text.toCopyLead}</p>{/if}
 		<div class="numbers">
 			<div><b>{bytes(plan.bytes)}</b><span>{text.importToCopy}</span></div>
 			<div><b>{plan.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>

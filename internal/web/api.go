@@ -279,6 +279,10 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 		err := importing.Import(ask)
 		reply(w, importing.State(), err)
 	})
+	mux.HandleFunc("POST /api/import/again", func(w http.ResponseWriter, r *http.Request) {
+		err := importing.Again()
+		reply(w, importing.State(), err)
+	})
 	// A file of the card looked at, small, for picking the ones with a
 	// wrong date. Asked again each time: another card in the same place
 	// has other photos under the same names.

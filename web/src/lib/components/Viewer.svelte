@@ -31,11 +31,9 @@
 		if (hash)
 			getAbout(hash).then((a) => {
 				if (p?.hash !== hash) return;
-				// Sources are account ids; the window names an account by its
-				// address, a card or a folder by its name.
-				const email = (id: string) =>
-					app.overview?.accounts.find((x) => x.id === id)?.email ?? id.replace(/^local\//, '');
-				about = [...a.albums, ...a.accounts.map(email)].map((x) => ` · ${x}`).join('');
+				// Accounts by id, named by their address; cards and folders by name.
+				const email = (id: string) => app.overview?.accounts.find((x) => x.id === id)?.email ?? id;
+				about = [...a.albums, ...a.accounts.map(email), ...a.local].map((x) => ` · ${x}`).join('');
 			});
 	});
 

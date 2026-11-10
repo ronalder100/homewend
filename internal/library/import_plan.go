@@ -5,14 +5,11 @@ package library
 
 import (
 	"context"
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -44,6 +41,9 @@ type ImportPlan struct {
 	// The folder's photos in groups, as they come in or stay out: its
 	// own folders, a project, an app's previews.
 	Groups []ImportGroup `json:"groups"`
+
+	// How it ends, for every screen and line that says it.
+	Outcome Outcome `json:"outcome"`
 
 	// Years, newest first; "" is the photos with no date.
 	Years []ImportYear `json:"years"`
@@ -288,19 +288,14 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		var held string // where the library holds it, "" not
 		var deleted bool
 		if catalog != nil {
-			path, known, err := catalog.PathOf(hash)
+			path, known, gone, err := libraryHolds(catalog, opt.Root, hash)
 			if err != nil {
 				return plan, err
 			}
-			if known {
-				// As the copy decides: listed, and gone from the disk.
-				_, gone := os.Lstat(filepath.Join(opt.Root, filepath.FromSlash(path)))
-				if opt.Root != "" && errors.Is(gone, fs.ErrNotExist) {
-					deleted = true
-				} else {
-					held = path
-					group.InLibrary++
-				}
+			deleted = gone
+			if known && !gone {
+				held = path
+				group.InLibrary++
 			}
 		}
 		if !in[item.Path] {
@@ -316,10 +311,9 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 		if held != "" {
 			plan.InLibrary++
 			// As redateInLibrary decides: by the profile it is filed in.
-			first, _, _ := strings.Cut(held, "/")
 			switch {
 			case !dated:
-			case profile != "" && first != profile:
+			case !filedIn(held, profile):
 				plan.NotRedated++
 			default:
 				plan.Redated++
@@ -374,9 +368,12 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			count(&m.Photos, &m.Videos)
 		}
 	}
+	leftOut := false
 	for i := range plan.Groups {
 		plan.Groups[i].Paths = nil
+		leftOut = leftOut || !plan.Groups[i].In
 	}
+	plan.Outcome = outcome(plan.Photos+plan.Videos, plan.Redated, leftOut, plan.Deleted, plan.InLibrary+plan.Twins, plan.Unreadable)
 	for _, y := range years {
 		// The months nothing would go in are not said.
 		y.Months = slices.DeleteFunc(y.Months, func(m ImportMonth) bool { return m.Photos+m.Videos == 0 })

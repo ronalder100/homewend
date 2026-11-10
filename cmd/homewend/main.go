@@ -819,21 +819,6 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
 	}
-	// The groups that stay out unless named, each with why.
-	var leftOut []library.Group
-	for _, g := range plan.Groups {
-		if !g.In {
-			leftOut = append(leftOut, g.Group)
-		}
-	}
-	sayLeftOut(out, leftOut, func(i int) string {
-		for _, g := range plan.Groups {
-			if g.Folder == leftOut[i].Folder {
-				return mediaCount(g.Photos, g.Videos)
-			}
-		}
-		return ""
-	})
 	for _, o := range plan.Others {
 		folder := o.Folder
 		if folder == "." {
@@ -841,28 +826,19 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
-	if plan.InLibrary > 0 {
-		out.say("  " + fmt.Sprintf(text["import already"], plan.InLibrary))
+	c := importCounts{known: plan.InLibrary, twins: plan.Twins, redated: plan.Redated, notRedated: plan.NotRedated, deleted: plan.Deleted, unreadable: plan.Unreadable}
+	for _, g := range plan.Groups {
+		if !g.In {
+			c.leftOut = append(c.leftOut, g.Group)
+			c.holds = append(c.holds, mediaCount(g.Photos, g.Videos))
+		}
 	}
-	if plan.Redated > 0 {
-		out.say("  " + fmt.Sprintf(text["plan redated"], plan.Redated))
-	}
-	if plan.NotRedated > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], plan.NotRedated), warnColour, false))
-	}
-	if plan.Twins > 0 {
-		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))
-	}
-	sayDeleted(out, plan.Deleted)
-	if plan.Unreadable > 0 {
-		out.say("  " + out.out.paint(counted(plan.Unreadable, "import unreadable"), warnColour, false))
-	}
+	sayCounts(out, true, c)
 	out.say("")
-	switch {
-	case plan.Photos+plan.Videos > 0:
+	if plan.Outcome == library.OutcomeNew {
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
-	default:
-		sayNothingNew(out, true, plan.Redated, len(leftOut) > 0, plan.Deleted, plan.InLibrary+plan.Twins, plan.Unreadable, dir)
+	} else {
+		sayOutcome(out, plan.Outcome, true, plan.Redated, dir)
 	}
 	return exitOK
 }
@@ -970,16 +946,10 @@ func includeFolder(dir, name string) string {
 	if clean == "." {
 		return "."
 	}
+	// A path the shell completed is one that is there from here.
 	if _, err := os.Stat(clean); err == nil || filepath.IsAbs(clean) {
-		real := func(p string) string {
-			p, _ = filepath.Abs(p)
-			if r, err := filepath.EvalSymlinks(p); err == nil {
-				return r
-			}
-			return p
-		}
-		if rel, err := filepath.Rel(real(dir), real(clean)); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return filepath.ToSlash(rel)
+		if rel, ok := library.Below(clean, dir); ok {
+			return rel
 		}
 	}
 	return strings.Trim(filepath.ToSlash(clean), "/")
@@ -1063,78 +1033,36 @@ func importCopy(w importWords, args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done, "dir": w.dir})
 		return exitOK
 	}
-	if done.InLibrary > 0 {
-		out.say("  " + fmt.Sprintf(text["import already"], done.InLibrary))
+	c := importCounts{known: done.InLibrary, twins: done.Twins, redated: done.Redated, notRedated: done.NotRedated, deleted: done.Deleted, undated: done.Undated, unreadable: done.Unreadable, leftOut: done.LeftOut}
+	for _, g := range done.LeftOut {
+		c.holds = append(c.holds, counted(len(g.Paths), "files"))
 	}
-	if done.Twins > 0 {
-		out.say("  " + fmt.Sprintf(text["import twins"], done.Twins))
-	}
-	sayDeleted(out, done.Deleted)
-	if done.Undated > 0 {
-		out.say("  " + fmt.Sprintf(text["imported undated"], done.Undated))
-	}
-	if done.Redated > 0 {
-		out.say("  " + fmt.Sprintf(text["imported redated"], done.Redated))
-	}
-	if done.NotRedated > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], done.NotRedated), warnColour, false))
-	}
-	if done.Unreadable > 0 {
-		out.say("  " + out.out.paint(counted(done.Unreadable, "import unreadable"), warnColour, false))
-	}
-	sayLeftOut(out, done.LeftOut, func(i int) string { return counted(len(done.LeftOut[i].Paths), "files") })
+	sayCounts(out, false, c)
 	out.say("")
 	switch {
-	case done.Placed > 0 && w.link:
+	case done.Outcome == library.OutcomeNew && w.link:
 		out.say(out.out.result(fmt.Sprintf(text["result linked"], counted(done.Placed, "brought"), profile)))
-	case done.Placed > 0:
+	case done.Outcome == library.OutcomeNew:
 		out.say(out.out.result(fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)))
 	default:
-		sayNothingNew(out, false, done.Redated, len(done.LeftOut) > 0, done.Deleted, done.InLibrary+done.Twins, done.Unreadable, w.dir)
+		sayOutcome(out, done.Outcome, false, done.Redated, w.dir)
 	}
 	return exitOK
 }
 
-// sayNothingNew is the last line of a dry run or a copy that brings
-// nothing in, one for both, so that the two never tell the same folder
-// apart: photos moved to a date given first, then folders left out (new
-// or not, they are what to look at), then photos deleted from the
-// library, then what was already in, read or not, then nothing at all.
-func sayNothingNew(out *printer, dry bool, redated int, leftOut bool, deleted, known, unreadable int, dir string) {
-	switch {
-	case redated > 0 && dry:
-		out.say(out.out.result(fmt.Sprintf(text["result plan redated"], redated)))
-	case redated > 0:
-		out.say(out.out.result(fmt.Sprintf(text["result redated"], redated)))
-	case leftOut && dry:
-		out.say(out.out.summary(text["result plan left out"]))
-	case leftOut:
-		out.say(out.out.summary(text["result import left out"]))
-	case deleted > 0:
-		out.say(out.out.result(text["result import deleted"]))
-	case known > 0 && unreadable > 0:
-		out.say(out.out.summary(text["result import none read"]))
-	case known > 0:
-		out.say(out.out.result(text["result import none"]))
-	case unreadable > 0:
-		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], dir)))
-	default:
-		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
-	}
+// importCounts are what a look or a copy says before its last line.
+type importCounts struct {
+	known, twins, redated, notRedated, deleted, undated, unreadable int
+	// The groups left out, and what each holds, said beside it.
+	leftOut []library.Group
+	holds   []string
 }
 
-// sayDeleted says the photos left out because someone deleted them from
-// the library, and how to bring them back.
-func sayDeleted(out *printer, n int) {
-	if n > 0 {
-		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(n, "deleted")), faintColour, false))
-	}
-}
-
-// sayLeftOut says the groups of a folder that stay out, each with why and
-// how many it holds, and how to bring one in.
-func sayLeftOut(out *printer, groups []library.Group, holds func(i int) string) {
-	for i, g := range groups {
+// sayCounts says them, one way for a look (dry) and its copy: the groups
+// that stay out with why and how to bring one in, then what is in, moved,
+// left to another profile, twice, deleted, undated, unreadable.
+func sayCounts(out *printer, dry bool, c importCounts) {
+	for i, g := range c.leftOut {
 		folder := g.Folder
 		if folder == "." {
 			folder = text["import itself"]
@@ -1143,10 +1071,70 @@ func sayLeftOut(out *printer, groups []library.Group, holds func(i int) string) 
 		if g.Mark != "" {
 			why = fmt.Sprintf(why, g.Mark)
 		}
-		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(holds(i)+" · "+why, faintColour, false))
+		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(c.holds[i]+" · "+why, faintColour, false))
 	}
-	if len(groups) > 0 {
+	if len(c.leftOut) > 0 {
 		out.say("  " + out.out.paint(text["group include"], faintColour, false))
+	}
+	redated := "imported redated"
+	if dry {
+		redated = "plan redated"
+	}
+	for _, line := range []struct {
+		n    int
+		said string
+	}{
+		{c.known, fmt.Sprintf(text["import already"], c.known)},
+		{c.redated, fmt.Sprintf(text[redated], c.redated)},
+		{c.twins, fmt.Sprintf(text["import twins"], c.twins)},
+		{c.undated, fmt.Sprintf(text["imported undated"], c.undated)},
+	} {
+		if line.n > 0 {
+			out.say("  " + line.said)
+		}
+	}
+	if c.notRedated > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], c.notRedated), warnColour, false))
+	}
+	if c.deleted > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.deleted, "deleted")), faintColour, false))
+	}
+	if c.unreadable > 0 {
+		out.say("  " + out.out.paint(counted(c.unreadable, "import unreadable"), warnColour, false))
+	}
+}
+
+// sayOutcome is the last line of a look or a copy that brings nothing new,
+// in the words of how the engine says it ended; a look's in the
+// conditional.
+func sayOutcome(out *printer, o library.Outcome, dry bool, redated int, dir string) {
+	line := map[library.Outcome]struct {
+		key, dryKey string
+		ok          bool // said as done, not as a summary
+	}{
+		library.OutcomeRedated:    {"result redated", "result plan redated", true},
+		library.OutcomeLeftOut:    {"result import left out", "result plan left out", false},
+		library.OutcomeDeleted:    {"result import deleted", "", true},
+		library.OutcomeKnownNoted: {"result import none read", "", false},
+		library.OutcomeKnown:      {"result import none", "", true},
+		library.OutcomeUnread:     {"result import unread", "", false},
+		library.OutcomeEmpty:      {"result import empty", "", false},
+	}[o]
+	key := line.key
+	if dry && line.dryKey != "" {
+		key = line.dryKey
+	}
+	said := text[key]
+	switch o {
+	case library.OutcomeRedated:
+		said = fmt.Sprintf(said, redated)
+	case library.OutcomeUnread, library.OutcomeEmpty:
+		said = fmt.Sprintf(said, dir)
+	}
+	if line.ok {
+		out.say(out.out.result(said))
+	} else {
+		out.say(out.out.summary(said))
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/library"
@@ -215,7 +216,8 @@ func Latest(n int) ([]GridPhoto, error) {
 // PhotoAbout is what the viewer says beside a photo's name.
 type PhotoAbout struct {
 	Albums   []string `json:"albums"`
-	Accounts []string `json:"accounts"`
+	Accounts []string `json:"accounts"` // the accounts', by id
+	Local    []string `json:"local"`    // the cards' and folders', by name
 }
 
 // About is a photo's albums and the accounts it came from.
@@ -225,6 +227,15 @@ func About(hash string) (PhotoAbout, error) {
 		return PhotoAbout{Albums: []string{}, Accounts: []string{}}, err
 	}
 	defer c.Close()
-	albums, accounts, err := c.About(hash)
-	return PhotoAbout{Albums: albums, Accounts: accounts}, err
+	var sources []string
+	about := PhotoAbout{Accounts: []string{}, Local: []string{}}
+	about.Albums, sources, err = c.About(hash)
+	for _, s := range sources {
+		if name, ok := strings.CutPrefix(s, library.LocalSource); ok {
+			about.Local = append(about.Local, name)
+		} else {
+			about.Accounts = append(about.Accounts, s)
+		}
+	}
+	return about, err
 }

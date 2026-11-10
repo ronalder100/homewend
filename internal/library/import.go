@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ronalder100/homewend/internal/progress"
@@ -37,6 +39,8 @@ type Imported struct {
 	// The groups that stayed out, by their kind or as chosen: said, so
 	// that no photo stays out unseen.
 	LeftOut []Group `json:"left_out,omitempty"`
+	// How it ended, as the look before it would have said.
+	Outcome Outcome `json:"outcome"`
 }
 
 // redate gives a photo of the library its date, and counts it given or
@@ -154,18 +158,15 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			continue
 		}
 		seen[hash] = true
-		relative, known, err := catalog.PathOf(hash)
+		relative, known, deleted, err := libraryHolds(catalog, root, hash)
 		if err != nil {
 			return done, err
 		}
 		home := filepath.Join(root, filepath.FromSlash(relative))
-		// Gone, not unreadable: a share that answers late is not a reason to
-		// copy the photo again.
-		if _, err := os.Lstat(home); known && errors.Is(err, fs.ErrNotExist) {
-			// In the catalog, gone from the disk: someone deleted it. The
-			// arrivals were emptied, so it is no move left halfway either.
-			// It stays out unless asked back; brought back, it is new, in
-			// this profile.
+		if deleted {
+			// The arrivals were emptied, so it is no move left halfway
+			// either. It stays out unless asked back; brought back, it is
+			// new, in this profile.
 			if !how.BringBack {
 				done.Deleted++
 				// Its twin further on is deleted too, not a photo in.
@@ -181,7 +182,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// Already in the library. Held by another profile, it gets a
 			// name in this one too: Organize is handed the library's own
 			// file for that, never the folder's, so it cannot move it.
-			if !within(home, profileRoot(root, opt)) {
+			if !filedIn(relative, opt.Profile) {
 				if _, err := Organize([]Item{{Path: home}}, root, catalog, opt, nil); err != nil {
 					return done, err
 				}
@@ -224,14 +225,35 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		done.Undated += placed.Undated
 		// Its month, for the window that counts what came in by month.
 		if p, err := catalog.photo(hash); err == nil {
-			month := ""
+			e := progress.Event{Stage: progress.Filed}
 			if !p.Taken.IsZero() {
-				month = p.Taken.Format("2006-01")
+				e.Name, e.N = strconv.Itoa(p.Taken.Year()), int(p.Taken.Month())
 			}
-			emit.Emit(progress.Event{Stage: progress.Filed, Name: month})
+			emit.Emit(e)
 		}
 	}
+	done.Outcome = outcome(done.Placed, done.Redated, len(done.LeftOut) > 0, done.Deleted, done.InLibrary+done.Twins, done.Unreadable)
 	return done, nil
+}
+
+// libraryHolds is where the library holds the photo of hash, below root,
+// and whether someone deleted it: listed in the catalog, gone from the disk.
+// A disk that answers late is not a deletion. With no root, nothing is
+// taken for deleted. The look and the copy judge a photo here, alike.
+func libraryHolds(catalog *Catalog, root, hash string) (path string, known, deleted bool, err error) {
+	path, known, err = catalog.PathOf(hash)
+	if err != nil || !known || root == "" {
+		return path, known, false, err
+	}
+	_, gone := os.Lstat(filepath.Join(root, filepath.FromSlash(path)))
+	return path, true, errors.Is(gone, fs.ErrNotExist), nil
+}
+
+// filedIn is whether a path of the library is in profile's folder, where
+// that profile gives it its date; "" is the library's top, which holds all.
+func filedIn(path, profile string) bool {
+	first, _, _ := strings.Cut(path, "/")
+	return profile == "" || first == profile
 }
 
 // bringIn copies or links one file into the arrivals and places it.

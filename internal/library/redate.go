@@ -110,7 +110,7 @@ func named(name string, f Folder) (string, error) {
 	// Not below the folder as typed: a path the shell completed — whole,
 	// or from where the command runs — when it leads into the folder.
 	if len(found) == 0 && strings.ContainsAny(name, `/\`) {
-		if rel, ok := below(name, f.Root); ok {
+		if rel, ok := Below(name, f.Root); ok {
 			found = match(rel)
 		}
 	}
@@ -128,26 +128,39 @@ func named(name string, f Folder) (string, error) {
 	return "", e
 }
 
-// below is path, as typed, relative to root, when it leads into root: as
-// it is, or through the links of its folders. Its own name is kept as
-// typed, for the case to be matched as names are.
-func below(path, root string) (string, bool) {
-	path, err := filepath.Abs(path)
+// RealPath is p whole, its links followed: one folder, however it was
+// named — from here, from /, through a link.
+func RealPath(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return p, err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+// Below is path, as typed, relative to root and with /, when it leads into
+// root: as it is, or through the links of its folders. Its own name is kept
+// as typed, for its case to be matched as names are.
+func Below(path, root string) (string, bool) {
+	if r, err := RealPath(root); err == nil {
+		root = r
+	}
+	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", false
 	}
-	if !within(path, root) {
-		dir, err := filepath.EvalSymlinks(filepath.Dir(path))
+	if !within(abs, root) {
+		dir, err := RealPath(filepath.Dir(abs))
 		if err != nil {
 			return "", false
 		}
-		path = filepath.Join(dir, filepath.Base(path))
+		abs = filepath.Join(dir, filepath.Base(abs))
 	}
-	if !within(path, root) {
+	if !within(abs, root) {
 		return "", false
 	}
-	rel, err := filepath.Rel(root, path)
-	return rel, err == nil
+	rel, err := filepath.Rel(root, abs)
+	return filepath.ToSlash(rel), err == nil
 }
 
 // redateInLibrary gives a date to a photo the library already holds: it
@@ -163,7 +176,7 @@ func redateInLibrary(root string, catalog *Catalog, hash string, when time.Time,
 		return err
 	}
 	from := filepath.Join(root, filepath.FromSlash(record.Path))
-	if !within(from, profileRoot(root, opt)) {
+	if !filedIn(record.Path, opt.Profile) {
 		return ErrOthersPhoto
 	}
 	capture := Capture{When: when, Source: FromGiven, Origin: record.Origin}

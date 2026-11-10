@@ -265,7 +265,7 @@ func TestTheWindowCountsACopyByMonth(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := importEnded(t, &im)
-	if s.Filed["2025-09"] != 1 || s.Filed[""] != 1 {
+	if s.Filed["2025"][9] != 1 || s.Filed[""][0] != 1 {
 		t.Errorf("filed %v, want one in 2025-09 and one undated", s.Filed)
 	}
 }

@@ -26,10 +26,7 @@ func (e LibraryGoneError) Error() string { return "the library folder " + e.Root
 // /, is found below it. A folder not there is a card taken out: the window
 // asks for a card it saw a moment before.
 func readFolder(dir string) (string, library.Folder, error) {
-	dir, err := filepath.Abs(dir)
-	if err == nil {
-		dir, err = filepath.EvalSymlinks(dir)
-	}
+	dir, err := library.RealPath(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", library.Folder{}, FolderGoneError{Dir: dir}
 	}
@@ -136,14 +133,14 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 func SourceOf(dir string) string {
 	for _, c := range Cards() {
 		if c.Path == dir && c.Name != "" {
-			return "local/" + c.Name
+			return library.LocalSource + c.Name
 		}
 	}
-	name := filepath.Base(filepath.Clean(dir))
-	if abs, err := filepath.Abs(dir); err == nil {
-		name = filepath.Base(abs)
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
 	}
-	return "local/" + name
+	return library.LocalSource + filepath.Base(abs)
 }
 
 // FolderGoneError is the folder being imported gone before the end: a card

@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/ronalder100/homewend/internal/library"
 )
 
 // Settings are the choices a person makes in the window. A missing file is
@@ -35,7 +37,7 @@ func (s Settings) ProfileFor(id string) string {
 	if p := s.Profiles[id]; p != "" {
 		return p
 	}
-	if strings.HasPrefix(id, "local/") {
+	if strings.HasPrefix(id, library.LocalSource) {
 		return ""
 	}
 	_, email, _ := strings.Cut(id, "/")

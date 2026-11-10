@@ -236,7 +236,6 @@ export const text = {
 			? 'Nothing new to copy.'
 			: `${count(photos, 'photo')}${videos ? ` and ${count(videos, 'video')}` : ''} to copy.`,
 	toCopyLead: 'Already in your library, found by content, they are not copied twice.',
-	nothingNewLead: 'Everything on it is already in your library.',
 	importToCopy: 'to copy',
 	importInLibrary: 'already in your library',
 	importLeftOut: 'other files, left out',
@@ -271,7 +270,6 @@ export const text = {
 	bringInThese: (n: number) => (n ? `Bring in these ${n.toLocaleString('en')}` : 'Bring in none'),
 	deletedStayOut: (n: number) => `${count(n, 'photo')} you deleted from the library ${n === 1 ? 'stays' : 'stay'} out. Tick to bring ${n === 1 ? 'it' : 'them'} back.`,
 	bringingBackAll: 'The photos you deleted from the library come back in.',
-	onlyDeletedLead: 'The rest is in your library; what you deleted from it stays out.',
 	bringingBack: (n: number) => `${count(n, 'photo')} you deleted from the library ${n === 1 ? 'comes' : 'come'} back in.`,
 	anyDatesWrong: 'Any dates wrong?',
 	anyDatesWrongLead: 'A camera whose clock was reset dates its photos wrong. Tick them and give them the right date.',
@@ -287,7 +285,17 @@ export const text = {
 	cancel: 'Cancel',
 	datesGiven: (n: number) => `${count(n, 'photo')} with a date you gave.`,
 	notRedated: (n: number) => `${count(n, 'is', 'are')} filed in another profile: their date is given from there.`,
-	planRedated: (n: number) => `${count(n, 'photo')} already in your library will move to the date you gave.`,
+	// The plan's lead when nothing new comes in, by how the engine says it ends.
+	planLead: {
+		redated: (p: { redated: number }) => `${count(p.redated, 'photo')} already in your library will move to the date you gave.`,
+		'left-out': () => 'Nothing comes in by itself: tick a folder below to bring it in.',
+		deleted: () => 'The rest is in your library; what you deleted from it stays out.',
+		'known-noted': () => 'What could be read is already in your library.',
+		known: () => 'Everything on it is already in your library.',
+		unread: () => 'None of its photos or videos could be read.',
+		empty: () => 'There are no photos or videos in it.',
+		new: () => ''
+	} as Record<string, (p: { redated: number }) => string>,
 	monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 	byYearImportLegend: 'photos · videos',
 	leftOut: 'Left out.',

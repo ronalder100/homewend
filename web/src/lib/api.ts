@@ -156,7 +156,8 @@ export const folderOf = (o: { account?: string; profile?: string; year?: string;
 	);
 
 export const getLatest = () => call<GridPhoto[]>('GET', '/api/latest');
-export const getAbout = (hash: string) => call<{ albums: string[]; accounts: string[] }>('GET', `/api/about/${hash}`);
+export const getAbout = (hash: string) =>
+	call<{ albums: string[]; accounts: string[]; local: string[] }>('GET', `/api/about/${hash}`);
 
 export const readContents = (account: string, exportId: string) =>
 	call<{ years: string[] }>('POST', `/api/takeouts/contents?${q({ account, export: exportId })}`);
@@ -225,6 +226,7 @@ export interface ImportPlan {
 	not_redated: number;
 	files: ImportFile[];
 	groups: ImportGroup[];
+	outcome: Outcome;
 	/** Newest first; "" is the photos with no date. */
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by the folder it sits in. */
@@ -243,6 +245,12 @@ export interface Imported {
 	not_redated: number;
 	unreadable: number;
 }
+
+/** In the library and checked, by year and month; year "" month 0, the undated. */
+export type Filed = Record<string, Record<number, number>>;
+
+/** How a look or a copy ends, decided by the engine. */
+export type Outcome = 'new' | 'redated' | 'left-out' | 'deleted' | 'known-noted' | 'known' | 'unread' | 'empty';
 
 /** What the page asks of a look or a copy; kept in the state for a copy taken up again. */
 export interface ImportAsk {
@@ -269,8 +277,7 @@ export interface ImportState extends Partial<ImportAsk> {
 	name?: string;
 	done: number;
 	total: number;
-	/** In the library and checked, by month "2026-09"; "" the undated. */
-	filed?: Record<string, number>;
+	filed?: Filed;
 	plan?: ImportPlan;
 	/** The folder is on the library's disk: it can come in as hard links. */
 	canLink?: boolean;
@@ -283,6 +290,8 @@ export interface ImportState extends Partial<ImportAsk> {
 }
 
 export const getCards = () => call<Card[]>('GET', '/api/cards');
+/** Runs what ran last once more, as it was asked: a card come back. */
+export const againImport = () => call<ImportState>('POST', '/api/import/again');
 export const planImport = (ask: ImportAsk) => call<ImportState>('POST', '/api/import/plan', ask);
 export const startImport = (ask: ImportAsk) => call<ImportState>('POST', '/api/import', ask);
 export const importThumbUrl = (path: string) => `/api/import/thumb?${q({ file: path })}`;

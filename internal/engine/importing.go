@@ -63,10 +63,10 @@ type ImportState struct {
 	Name  string `json:"name,omitempty"`
 	Done  int64  `json:"done"`
 	Total int64  `json:"total"`
-	// Filed are the files in the library and checked, by month, "2026-09";
-	// "" the undated. A copy carried on after its card came out goes on
-	// counting.
-	Filed map[string]int `json:"filed,omitempty"`
+	// Filed are the files in the library and checked, by year and month;
+	// year "" month 0, the undated. A copy carried on after its card came
+	// out goes on counting.
+	Filed map[string]map[int]int `json:"filed,omitempty"`
 
 	Plan *library.ImportPlan `json:"plan,omitempty"`
 	// CanLink is the folder on the library's disk: its photos can come in
@@ -92,19 +92,15 @@ var ErrImportRunning = errors.New("an import is already running")
 // Plan reads a.Dir in the background, to say what importing it into
 // a.Profile would bring.
 func (im *Importing) Plan(a ImportAsk) error {
-	dir := a.Dir
 	// Said to the caller before the card is read, not after.
 	if !ValidProfile(a.Profile) {
 		return ErrBadProfile
 	}
 	// Kept by the folder as the look reads it, a link to it followed: the
 	// path a thumbnail is asked by is made from it.
-	real, err := filepath.Abs(dir)
-	if err == nil {
-		real, err = filepath.EvalSymlinks(real)
-	}
+	real, err := library.RealPath(a.Dir)
 	if err != nil {
-		real = dir
+		real = a.Dir
 	}
 	im.mu.Lock()
 	if im.hashesOf != real {
@@ -112,21 +108,32 @@ func (im *Importing) Plan(a ImportAsk) error {
 	}
 	hashes := im.hashes
 	im.mu.Unlock()
-	a.Link = false // a look links nothing; the copy says how
 	return im.start(a, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		plan, err := PlanImport(ctx, dir, library.PlanOptions{Profile: a.Profile, Redates: a.Redates, Hashes: hashes, Choice: a.Choice, BringBack: a.BringBack}, emit)
+		plan, err := PlanImport(ctx, a.Dir, library.PlanOptions{Profile: a.Profile, Redates: a.Redates, Hashes: hashes, Choice: a.Choice, BringBack: a.BringBack}, emit)
 		if err == nil {
 			s.Plan = &plan
-			s.CanLink = canLink(dir)
+			s.CanLink = canLink(a.Dir)
 		}
 		return err
 	})
 }
 
+// Again runs what ran last once more, as it was asked: a look or a copy
+// whose card came back. The window does not ask it again: the engine keeps
+// what was asked.
+func (im *Importing) Again() error {
+	im.mu.Lock()
+	a, kind := im.state.ImportAsk, im.state.Kind
+	im.mu.Unlock()
+	if kind == "plan" {
+		return im.Plan(a)
+	}
+	return im.Import(a)
+}
+
 // Import copies a.Dir into the library, into a.Profile, in the background.
 // The plan read before stays in the state, for the screens that show it.
 func (im *Importing) Import(a ImportAsk) error {
-	dir := a.Dir
 	// Said to the caller, not in the state: it is the page's mistake.
 	if !ValidProfile(a.Profile) {
 		return ErrBadProfile
@@ -134,23 +141,22 @@ func (im *Importing) Import(a ImportAsk) error {
 	// The dates the look read decide the groups again without a read.
 	im.mu.Lock()
 	var hashes library.Hashes
-	if real, err := filepath.EvalSymlinks(dir); err == nil && real == im.hashesOf {
+	if real, err := library.RealPath(a.Dir); err == nil && real == im.hashesOf {
 		hashes = im.hashes
 	}
 	im.mu.Unlock()
 	return im.start(a, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
 		how := library.ImportOptions{Link: a.Link, Redates: a.Redates, Choice: a.Choice, Hashes: hashes, BringBack: a.BringBack}
-		done, err := Import(ctx, dir, a.Profile, how, emit)
+		done, err := Import(ctx, a.Dir, a.Profile, how, emit)
 		s.Imported = &done
 		return err
 	})
 }
 
 func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
-	dir := a.Dir
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
-	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
+	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == a.Dir })
 	im.mu.Lock()
 	defer im.mu.Unlock()
 	if im.state.Running {
@@ -162,8 +168,8 @@ func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, p
 	// A new look makes a new plan: an old one is not shown for it.
 	var plan *library.ImportPlan
 	var before *library.Imported
-	var filed map[string]int
-	if im.state.Dir == dir {
+	var filed map[string]map[int]int
+	if im.state.Dir == a.Dir {
 		card = card || im.state.Card
 		if kind == "import" {
 			plan = im.state.Plan
@@ -212,9 +218,12 @@ func (s *ImportState) record(e progress.Event) {
 	switch e.Stage {
 	case progress.Filed:
 		if s.Filed == nil {
-			s.Filed = map[string]int{}
+			s.Filed = map[string]map[int]int{}
 		}
-		s.Filed[e.Name]++
+		if s.Filed[e.Name] == nil {
+			s.Filed[e.Name] = map[int]int{}
+		}
+		s.Filed[e.Name][e.N]++
 	case progress.Read, progress.Copy:
 		// A new file starts at nothing; its bytes follow.
 		if e.N != s.N {
@@ -327,6 +336,10 @@ func (im *Importing) State() ImportState {
 	defer im.mu.Unlock()
 	s := im.state
 	// The run goes on counting in its own map while this one is written out.
-	s.Filed = maps.Clone(s.Filed)
+	filed := map[string]map[int]int{}
+	for year, months := range s.Filed {
+		filed[year] = maps.Clone(months)
+	}
+	s.Filed = filed
 	return s
 }
