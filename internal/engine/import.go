@@ -57,6 +57,10 @@ func PlanImport(ctx context.Context, dir string, opt library.PlanOptions, emit p
 	}
 	if catalog != nil {
 		defer catalog.Close()
+		// A photo the catalog lists and the disk lacks was deleted.
+		if opt.Root, err = DefaultLibrary(); err != nil {
+			return library.ImportPlan{}, err
+		}
 	}
 	plan, err := library.PlanImport(ctx, dir, folder, catalog, opt, emit)
 	// A card taken out while it is read is said as during the copy: its

@@ -32,6 +32,8 @@ type Imported struct {
 	NotRedated int `json:"not_redated"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
+	// Photos the library had and someone deleted from it: left out.
+	Deleted int `json:"deleted"`
 	// The groups that stayed out, by their kind or as chosen: said, so
 	// that no photo stays out unseen.
 	LeftOut []Group `json:"left_out,omitempty"`
@@ -66,6 +68,10 @@ type ImportOptions struct {
 	// Hashes are what a look before read of the folder, when it did: the
 	// dates that decide a group are not read again.
 	Hashes Hashes
+	// BringBack brings in again the photos the library had and someone
+	// deleted from it. Without it they stay out, counted: a card still
+	// holds what was deleted, and would bring it back at every import.
+	BringBack bool
 }
 
 // arrivals is where a file from a folder waits, copied and read back, for
@@ -158,7 +164,12 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 		if _, err := os.Lstat(home); known && errors.Is(err, fs.ErrNotExist) {
 			// In the catalog, gone from the disk: someone deleted it. The
 			// arrivals were emptied, so it is no move left halfway either.
-			// Brought in again, it is new, in this profile.
+			// It stays out unless asked back; brought back, it is new, in
+			// this profile.
+			if !how.BringBack {
+				done.Deleted++
+				continue
+			}
 			if err := catalog.forget(hash); err != nil {
 				return done, err
 			}

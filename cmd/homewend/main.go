@@ -804,7 +804,7 @@ func importCommand(args []string) int {
 	}
 	ctx, stop := interrupted()
 	defer stop()
-	plan, err := engine.PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Choice: w.choice()}, out.event)
+	plan, err := engine.PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Choice: w.choice(), BringBack: w.bringBack}, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -856,6 +856,7 @@ func importCommand(args []string) int {
 	if plan.Twins > 0 {
 		out.say("  " + fmt.Sprintf(text["import twins"], plan.Twins))
 	}
+	sayDeleted(out, plan.Deleted)
 	if plan.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(plan.Unreadable, "import unreadable"), warnColour, false))
 	}
@@ -873,6 +874,8 @@ func importCommand(args []string) int {
 		out.say(out.out.result(text["result import none"]))
 	case plan.Unreadable > 0:
 		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], dir)))
+	case plan.Deleted > 0:
+		out.say(out.out.result(text["result import deleted"]))
 	default:
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], dir)))
 	}
@@ -887,6 +890,7 @@ func importArgs(args []string) importWords {
 	flags := newFlags("import")
 	dry := flags.Bool("dry-run", false, "only tell what would happen")
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
+	back := flags.Bool("bring-back", false, "bring in again the photos deleted from the library")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	var dates, include listFlags
@@ -897,7 +901,7 @@ func importArgs(args []string) importWords {
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: *back, more: dir != "" && flags.NArg() > 0}
 }
 
 // listFlags are a flag given again and again: each --date, "NAMES=WHEN" as
@@ -951,9 +955,11 @@ type importWords struct {
 	profile string
 	dates   listFlags
 	include listFlags // group folders that stay out by themselves, brought in
-	card    string    // the card found, when no folder was named
-	json    bool
-	more    bool // more than one folder
+	// bringBack brings in again what someone deleted from the library
+	bringBack bool
+	card      string // the card found, when no folder was named
+	json      bool
+	more      bool // more than one folder
 }
 
 // choice is the groups --include brings in besides those that come in by
@@ -1064,7 +1070,7 @@ func importCopy(w importWords, args []string) int {
 	if err != nil {
 		return out.fail(err)
 	}
-	done, err := engine.Import(ctx, w.dir, profile, library.ImportOptions{Link: w.link, Redates: redates, Choice: w.choice()}, out.event)
+	done, err := engine.Import(ctx, w.dir, profile, library.ImportOptions{Link: w.link, Redates: redates, Choice: w.choice(), BringBack: w.bringBack}, out.event)
 	if err != nil {
 		return out.fail(err)
 	}
@@ -1078,6 +1084,7 @@ func importCopy(w importWords, args []string) int {
 	if done.Twins > 0 {
 		out.say("  " + fmt.Sprintf(text["import twins"], done.Twins))
 	}
+	sayDeleted(out, done.Deleted)
 	if done.Undated > 0 {
 		out.say("  " + fmt.Sprintf(text["imported undated"], done.Undated))
 	}
@@ -1107,10 +1114,20 @@ func importCopy(w importWords, args []string) int {
 		out.say(out.out.summary(fmt.Sprintf(text["result import unread"], w.dir)))
 	case len(done.LeftOut) > 0:
 		out.say(out.out.summary(text["result import left out"]))
+	case done.Deleted > 0:
+		out.say(out.out.result(text["result import deleted"]))
 	default:
 		out.say(out.out.summary(fmt.Sprintf(text["result import empty"], w.dir)))
 	}
 	return exitOK
+}
+
+// sayDeleted says the photos left out because someone deleted them from
+// the library, and how to bring them back.
+func sayDeleted(out *printer, n int) {
+	if n > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(n, "photos")), faintColour, false))
+	}
 }
 
 // sayLeftOut says the groups of a folder that stay out, each with why and

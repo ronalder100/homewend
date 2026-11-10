@@ -35,16 +35,22 @@ type Importing struct {
 	hashesOf string
 }
 
-// ImportState is where the window's import stands.
-type ImportState struct {
-	Running bool   `json:"running"`
-	Dir     string `json:"dir,omitempty"`
-	// whose photos they are, the dates given and the groups chosen, for a
-	// copy taken up again
-	Profile string           `json:"profile,omitempty"`
+// ImportAsk is what the window asks of a look or a copy, as it sends it;
+// kept in the state, for a copy taken up again.
+type ImportAsk struct {
+	Dir     string           `json:"dir"`
+	Profile string           `json:"profile"` // whose photos they are
 	Redates []library.Redate `json:"redates,omitempty"`
 	Choice  *library.Choice  `json:"choice,omitempty"`
 	Link    bool             `json:"link,omitempty"` // hard links, not copies
+	// BringBack brings in again what someone deleted from the library.
+	BringBack bool `json:"bringBack,omitempty"`
+}
+
+// ImportState is where the window's import stands.
+type ImportState struct {
+	Running bool `json:"running"`
+	ImportAsk
 	// Card is whether Dir was a card when the run began: one taken out is
 	// waited for, and carries on by itself when it is back.
 	Card bool `json:"card,omitempty"`
@@ -83,11 +89,12 @@ type ImportState struct {
 // ErrImportRunning is a second import asked for while one runs.
 var ErrImportRunning = errors.New("an import is already running")
 
-// Plan reads dir in the background, to say what importing it into profile
-// would bring.
-func (im *Importing) Plan(dir, profile string, redates []library.Redate, choice *library.Choice) error {
+// Plan reads a.Dir in the background, to say what importing it into
+// a.Profile would bring.
+func (im *Importing) Plan(a ImportAsk) error {
+	dir := a.Dir
 	// Said to the caller before the card is read, not after.
-	if !ValidProfile(profile) {
+	if !ValidProfile(a.Profile) {
 		return ErrBadProfile
 	}
 	// Kept by the folder as the look reads it, a link to it followed: the
@@ -105,8 +112,9 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate, choice 
 	}
 	hashes := im.hashes
 	im.mu.Unlock()
-	return im.start(dir, profile, redates, choice, false, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		plan, err := PlanImport(ctx, dir, library.PlanOptions{Profile: profile, Redates: redates, Hashes: hashes, Choice: choice}, emit)
+	a.Link = false // a look links nothing; the copy says how
+	return im.start(a, "plan", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+		plan, err := PlanImport(ctx, dir, library.PlanOptions{Profile: a.Profile, Redates: a.Redates, Hashes: hashes, Choice: a.Choice, BringBack: a.BringBack}, emit)
 		if err == nil {
 			s.Plan = &plan
 			s.CanLink = canLink(dir)
@@ -115,11 +123,12 @@ func (im *Importing) Plan(dir, profile string, redates []library.Redate, choice 
 	})
 }
 
-// Import copies dir into the library, into profile, in the background. The
-// plan read before stays in the state, for the screens that show it.
-func (im *Importing) Import(dir, profile string, link bool, redates []library.Redate, choice *library.Choice) error {
+// Import copies a.Dir into the library, into a.Profile, in the background.
+// The plan read before stays in the state, for the screens that show it.
+func (im *Importing) Import(a ImportAsk) error {
+	dir := a.Dir
 	// Said to the caller, not in the state: it is the page's mistake.
-	if !ValidProfile(profile) {
+	if !ValidProfile(a.Profile) {
 		return ErrBadProfile
 	}
 	// The dates the look read decide the groups again without a read.
@@ -129,14 +138,16 @@ func (im *Importing) Import(dir, profile string, link bool, redates []library.Re
 		hashes = im.hashes
 	}
 	im.mu.Unlock()
-	return im.start(dir, profile, redates, choice, link, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
-		done, err := Import(ctx, dir, profile, library.ImportOptions{Link: link, Redates: redates, Choice: choice, Hashes: hashes}, emit)
+	return im.start(a, "import", func(ctx context.Context, emit progress.Func, s *ImportState) error {
+		how := library.ImportOptions{Link: a.Link, Redates: a.Redates, Choice: a.Choice, Hashes: hashes, BringBack: a.BringBack}
+		done, err := Import(ctx, dir, a.Profile, how, emit)
 		s.Imported = &done
 		return err
 	})
 }
 
-func (im *Importing) start(dir, profile string, redates []library.Redate, choice *library.Choice, link bool, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+func (im *Importing) start(a ImportAsk, kind string, run func(context.Context, progress.Func, *ImportState) error) error {
+	dir := a.Dir
 	// Looked at before the lock: a drive that does not answer must not
 	// hold up the window asking where things stand.
 	card := slices.ContainsFunc(Cards(), func(c Card) bool { return c.Path == dir })
@@ -161,7 +172,7 @@ func (im *Importing) start(dir, profile string, redates []library.Redate, choice
 			before, filed = im.state.Imported, im.state.Filed
 		}
 	}
-	im.state = ImportState{Running: true, Dir: dir, Profile: profile, Redates: redates, Choice: choice, Link: link, Filed: filed, Kind: kind, Plan: plan, Card: card}
+	im.state = ImportState{Running: true, ImportAsk: a, Filed: filed, Kind: kind, Plan: plan, Card: card}
 	im.cancel, im.done = cancel, make(chan struct{})
 	done := im.done
 	go func() {

@@ -51,7 +51,7 @@ func TestTheWindowPlansThenImports(t *testing.T) {
 		}
 	}
 	var im Importing
-	if err := im.Plan(card, "ron", nil, nil); err != nil {
+	if err := im.Plan(ImportAsk{Dir: card, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
 	s := importEnded(t, &im)
@@ -66,13 +66,13 @@ func TestTheWindowPlansThenImports(t *testing.T) {
 	if probes, _ := filepath.Glob(filepath.Join(root, ".homewend", "link-probe-*")); len(probes) > 0 {
 		t.Errorf("probes left: %v", probes)
 	}
-	if err := im.Import(card, "../out", false, nil, nil); !errors.Is(err, ErrBadProfile) {
+	if err := im.Import(ImportAsk{Dir: card, Profile: "../out"}); !errors.Is(err, ErrBadProfile) {
 		t.Errorf("a profile outside the library: %v", err)
 	}
-	if err := im.Import(card, "ron", false, nil, nil); err != nil {
+	if err := im.Import(ImportAsk{Dir: card, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := im.Import(card, "ron", false, nil, nil); err != nil && !errors.Is(err, ErrImportRunning) {
+	if err := im.Import(ImportAsk{Dir: card, Profile: "ron"}); err != nil && !errors.Is(err, ErrImportRunning) {
 		t.Errorf("a second import while one runs: %v", err)
 	}
 	s = importEnded(t, &im)
@@ -97,7 +97,7 @@ func TestTheWindowNamesACardTakenOut(t *testing.T) {
 // A copy waiting for its card, ended by the person, is stopped: the card,
 // or another with its name, coming back does not carry it on.
 func TestEndingACopyWaitingForItsCardStopsIt(t *testing.T) {
-	im := Importing{state: ImportState{Dir: "/media/EOS_DIGITAL", Kind: "import", Problem: "taken-out", Error: "taken out"}}
+	im := Importing{state: ImportState{ImportAsk: ImportAsk{Dir: "/media/EOS_DIGITAL"}, Kind: "import", Problem: "taken-out", Error: "taken out"}}
 	<-im.Stop()
 	s := im.State()
 	if s.Problem != "" || s.Error != "" || !s.Stopped {
@@ -170,8 +170,8 @@ func TestACopyCarriedOnWithTheCardOutKeepsWhatCameIn(t *testing.T) {
 	}
 	gone := filepath.Join(t.TempDir(), "EOS_DIGITAL")
 	before := &library.Imported{Placed: 300}
-	im := Importing{state: ImportState{Dir: gone, Kind: "import", Card: true, Imported: before, Problem: "taken-out", Error: "taken out"}}
-	if err := im.Import(gone, "ron", false, nil, nil); err != nil {
+	im := Importing{state: ImportState{ImportAsk: ImportAsk{Dir: gone}, Kind: "import", Card: true, Imported: before, Problem: "taken-out", Error: "taken out"}}
+	if err := im.Import(ImportAsk{Dir: gone, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
 	s := importEnded(t, &im)
@@ -183,7 +183,7 @@ func TestACopyCarriedOnWithTheCardOutKeepsWhatCameIn(t *testing.T) {
 	}
 	// A new look at it has no plan but its own.
 	im.state.Plan = &library.ImportPlan{Photos: 7}
-	if err := im.Plan(gone, "ron", nil, nil); err != nil {
+	if err := im.Plan(ImportAsk{Dir: gone, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
 	if s := importEnded(t, &im); s.Plan != nil {
@@ -211,7 +211,7 @@ func TestTheWindowShowsACardsPhotosSmall(t *testing.T) {
 		t.Fatal(err)
 	}
 	var im Importing
-	if err := im.Plan(card, "ron", nil, nil); err != nil {
+	if err := im.Plan(ImportAsk{Dir: card, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
 	if s := importEnded(t, &im); s.Plan == nil || len(s.Plan.Files) != 1 || s.Plan.Files[0].Path != "DCIM/IMG_0001.JPG" {
@@ -230,7 +230,7 @@ func TestTheWindowShowsACardsPhotosSmall(t *testing.T) {
 	if err := os.Symlink(card, via); err != nil {
 		t.Fatal(err)
 	}
-	if err := im.Plan(via, "ron", nil, nil); err != nil {
+	if err := im.Plan(ImportAsk{Dir: via, Profile: "ron"}); err != nil {
 		t.Fatal(err)
 	}
 	importEnded(t, &im)
@@ -261,7 +261,7 @@ func TestTheWindowCountsACopyByMonth(t *testing.T) {
 	}
 	var im Importing
 	given := []library.Redate{{Names: []string{"A.JPG"}, When: time.Date(2025, 9, 14, 10, 0, 0, 0, time.UTC)}}
-	if err := im.Import(card, "ron", false, given, nil); err != nil {
+	if err := im.Import(ImportAsk{Dir: card, Profile: "ron", Redates: given}); err != nil {
 		t.Fatal(err)
 	}
 	s := importEnded(t, &im)

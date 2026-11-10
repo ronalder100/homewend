@@ -160,6 +160,8 @@ Flags:
   --include FOLDER
                   bring in a folder that stays out by itself, named as
                   --dry-run lists it ("." for DIR itself). Repeatable
+  --bring-back    bring in again the photos deleted from the library: by
+                  default a card that still holds them leaves them out
   --json          one JSON object per line, for scripts
 
 Examples:
@@ -350,6 +352,8 @@ Examples:
 	"group previews":          "%s's own previews of other photos: they stay out",
 	"group unsure":            "most have no camera's date: scans, screenshots, photos sent or saved; they stay out",
 	"group include":           "to bring one in: --include FOLDER",
+	"result import deleted":   "Nothing new: the photos deleted from the library stay out",
+	"import deleted":          "%s deleted from the library stay out · to bring them back: --bring-back",
 	"import itself":           "the folder itself (.)",
 	"bad include":             "%s is not a folder of photos in the folder imported",
 	"bad include hint":        "the folders are named as **homewend import --dry-run DIR** lists them",

@@ -18,6 +18,7 @@
 		stopImport,
 		type Card,
 		type Choice,
+		type ImportAsk,
 		type ImportGroup,
 		type ImportPlan,
 		type Redate,
@@ -98,6 +99,7 @@
 				// What was given before the window closed goes on with it.
 				redates = im.redates ?? [];
 				choice = im.choice ?? null;
+				bringBack = !!im.bringBack;
 			}
 		});
 		lookCards();
@@ -127,9 +129,7 @@
 	});
 	const carryOn = () =>
 		start(() =>
-			im!.kind === 'plan'
-				? planImport(im!.dir!, im!.profile!, im!.redates, im!.choice)
-				: startImport(im!.dir!, im!.profile!, !!im!.link, im!.redates, im!.choice)
+			im!.kind === 'plan' ? planImport(asked(im!)) : startImport(asked(im!))
 		);
 
 	async function start(call: () => Promise<ImportState>) {
@@ -150,7 +150,9 @@
 		redates = [];
 		link = false;
 		choice = null;
-		start(() => planImport(dir, profile));
+		bringBack = false;
+		deletedSeen = 0;
+		start(() => planImport({ dir, profile }));
 	}
 
 	// Dates given to photos a reset clock dated wrong (I3b): kept here
@@ -158,6 +160,26 @@
 	// twice.
 	let redates = $state<Redate[]>([]);
 	let dating = $state(false);
+	// Photos deleted from the library come in again only when asked; how
+	// many, as the last look that left them out counted.
+	let bringBack = $state(false);
+	let deletedSeen = $state(0);
+	$effect(() => {
+		if (im?.plan && !im.bringBack) deletedSeen = im.plan.deleted;
+	});
+
+	// What the person has said so far, for the next look or the copy.
+	const asking = (): ImportAsk => ({ dir: im!.dir!, profile: im!.profile || profile, redates, choice, bringBack });
+	const lookAgain = () => start(() => planImport(asking()));
+	// What a run asked, as the state keeps it: for a copy taken up again.
+	const asked = (s: ImportState): ImportAsk => ({
+		dir: s.dir!,
+		profile: s.profile!,
+		redates: s.redates,
+		choice: s.choice,
+		link: s.link,
+		bringBack: s.bringBack
+	});
 
 	// Which of the folder's groups come in (I4), and the photos picked from
 	// one that stays out (I5): null, each as its kind says. A change looks
@@ -166,7 +188,7 @@
 	let picking = $state<string | null>(null);
 	function rechoose(next: Choice) {
 		choice = next;
-		start(() => planImport(im!.dir!, im!.profile || profile, redates, choice));
+		lookAgain();
 	}
 	const without = (list: string[], s: string) => list.filter((x) => x !== s);
 	function tick(g: ImportGroup) {
@@ -202,7 +224,7 @@
 			.filter((r) => r.names.length > 0);
 		redates = [...others, { names, when }];
 		dating = false;
-		start(() => planImport(im!.dir!, im!.profile || profile, redates, choice));
+		lookAgain();
 	}
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
@@ -335,7 +357,7 @@
 		<div class="actions">
 			<PrimaryButton
 				disabled={(!fits && !link) || plan.photos + plan.videos + plan.redated === 0}
-				onclick={() => start(() => startImport(im!.dir!, im!.profile || profile, link && !!im!.canLink, redates, choice))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
+				onclick={() => start(() => startImport({ ...asking(), link: link && !!im!.canLink }))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
 			>
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
 		</div>
@@ -347,6 +369,13 @@
 			{/if}
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
+		{#if deletedSeen > 0}
+			<!-- The card still holds what was deleted from the library: it stays out unless asked back. -->
+			<label class="note back">
+				<input type="checkbox" bind:checked={bringBack} onchange={lookAgain} />
+				{bringBack ? text.bringingBack(deletedSeen) : text.deletedStayOut(deletedSeen)}
+			</label>
+		{/if}
 		{#if plan.groups.length > 0}
 			<!-- I4: one row per group, with why; a project is one row, not its folders. -->
 			<section class="years groups">
@@ -425,6 +454,7 @@
 				<div><b>{done.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
 				{#if done.undated > 0}<div><b>{done.undated.toLocaleString('en')}</b><span>{text.importUndated}</span></div>{/if}
 				{#if done.redated > 0}<div><b>{done.redated.toLocaleString('en')}</b><span>{text.importRedated}</span></div>{/if}
+				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{text.importDeletedOut}</span></div>{/if}
 				{#if done.unreadable > 0}<div class="warn"><b>{done.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			</div>
 		{/if}
@@ -673,6 +703,15 @@
 	.link {
 		color: var(--accent);
 		font-weight: 600;
+	}
+	.back {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		cursor: pointer;
+	}
+	.back input {
+		accent-color: var(--accent);
 	}
 	.warnText {
 		color: var(--warn);

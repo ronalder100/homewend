@@ -254,9 +254,10 @@ func TestASecondProfileGetsOneNameEach(t *testing.T) {
 	}
 }
 
-// A photo deleted from the library and brought in again is new: placed in
-// the profile it is brought into, and counted.
-func TestAPhotoDeletedFromTheLibraryComesBackAsNew(t *testing.T) {
+// A photo deleted from the library stays out of the next import, counted:
+// the card still holds it. Brought back, it is new: placed in the profile
+// it is brought into.
+func TestAPhotoDeletedFromTheLibraryStaysOutUnlessBroughtBack(t *testing.T) {
 	card := cameraCard(t)
 	root := t.TempDir()
 	importCard(t, card, root, false)
@@ -273,12 +274,18 @@ func TestAPhotoDeletedFromTheLibraryComesBackAsNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Link: false, Fits: func(int64) error { return nil }}, nil)
-	if err != nil {
-		t.Fatal(err)
+	fits := func(int64) error { return nil }
+	plan, err := PlanImport(context.Background(), card, folder, catalog, PlanOptions{Root: root}, nil)
+	if err != nil || plan.Deleted != 1 || plan.Photos != 0 {
+		t.Errorf("look: %+v, %v; want the deleted photo said, not to copy", plan, err)
 	}
-	if done.Placed != 1 {
-		t.Errorf("%+v, want the deleted photo placed again", done)
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Fits: fits}, nil)
+	if err != nil || done.Deleted != 1 || done.Placed != 0 {
+		t.Errorf("%+v, %v; want the deleted photo left out and said", done, err)
+	}
+	done, err = Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Fits: fits, BringBack: true}, nil)
+	if err != nil || done.Placed != 1 {
+		t.Errorf("%+v, %v; want the deleted photo placed again", done, err)
 	}
 	mustExist(t, filepath.Join(root, "anna", "2018", "01", "DSCF0002.JPG"))
 }

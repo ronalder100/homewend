@@ -218,6 +218,8 @@ export interface ImportPlan {
 	in_library: number;
 	twins: number;
 	unreadable: number;
+	/** Photos someone deleted from the library: they stay out unless brought back. */
+	deleted: number;
 	/** Those a date given moves; those another profile holds, left to it. */
 	redated: number;
 	not_redated: number;
@@ -231,6 +233,8 @@ export interface ImportPlan {
 
 export interface Imported {
 	placed: number;
+	/** Deleted from the library, left out. */
+	deleted: number;
 	bytes: number;
 	undated: number;
 	in_library: number;
@@ -240,16 +244,22 @@ export interface Imported {
 	unreadable: number;
 }
 
-/** Where the window's import stands: the look at a folder, then the copy. */
-export interface ImportState {
-	running: boolean;
-	dir?: string;
-	/** Whose photos they are, for a copy taken up again. */
-	profile?: string;
+/** What the page asks of a look or a copy; kept in the state for a copy taken up again. */
+export interface ImportAsk {
+	dir: string;
+	/** Whose photos they are. */
+	profile: string;
 	redates?: Redate[];
-	choice?: Choice;
+	choice?: Choice | null;
 	/** Hard links, not copies. */
 	link?: boolean;
+	/** Bring in again what someone deleted from the library. */
+	bringBack?: boolean;
+}
+
+/** Where the window's import stands: the look at a folder, then the copy. */
+export interface ImportState extends Partial<ImportAsk> {
+	running: boolean;
 	/** Whether dir was a card when the run began. */
 	card?: boolean;
 	kind?: 'plan' | 'import';
@@ -273,15 +283,8 @@ export interface ImportState {
 }
 
 export const getCards = () => call<Card[]>('GET', '/api/cards');
-export const planImport = (dir: string, profile: string, redates: Redate[] = [], choice: Choice | null = null) =>
-	call<ImportState>('POST', '/api/import/plan', { dir, profile, redates, choice });
-export const startImport = (
-	dir: string,
-	profile: string,
-	link = false,
-	redates: Redate[] = [],
-	choice: Choice | null = null
-) => call<ImportState>('POST', '/api/import', { dir, profile, link, redates, choice });
+export const planImport = (ask: ImportAsk) => call<ImportState>('POST', '/api/import/plan', ask);
+export const startImport = (ask: ImportAsk) => call<ImportState>('POST', '/api/import', ask);
 export const importThumbUrl = (path: string) => `/api/import/thumb?${q({ file: path })}`;
 export const getImport = () => call<ImportState>('GET', '/api/import');
 export const stopImport = () => call<ImportState>('POST', '/api/import/stop');

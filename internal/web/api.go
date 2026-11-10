@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/ronalder100/homewend/internal/engine"
-	"github.com/ronalder100/homewend/internal/library"
 	"github.com/ronalder100/homewend/internal/session"
 	"github.com/ronalder100/homewend/internal/takeout"
 )
@@ -263,32 +262,21 @@ func apiRoutes(jobs *engine.Jobs, importing *engine.Importing) http.Handler {
 		reply(w, engine.Cards(), nil)
 	})
 	mux.HandleFunc("POST /api/import/plan", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Dir     string           `json:"dir"`
-			Profile string           `json:"profile"`
-			Redates []library.Redate `json:"redates"`
-			Choice  *library.Choice  `json:"choice"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		var ask engine.ImportAsk
+		if err := json.NewDecoder(r.Body).Decode(&ask); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		err := importing.Plan(body.Dir, body.Profile, body.Redates, body.Choice)
+		err := importing.Plan(ask)
 		reply(w, importing.State(), err)
 	})
 	mux.HandleFunc("POST /api/import", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Dir     string           `json:"dir"`
-			Profile string           `json:"profile"`
-			Link    bool             `json:"link"`
-			Redates []library.Redate `json:"redates"`
-			Choice  *library.Choice  `json:"choice"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		var ask engine.ImportAsk
+		if err := json.NewDecoder(r.Body).Decode(&ask); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		err := importing.Import(body.Dir, body.Profile, body.Link, body.Redates, body.Choice)
+		err := importing.Import(ask)
 		reply(w, importing.State(), err)
 	})
 	// A file of the card looked at, small, for picking the ones with a

@@ -5,6 +5,8 @@ package library
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -33,6 +35,9 @@ type ImportPlan struct {
 	NotRedated int `json:"not_redated"`
 	// The same photo twice in the folder: it is copied once.
 	Twins int `json:"twins"`
+	// Photos the library had and someone deleted from it: they stay out
+	// unless brought back.
+	Deleted int `json:"deleted"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 
@@ -100,6 +105,11 @@ type PlanOptions struct {
 	Hashes Hashes
 	// Choice is which groups come in; nil, each as its kind says.
 	Choice *Choice
+	// Root is the library's folder, when there is a catalog: a photo it
+	// lists and its disk no longer holds was deleted.
+	Root string
+	// BringBack counts a deleted photo as coming in again (ImportOptions).
+	BringBack bool
 }
 
 // Hashes are the contents of a folder's files, by path, as a look read
@@ -276,17 +286,27 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			}
 		}
 		var held string // where the library holds it, "" not
+		var deleted bool
 		if catalog != nil {
 			path, known, err := catalog.PathOf(hash)
 			if err != nil {
 				return plan, err
 			}
-			if known {
+			// As the copy decides: listed, and gone from the disk.
+			_, gone := os.Lstat(filepath.Join(opt.Root, filepath.FromSlash(path)))
+			switch {
+			case known && opt.Root != "" && errors.Is(gone, fs.ErrNotExist):
+				deleted = true
+			case known:
 				held = path
 				group.InLibrary++
 			}
 		}
 		if !in[item.Path] {
+			continue
+		}
+		if deleted && !opt.BringBack {
+			plan.Deleted++
 			continue
 		}
 		_, dated := dates[item.Path]
