@@ -36,7 +36,7 @@ type printer struct {
 	what      string    // the photos asked for: "2025 photos"
 	signedIn  bool      // the sign-in is said: checking it again is not news
 	shown     string    // the export in the table: finding it is not news
-	lastSaid  string    // the step last said without a terminal: said again, it is not news
+	lastSaid  string    // the step last heard: heard again at once, it is not news
 	asked     time.Time // when Google was asked
 	rate      float64   // bytes a second, smoothed over the current part
 	lastAt    time.Time
@@ -63,6 +63,7 @@ func (p *printer) say(line string) {
 	if p.json {
 		return
 	}
+	p.lastSaid = ""
 	if p.live != nil {
 		p.live.println(line)
 		return
@@ -90,9 +91,11 @@ func (p *printer) now(g going) {
 		return
 	}
 	if g.bar < 0 && g.said != "" && g.said != p.lastSaid {
-		p.lastSaid = g.said
 		fmt.Println(signGoing + " " + p.out.marked(g.said, nil))
 	}
+	// Only the same step heard again at once is not news: one that comes
+	// back after another, a second retry after a part, is said.
+	p.lastSaid = g.said
 }
 
 // signGoing stands for the spinner where nothing is redrawn.

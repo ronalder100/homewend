@@ -382,7 +382,7 @@ func TestADateIsReadAsTyped(t *testing.T) {
 }
 
 // Without a terminal, Google preparing is said once, not at each look: a
-// run sent to a file waits for hours.
+// run sent to a file waits for hours. A step back after another is said.
 func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -394,10 +394,14 @@ func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 	for range 3 {
 		p.event(progress.Event{Stage: progress.Waiting, Name: "job"})
 	}
+	// A retry, a part, a retry again: two failures, both said.
+	p.event(progress.Event{Stage: progress.Retry, Note: "no network"})
+	p.event(progress.Event{Stage: progress.Downloaded, N: 1, Of: 3, Total: 10})
+	p.event(progress.Event{Stage: progress.Retry, Note: "no network"})
 	os.Stdout = stdout
 	w.Close()
 	out, _ := io.ReadAll(r)
-	if n := strings.Count(string(out), signGoing+" "); n != 1 {
-		t.Errorf("said %d times:\n%s", n, out)
+	if n := strings.Count(string(out), signGoing+" "); n != 3 {
+		t.Errorf("said %d times, want the wait once and each retry:\n%s", n, out)
 	}
 }
