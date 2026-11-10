@@ -26,7 +26,7 @@
 		type Redate,
 		type ImportState
 	} from '#lib/api.js';
-	import { bytes } from '#lib/format.js';
+	import { bytes, takenDay } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
@@ -101,7 +101,7 @@
 				// What was given before the window closed goes on with it.
 				redates = im.redates ?? [];
 				choice = im.choice ?? null;
-				bringBack = !!im.bringBack;
+				bringBack = !!im.bring_back;
 			}
 		});
 		lookCards();
@@ -163,7 +163,7 @@
 	let bringBack = $state(false);
 
 	// What the person has said so far, for the next look or the copy.
-	const asking = (): ImportAsk => ({ dir: im!.dir!, profile: im!.profile || profile, redates, choice, bringBack });
+	const asking = (): ImportAsk => ({ dir: im!.dir!, profile: im!.profile || profile, redates, choice, bring_back: bringBack });
 	const lookAgain = () => start(() => planImport(asking()));
 
 	// Which of the folder's groups come in (I4), and the photos picked from
@@ -200,8 +200,7 @@
 		rechoose({ ...c, pick: [...others, ...paths] });
 	}
 	const range = (g: ImportGroup) =>
-		g.first && g.last ? text.takenRange(monthDay.format(new Date(g.first)), monthDay.format(new Date(g.last))) : '';
-	const monthDay = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
+		g.first && g.last ? text.takenRange(takenDay(new Date(g.first)), takenDay(new Date(g.last))) : '';
 	function give(names: string[], when: string) {
 		// A photo given a date again keeps only the last.
 		const others = redates
@@ -437,7 +436,7 @@
 			view === 'stopped'
 				? { title: text.importStopped, lead: text.importStoppedLead }
 				: done && done.outcome !== 'new'
-					? { title: text.importNothingNew, lead: text.doneLead[done.outcome](done) }
+					? { title: text.importNothingNew, lead: (text.doneLead[done.outcome as keyof typeof text.doneLead] ?? text.planLead[done.outcome])(done) }
 					: { title: text.importDone(done?.placed ?? 0), lead: text.importDoneLead }}
 		<h1>{end.title}</h1>
 		<p class="lead">{end.lead}</p>
@@ -447,7 +446,7 @@
 				<div><b>{done.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
 				{#if done.undated > 0}<div><b>{done.undated.toLocaleString('en')}</b><span>{text.importUndated}</span></div>{/if}
 				{#if done.redated > 0}<div><b>{done.redated.toLocaleString('en')}</b><span>{text.importRedated}</span></div>{/if}
-				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{text.importDeletedOut}</span></div>{/if}
+				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{done.brought_back ? text.importDeletedBack : text.importDeletedOut}</span></div>{/if}
 				{#if done.unreadable > 0}<div class="warn"><b>{done.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			</div>
 		{/if}

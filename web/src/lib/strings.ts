@@ -290,10 +290,11 @@ export const text = {
 	cancel: 'Cancel',
 	datesGiven: (n: number) => `${count(n, 'photo')} with a date you gave.`,
 	notRedated: (n: number) => `${count(n, 'is', 'are')} filed in another profile: their date is given from there.`,
-	// The lead when nothing new comes in, by how the engine says it ends:
-	// of the look, and of the copy. An end with no words is a type error.
+	// The lead when nothing new comes in, by how the engine says it ends: of
+	// the look; of the copy where its words differ. An end with no words is
+	// a type error.
 	planLead: {
-		redated: (p) => `${count(p.redated, 'photo')} already in your library will move to the date you gave.`,
+		redated: (p) => `${count(p.redated, 'photo')} will move to the date you gave.`,
 		'left-out': () => 'Nothing new comes in by itself; the folders below stay out.',
 		deleted: () => 'The rest is in your library; what you deleted from it stays out.',
 		'known-noted': () => 'What could be read is already in your library.',
@@ -302,14 +303,12 @@ export const text = {
 		empty: () => 'There are no photos or videos in it.'
 	} satisfies Ends,
 	doneLead: {
-		redated: (p) => `${count(p.redated, 'photo')} already in your library moved to the date you gave.`,
+		redated: (p) => `${count(p.redated, 'photo')} moved to the date you gave.`,
 		'left-out': () => 'Nothing new came in by itself; the folders left out stay where they are.',
 		deleted: () => 'The rest was in your library already; what you deleted from it stayed out.',
 		'known-noted': () => 'What could be read was in your library already.',
-		known: () => 'Everything on it was in your library already.',
-		unread: () => 'None of its photos or videos could be read.',
-		empty: () => 'There are no photos or videos in it.'
-	} satisfies Ends,
+		known: () => 'Everything on it was in your library already.'
+	} satisfies Partial<Ends>,
 	monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 	byYearImportLegend: 'photos · videos',
 	leftOut: 'Left out.',
@@ -341,6 +340,7 @@ export const text = {
 	importPlaced: 'copied now',
 	importRedated: 'with the date you gave',
 	importDeletedOut: 'deleted from the library, left out',
+	importDeletedBack: 'deleted from the library, brought back',
 	importUndated: 'with no date the camera wrote',
 	canTakeOut: (name: string) => `You can take out ${name}.`,
 	nothingChanged: 'Nothing on it was changed.',

@@ -43,7 +43,7 @@ type ImportAsk struct {
 	Choice  *library.Choice  `json:"choice,omitempty"`
 	Link    bool             `json:"link,omitempty"` // hard links, not copies
 	// BringBack brings in again what someone deleted from the library.
-	BringBack bool `json:"bringBack,omitempty"`
+	BringBack bool `json:"bring_back,omitempty"`
 }
 
 // ImportState is where the window's import stands.

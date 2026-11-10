@@ -225,11 +225,11 @@ func (c *Choice) GroupIn(g Group) bool {
 
 // leftOut are the groups that do not come in whole, by their kind or as
 // chosen.
-func leftOut(groups []Group, choice *Choice) []Group {
-	var out []Group
+func leftOut(groups []Group, choice *Choice) []OutGroup {
+	var out []OutGroup
 	for _, g := range groups {
 		if !choice.GroupIn(g) {
-			out = append(out, g)
+			out = append(out, OutGroup{Group: g, Files: len(g.Paths)})
 		}
 	}
 	return out

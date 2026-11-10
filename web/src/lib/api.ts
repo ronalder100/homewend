@@ -260,7 +260,7 @@ export interface ImportAsk {
 	/** Hard links, not copies. */
 	link?: boolean;
 	/** Bring in again what someone deleted from the library. */
-	bringBack?: boolean;
+	bring_back?: boolean;
 }
 
 /** Where the window's import stands: the look at a folder, then the copy. */

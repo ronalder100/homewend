@@ -28,9 +28,6 @@ type Imported struct {
 	Bytes   int64 `json:"bytes"`   // they take, counted once each
 	Undated int   `json:"undated"` // of them, with no date the camera wrote
 	Counts
-	// The groups that stayed out, by their kind or as chosen: said, so
-	// that no photo stays out unseen.
-	LeftOut []Group `json:"left_out,omitempty"`
 }
 
 // redate gives a photo of the library its date, and counts it given or
@@ -219,7 +216,7 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			emit.Emit(e)
 		}
 	}
-	done.end(done.Placed, len(done.LeftOut) > 0)
+	done.end(done.Placed)
 	return done, nil
 }
 

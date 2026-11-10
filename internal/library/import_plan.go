@@ -315,6 +315,10 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			continue
 		}
 		seen[hash] = true
+		// A new photo given a date is moved to it too, as the copy counts.
+		if dated {
+			plan.Redated++
+		}
 		if info, err := os.Stat(item.Path); err == nil {
 			plan.Bytes += info.Size()
 		}
@@ -355,7 +359,8 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			count(&m.Photos, &m.Videos)
 		}
 	}
-	plan.end(plan.Photos+plan.Videos, len(leftOut(groups, opt.Choice)) > 0)
+	plan.LeftOut = leftOut(groups, opt.Choice)
+	plan.end(plan.Photos + plan.Videos)
 	for i := range plan.Groups {
 		plan.Groups[i].Paths = nil
 	}

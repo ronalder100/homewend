@@ -827,12 +827,6 @@ func importCommand(args []string) int {
 		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
 	c := importCounts{Counts: plan.Counts}
-	for _, g := range plan.Groups {
-		if !g.In {
-			c.leftOut = append(c.leftOut, g.Group)
-			c.holds = append(c.holds, mediaCount(g.Photos, g.Videos))
-		}
-	}
 	sayCounts(out, true, c)
 	out.say("")
 	sayOutcome(out, plan.Counts, true, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)), dir)
@@ -1029,10 +1023,7 @@ func importCopy(w importWords, args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"imported": done, "dir": w.dir})
 		return exitOK
 	}
-	c := importCounts{Counts: done.Counts, undated: done.Undated, leftOut: done.LeftOut}
-	for _, g := range done.LeftOut {
-		c.holds = append(c.holds, counted(len(g.Paths), "files"))
-	}
+	c := importCounts{Counts: done.Counts, undated: done.Undated}
 	sayCounts(out, false, c)
 	out.say("")
 	fresh := fmt.Sprintf(text["result imported"], counted(done.Placed, "brought"), size(done.Bytes), profile)
@@ -1044,20 +1035,17 @@ func importCopy(w importWords, args []string) int {
 }
 
 // importCounts are what a look or a copy says before its last line: the
-// engine's counts, the undated a copy filed, and the groups left out with
-// what each holds, said beside it.
+// engine's counts, and the undated a copy filed.
 type importCounts struct {
 	library.Counts
 	undated int
-	leftOut []library.Group
-	holds   []string
 }
 
 // sayCounts says them, one way for a look (dry) and its copy: the groups
 // that stay out with why and how to bring one in, then what is in, moved,
 // twice, undated, left to another profile, deleted, unreadable.
 func sayCounts(out *printer, dry bool, c importCounts) {
-	for i, g := range c.leftOut {
+	for _, g := range c.LeftOut {
 		folder := g.Folder
 		if folder == "." {
 			folder = text["import itself"]
@@ -1066,14 +1054,14 @@ func sayCounts(out *printer, dry bool, c importCounts) {
 		if g.Mark != "" {
 			why = fmt.Sprintf(why, g.Mark)
 		}
-		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(c.holds[i]+" · "+why, faintColour, false))
+		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(counted(g.Files, "files")+" · "+why, faintColour, false))
 	}
-	if len(c.leftOut) > 0 {
+	if len(c.LeftOut) > 0 {
 		out.say("  " + out.out.paint(text["group include"], faintColour, false))
 	}
-	redated := "imported redated"
+	redated := "redated"
 	if dry {
-		redated = "plan redated"
+		redated = "redated dry"
 	}
 	for _, line := range []struct {
 		n    int
@@ -1093,7 +1081,7 @@ func sayCounts(out *printer, dry bool, c importCounts) {
 	}
 	switch {
 	case c.Deleted > 0 && c.BroughtBack:
-		out.say("  " + fmt.Sprintf(text["import deleted back"], counted(c.Deleted, "deleted back")))
+		out.say("  " + counted(c.Deleted, "deleted back"))
 	case c.Deleted > 0:
 		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))
 	}

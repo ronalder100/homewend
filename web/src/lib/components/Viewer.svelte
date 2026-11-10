@@ -6,6 +6,7 @@
 	import { fade } from 'svelte/transition';
 	import { getAbout, pathOf, type GridPhoto } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
+	import { takenDay, takenTime } from '#lib/format.js';
 	import { app } from '#lib/app.svelte.js';
 
 	let {
@@ -19,9 +20,7 @@
 	const image = $derived(['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext));
 	const video = $derived(['mp4', 'webm', 'm4v'].includes(ext));
 	// "Taken 14 July 2019, 18:32", as the design writes it.
-	const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-	const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-	const taken = (iso: string) => text.taken(`${day.format(new Date(iso))}, ${time.format(new Date(iso))}`);
+	const taken = (iso: string) => text.taken(`${takenDay(new Date(iso))}, ${takenTime(new Date(iso))}`);
 
 	// "IMG_4471.HEIC · Greece 2019 · James Dean": the file, its albums, whose.
 	let about = $state('');

@@ -19,6 +19,13 @@ const (
 	OutcomeEmpty      Outcome = "empty"       // no photo or video at all
 )
 
+// OutGroup is a group of the folder that stays out, and how many files it
+// holds.
+type OutGroup struct {
+	Group
+	Files int `json:"files"`
+}
+
 // Counts are what a look and its copy both count of a folder, and how it
 // ends: one set, so that the two count and say it alike.
 type Counts struct {
@@ -36,38 +43,34 @@ type Counts struct {
 	BroughtBack bool `json:"brought_back,omitempty"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
+	// The groups that stay out, by their kind or as chosen: said, so that
+	// no photo stays out unseen.
+	LeftOut []OutGroup `json:"left_out,omitempty"`
 	// How it ends, for every screen and line that says it.
 	Outcome Outcome `json:"outcome"`
 }
 
-// end decides the Outcome: fresh is what comes in, leftOut whether groups
-// of the folder stay out.
-func (c *Counts) end(fresh int, leftOut bool) {
-	stayedOut := c.Deleted
-	if c.BroughtBack {
-		stayedOut = 0
-	}
-	c.Outcome = outcome(fresh, c.Redated, leftOut, stayedOut, c.InLibrary+c.Twins, c.Unreadable)
-}
-
-// outcome decides it, in this order: what comes in, what moves, the
-// folders to look at, the deleted, what is in, what could not be read.
-func outcome(fresh, redated int, leftOut bool, deleted, known, unreadable int) Outcome {
+// end decides the Outcome, fresh being what comes in, in this order: what
+// comes in, what moves, the folders to look at, the deleted that stayed
+// out, what is in, what could not be read.
+func (c *Counts) end(fresh int) {
+	known := c.InLibrary + c.Twins
 	switch {
 	case fresh > 0:
-		return OutcomeNew
-	case redated > 0:
-		return OutcomeRedated
-	case leftOut:
-		return OutcomeLeftOut
-	case deleted > 0:
-		return OutcomeDeleted
-	case known > 0 && unreadable > 0:
-		return OutcomeKnownNoted
+		c.Outcome = OutcomeNew
+	case c.Redated > 0:
+		c.Outcome = OutcomeRedated
+	case len(c.LeftOut) > 0:
+		c.Outcome = OutcomeLeftOut
+	case c.Deleted > 0 && !c.BroughtBack:
+		c.Outcome = OutcomeDeleted
+	case known > 0 && c.Unreadable > 0:
+		c.Outcome = OutcomeKnownNoted
 	case known > 0:
-		return OutcomeKnown
-	case unreadable > 0:
-		return OutcomeUnread
+		c.Outcome = OutcomeKnown
+	case c.Unreadable > 0:
+		c.Outcome = OutcomeUnread
+	default:
+		c.Outcome = OutcomeEmpty
 	}
-	return OutcomeEmpty
 }

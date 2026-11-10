@@ -7,6 +7,7 @@
 	import { Check, ChevronRight, Film } from '@lucide/svelte';
 	import { importThumbUrl, type ImportFile, type Redate } from '#lib/api.js';
 	import { text } from '#lib/strings.js';
+	import { takenDay, takenTime } from '#lib/format.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
 
@@ -26,8 +27,6 @@
 	// The camera's clock is kept as UTC: read in UTC it is the clock itself.
 	const utc = (iso: string) => new Date(iso);
 	const dayKey = (f: ImportFile) => (f.taken ? f.taken.slice(0, 10) : '');
-	const dayFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
-	const timeFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
 
 	// The days the camera says, oldest first; the files with no date last.
 	const days = $derived.by(() => {
@@ -70,7 +69,7 @@
 	const goesTo = $derived(
 		whenDate ? `${whenDate.getUTCFullYear()}/${String(whenDate.getUTCMonth() + 1).padStart(2, '0')}` : ''
 	);
-	const said = (d: Date) => `${dayFormat.format(d)}, ${timeFormat.format(d)}`;
+	const said = (d: Date) => `${takenDay(d)}, ${takenTime(d)}`;
 
 	function use() {
 		if (!whenDate || chosen.length === 0) return;
@@ -98,10 +97,10 @@
 						checked={all}
 						indeterminate={!all && list.some((f) => picked.has(f.path))}
 						onchange={(e) => (picked = flip(picked, list.map((f) => f.path), e.currentTarget.checked))}
-						aria-label={day ? dayFormat.format(utc(day)) : text.noDate}
+						aria-label={day ? takenDay(utc(day)) : text.noDate}
 					/>
 					<button class="name" onclick={() => (opened = flip(opened, [day], !open))}>
-						<ChevronRight size={16} />{day ? dayFormat.format(utc(day)) : text.noDate}
+						<ChevronRight size={16} />{day ? takenDay(utc(day)) : text.noDate}
 					</button>
 					<span class="count">{list.length.toLocaleString('en')}</span>
 				</div>
@@ -112,7 +111,7 @@
 							<button class="tile" class:on title={f.path} onclick={() => (picked = flip(picked, [f.path], !on))}>
 								{#if f.video}<span class="video"><Film size={20} /></span>{:else}<img src={importThumbUrl(f.path)} alt={f.path} loading="lazy" />{/if}
 								{#if on}<span class="tick"><Check size={14} /></span>{/if}
-								{#if given.has(f.path)}<span class="given">{dayFormat.format(utc(given.get(f.path)!))}</span>{/if}
+								{#if given.has(f.path)}<span class="given">{takenDay(utc(given.get(f.path)!))}</span>{/if}
 							</button>
 						{/each}
 					</div>
@@ -124,7 +123,7 @@
 				<b class="picked">{text.photosPicked(chosen.length)}</b>
 				{#if first && last}
 					<span class="label">{text.cameraSays}</span>
-					<span>{first.getTime() === last.getTime() ? said(first) : `${said(first)} – ${timeFormat.format(last)}`}</span>
+					<span>{first.getTime() === last.getTime() ? said(first) : `${said(first)} – ${takenTime(last)}`}</span>
 				{/if}
 				<label class="label" for="when">{text.takenOn}</label>
 				<input id="when" type="datetime-local" bind:value={when} />
