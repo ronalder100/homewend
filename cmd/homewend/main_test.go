@@ -483,3 +483,14 @@ func TestAPhotoNameWhereTheFolderGoesSaysBringBack(t *testing.T) {
 		t.Errorf("%q: a folder with a dot is no photo", out)
 	}
 }
+
+// What is not a photo is counted in files, as every row is, and named by
+// what holds them at the top of the card.
+func TestNotPhotosAreCountedInFiles(t *testing.T) {
+	s := summary{Counts: library.Counts{Outcome: library.OutcomeEmpty}, otherFiles: 6,
+		others: []library.ImportOther{{Name: "FFDB/", Files: 5}, {Name: "notes.txt", Files: 1}}}
+	out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{dryRun: true}, s) })
+	if !strings.Contains(out, "skip     6  not photos: FFDB/, notes.txt") {
+		t.Errorf("got:\n%s", out)
+	}
+}

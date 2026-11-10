@@ -780,8 +780,8 @@ func importCommand(args []string) int {
 		return w.failed(text["import one folder"], text["one folder hint"])
 	}
 	if info, err := os.Stat(dir); err != nil {
-		// A photo's name typed where the folder goes: the dry run named it
-		// among those deleted, to bring back.
+		// A photo's name typed where the folder goes: one deleted, to bring
+		// back, as the window names it.
 		if library.IsMedia(dir) {
 			return w.failed(fmt.Sprintf(text["import not found"], dir), fmt.Sprintf(text["import not found photo"], dir))
 		}
@@ -817,12 +817,9 @@ func importCommand(args []string) int {
 		json.NewEncoder(os.Stdout).Encode(map[string]any{"import": plan, "dir": dir})
 		return exitOK
 	}
-	s := summary{Counts: plan.Counts, copied: plan.Photos + plan.Videos, years: plan.Years, othersMore: plan.OthersMore,
-		last: fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))}
-	for _, o := range plan.Others {
-		s.others = append(s.others, o.Name)
-	}
-	sayImport(out, w, s)
+	sayImport(out, w, summary{Counts: plan.Counts, copied: plan.Photos + plan.Videos, years: plan.Years,
+		others: plan.Others, othersMore: plan.OthersMore, otherFiles: plan.OtherFiles,
+		last: fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))})
 	return exitOK
 }
 
@@ -1072,15 +1069,16 @@ func importCopy(w importWords, args []string) int {
 
 // summary is what sayImport says of a look or its copy: the counts, what
 // is copied (with those brought back) and, a copy's, undated; a look's
-// years and what is not a photo, by name at the top of the card; the last
-// line when something comes in.
+// years, and what is not a photo, by name at the top of the card and in
+// files; the last line when something comes in.
 type summary struct {
 	library.Counts
 	copied     int
 	undated    int
 	years      []library.ImportYear
-	others     []string
+	others     []library.ImportOther
 	othersMore int
+	otherFiles int
 	last       string
 }
 
@@ -1091,7 +1089,11 @@ func sayImport(out *printer, w importWords, s summary) {
 	// The verbs in one column as wide as this run's longest, "skip" or
 	// "skipped"; the counts right-aligned after them.
 	wide := 0
-	for _, verb := range []string{"copy", "skip", "date"} {
+	copied := "copy"
+	if w.link {
+		copied = "link"
+	}
+	for _, verb := range []string{copied, "skip", "date"} {
 		wide = max(wide, len(w.words("verb "+verb)))
 	}
 	under := strings.Repeat(" ", 2+wide+1+5+2) // below a row's words
@@ -1102,8 +1104,8 @@ func sayImport(out *printer, w importWords, s summary) {
 		}
 	}
 	note := func(said string) { out.say(under + out.out.paint(said, faintColour, false)) }
-	row("copy", s.copied-s.BroughtBack, text["row new"], nil)
-	row("copy", s.BroughtBack, text["row back"], nil)
+	row(copied, s.copied-s.BroughtBack, text["row new"], nil)
+	row(copied, s.BroughtBack, text["row back"], nil)
 	// Under what is copied, new or brought back: by year, and undated.
 	for _, y := range s.years {
 		year := y.Year
@@ -1141,11 +1143,15 @@ func sayImport(out *printer, w importWords, s summary) {
 	// What is not a photo or a video, by its name at the top of the card
 	// or the folder: a person knows FFDB/ when they see it.
 	if len(s.others) > 0 {
-		names := strings.Join(s.others, ", ")
-		if s.othersMore > 0 {
-			names += " " + fmt.Sprintf(text["names more"], s.othersMore)
+		var names []string
+		for _, o := range s.others {
+			names = append(names, o.Name)
 		}
-		row("skip", len(s.others)+s.othersMore, fmt.Sprintf(text["row others"], names), faintColour)
+		said := strings.Join(names, ", ")
+		if s.othersMore > 0 {
+			said += " " + fmt.Sprintf(text["names more"], s.othersMore)
+		}
+		row("skip", s.otherFiles, fmt.Sprintf(text["row others"], said), faintColour)
 	}
 	row("skip", s.Unreadable, text["row unreadable"], warnColour)
 	out.say("")
