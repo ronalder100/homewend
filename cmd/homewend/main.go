@@ -364,10 +364,10 @@ func pickProfile(ctx context.Context, given string, asJSON bool) (string, error)
 	if err != nil {
 		return "", err
 	}
-	names := engine.ProfileNames(accounts, s)
+	names, first := engine.ProfileNames(accounts, s)
 	switch {
-	case len(names) == 1:
-		return names[0], nil
+	case first != "":
+		return first, nil
 	case len(names) == 0:
 		return "", errNoProfile
 	case !interactive(asJSON):

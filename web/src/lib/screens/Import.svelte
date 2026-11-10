@@ -43,11 +43,11 @@
 	// screen starts at the choice. One under way, or a card out, is.
 	let choosing = $state(true);
 
-	// Whose photos they are: a name typed, or the first of the profiles
-	// there are, shown in the empty field so that the list offers them all.
+	// Whose photos they are: a name typed, or the one the engine goes to,
+	// shown in the empty field so that the list offers them all.
 	const profiles = $derived(app.overview?.profiles ?? []);
 	let typed = $state('');
-	const profile = $derived(typed.trim() || profiles[0] || '');
+	const profile = $derived(typed.trim() || app.overview?.profile || '');
 
 	// How the folder is named on every screen, as the engine names it.
 	const name = $derived(im?.top ?? '');
@@ -296,7 +296,7 @@
 		<label class="whose">
 			{profiles.length === 0 ? text.whosePhotos : text.importGoesTo}
 			<!-- One of the profiles there are, or a new name: someone else's card. -->
-			<input bind:value={typed} list="profiles" placeholder={profiles[0] ?? text.profilePlaceholder} spellcheck="false" />
+			<input bind:value={typed} list="profiles" placeholder={app.overview?.profile || text.profilePlaceholder} spellcheck="false" />
 			<datalist id="profiles">
 				{#each profiles as p (p)}<option value={p}></option>{/each}
 			</datalist>

@@ -42,12 +42,12 @@ func (s Settings) ProfileFor(id string) string {
 	return name
 }
 
-// ProfileNames are the profiles there are: those of the accounts and those
-// named in the settings first, the one an import offers first; then those
-// only imported into, a friend's card once.
-func ProfileNames(accounts []AccountInfo, s Settings) []string {
+// ProfileNames are the profiles there are, and the one an import goes to
+// when none is named, "" when it is to be asked. The accounts' profiles
+// and those named in the settings come first; then those only imported
+// into, a friend's card once, which is no reason to ask about one's own.
+func ProfileNames(accounts []AccountInfo, s Settings) (names []string, first string) {
 	seen := map[string]bool{}
-	var names []string
 	add := func(n string) {
 		if n != "" && !seen[n] {
 			seen[n] = true
@@ -61,12 +61,15 @@ func ProfileNames(accounts []AccountInfo, s Settings) []string {
 		add(p)
 	}
 	slices.Sort(names)
-	named := len(names)
+	own := len(names)
 	for _, p := range s.Imported {
 		add(p)
 	}
-	slices.Sort(names[named:])
-	return names
+	slices.Sort(names[own:])
+	if own == 1 || len(names) == 1 {
+		first = names[0]
+	}
+	return names, first
 }
 
 // SetProfile puts the account id in the profile named profile.
@@ -110,7 +113,7 @@ func rememberProfile(profile string) error {
 }
 
 // ErrBadProfile is a profile name that cannot be a folder.
-var ErrBadProfile = errors.New("a profile is a name, without / or \\, and not . or ..")
+var ErrBadProfile = errors.New("a profile is a name, without / or \\, not starting with a dot, no spaces around it")
 
 // ValidProfile is whether p can name a profile: a folder of the library,
 // so a plain name, never one that leads out of it or into its work folder.
