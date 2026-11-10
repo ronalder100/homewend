@@ -819,12 +819,23 @@ func importCommand(args []string) int {
 		}
 		out.say("  " + out.out.paint(fmt.Sprintf("%-7s", year), mutedColour, false) + "  " + mediaCount(y.Photos, y.Videos))
 	}
+	// Files that are not photos or videos, by the folder they sit in: the
+	// top named after the card or the folder, a file there is not the
+	// whole of it.
 	for _, o := range plan.Others {
 		folder := o.Folder
 		if folder == "." {
-			folder = text["import itself"]
+			name := w.card
+			if name == "" {
+				name = filepath.Base(dir)
+			}
+			folder = fmt.Sprintf(text["import top"], name)
 		}
-		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text["import others"], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
+		others := "import others"
+		if o.Files == 1 {
+			others = "import others one"
+		}
+		out.say("  " + out.out.paint(folder, faintColour, false) + "  " + out.out.paint(fmt.Sprintf(text[others], counted(o.Files, "files"), size(o.Bytes)), faintColour, false))
 	}
 	sayImport(out, w, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
 	return exitOK

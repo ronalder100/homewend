@@ -234,7 +234,7 @@ export const text = {
 	filesRead: 'files read',
 	datesRead: 'dates read, to know which folders come in',
 	nOf: (n: number, of: number) => `${n.toLocaleString('en')} of ${of.toLocaleString('en')}`,
-	importTop: 'Its top folder',
+	importTop: (name: string) => `Top of ${name}`,
 	carryOn: 'Carry on',
 	importReadingLead: 'Every file is read once, to know which are already in your library. Nothing is copied yet.',
 	toCopy: (photos: number, videos: number) =>
