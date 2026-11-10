@@ -297,15 +297,11 @@
 		</div>
 		<label class="whose">
 			{profiles.length === 0 ? text.whosePhotos : text.importGoesTo}
-			{#if profiles.length > 1}
-				<select bind:value={profile}>
-					{#each profiles as p (p)}<option value={p}>{p}</option>{/each}
-				</select>
-			{:else if profiles.length === 1}
-				<b>{profile}</b>
-			{:else}
-				<input bind:value={profile} placeholder={text.profilePlaceholder} spellcheck="false" />
-			{/if}
+			<!-- One of the profiles there are, or a new name: someone else's card. -->
+			<input bind:value={profile} list="profiles" placeholder={text.profilePlaceholder} spellcheck="false" />
+			<datalist id="profiles">
+				{#each profiles as p (p)}<option value={p}></option>{/each}
+			</datalist>
 		</label>
 	{:else if view === 'reading' && im}
 		<!-- I2: every file read once, to know it; nothing copied yet. -->
@@ -633,10 +629,6 @@
 		align-items: center;
 		gap: 8px;
 	}
-	.whose b {
-		color: var(--fg);
-	}
-	.whose select,
 	.whose input {
 		height: 32px;
 		padding: 0 8px;

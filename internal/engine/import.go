@@ -114,8 +114,9 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	opt := library.Options{Profile: profile, SeparateMessaging: true, Account: source}
 	done, err := library.Import(ctx, folder, root, catalog, opt, how, emit)
 	if done.Placed > 0 {
-		if err := rememberProfile(profile); err != nil {
-			return done, err
+		// Kept even when the run ends short: its photos are in the profile.
+		if kept := rememberProfile(profile); kept != nil && err == nil {
+			err = kept
 		}
 	}
 	// A card taken out halfway, during a copy or between two, is not a run

@@ -66,7 +66,7 @@ func LibraryOverview(s Settings) (Overview, error) {
 		return Overview{}, err
 	}
 	o, err := overview(root, accounts, s.Hidden)
-	o.Profiles = ProfileNames(accounts, s)
+	o.Profiles = append([]string{}, ProfileNames(accounts, s)...)
 	return o, err
 }
 
