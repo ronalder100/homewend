@@ -104,10 +104,29 @@ type Asked struct {
 	Redates []Redate `json:"redates,omitempty"`
 	// Which groups come in; nil, each as its kind says.
 	Choice *Choice `json:"choice,omitempty"`
-	// Bring in again the photos the library had and someone deleted from
-	// it. Without it they stay out, counted: a card still holds what was
-	// deleted, and would bring it back at every import.
-	BringBack bool `json:"bring_back,omitempty"`
+	// The photos the library had and someone deleted from it to bring in
+	// again, by name as --date names them, or "all". The others stay out,
+	// counted: a card still holds what was deleted, and would bring it back
+	// at every import.
+	BringBack []string `json:"bring_back,omitempty"`
+}
+
+// bringsBack says whether a deleted photo of f, by its path, comes in
+// again: one named, or all. A name the folder does not have is said, as a
+// date given to it would be.
+func (a Asked) bringsBack(f Folder) (func(path string) bool, error) {
+	back := map[string]bool{}
+	for _, name := range a.BringBack {
+		if strings.EqualFold(name, "all") {
+			return func(string) bool { return true }, nil
+		}
+		path, err := named(name, f)
+		if err != nil {
+			return nil, err
+		}
+		back[path] = true
+	}
+	return func(path string) bool { return back[path] }, nil
 }
 
 // Hashes are the contents of a folder's files, by path, as a look read
@@ -222,6 +241,10 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 	if err != nil {
 		return ImportPlan{}, err
 	}
+	back, err := opt.bringsBack(f)
+	if err != nil {
+		return ImportPlan{}, err
+	}
 	plan := ImportPlan{Counts: Counts{Unreadable: f.Unreadable}, Years: []ImportYear{}, Files: []ImportFile{}, Others: []ImportOther{}}
 	// Every file read once, its content and its camera's date, before
 	// the groups are known: what the groups are depends on the dates.
@@ -304,8 +327,8 @@ func PlanImport(ctx context.Context, dir string, f Folder, catalog *Catalog, opt
 			continue
 		}
 		if deleted {
-			plan.Deleted++
-			if !opt.BringBack {
+			plan.deleted(item.Path, back(item.Path))
+			if !back(item.Path) {
 				continue
 			}
 		}

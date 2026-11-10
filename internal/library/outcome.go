@@ -3,6 +3,8 @@
 
 package library
 
+import "path/filepath"
+
 // Outcome is how a look or a copy of a folder ends, said once here so that
 // the command line and the window, a look and its copy, never tell the
 // same folder apart. They only put it in words.
@@ -37,9 +39,13 @@ type Counts struct {
 	Redated int `json:"redated"`
 	// Given a date but filed in another profile, whose date it is to give.
 	NotRedated int `json:"not_redated"`
-	// Photos the library had and someone deleted from it: brought back,
-	// they are counted as new too; else they stay out.
-	Deleted int `json:"deleted"`
+	// Photos the library had and someone deleted from it; of them, those
+	// brought back, counted as new too; the others stay out.
+	Deleted     int `json:"deleted"`
+	BroughtBack int `json:"brought_back"`
+	// Those that stay out by name, MaxOthers at most: a person knows which
+	// photo they deleted when they see its name, and brings it back by it.
+	DeletedNames []string `json:"deleted_names,omitempty"`
 	// Files and folders that could not be read, passed over.
 	Unreadable int `json:"unreadable"`
 	// The groups that stay out, by their kind or as chosen: said, so that
@@ -49,6 +55,18 @@ type Counts struct {
 	LeftOut []OutGroup `json:"left_out,omitempty"`
 	// How it ends, for every screen and line that says it.
 	Outcome Outcome `json:"outcome"`
+}
+
+// deleted counts a photo deleted from the library: brought back, or left
+// out by its name.
+func (c *Counts) deleted(path string, back bool) {
+	c.Deleted++
+	switch {
+	case back:
+		c.BroughtBack++
+	case len(c.DeletedNames) < MaxOthers:
+		c.DeletedNames = append(c.DeletedNames, filepath.Base(path))
+	}
 }
 
 // end decides the Outcome, fresh being what comes in, in this order: what
@@ -63,7 +81,7 @@ func (c *Counts) end(fresh int) {
 		c.Outcome = OutcomeRedated
 	case len(c.LeftOut) > 0:
 		c.Outcome = OutcomeLeftOut
-	case c.Deleted > 0: // brought back, they came in as new
+	case c.Deleted > c.BroughtBack:
 		c.Outcome = OutcomeDeleted
 	case known > 0 && c.Unreadable > 0:
 		c.Outcome = OutcomeKnownNoted

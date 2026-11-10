@@ -283,7 +283,7 @@ func TestAPhotoDeletedFromTheLibraryStaysOutUnlessBroughtBack(t *testing.T) {
 	if err != nil || done.Deleted != 1 || done.Placed != 0 {
 		t.Errorf("%+v, %v; want the deleted photo left out and said", done, err)
 	}
-	done, err = Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Asked: Asked{BringBack: true}, Fits: fits}, nil)
+	done, err = Import(context.Background(), folder, root, catalog, Options{Profile: "anna"}, ImportOptions{Asked: Asked{BringBack: []string{"all"}}, Fits: fits}, nil)
 	if err != nil || done.Placed != 1 {
 		t.Errorf("%+v, %v; want the deleted photo placed again", done, err)
 	}
@@ -685,5 +685,41 @@ func TestARunTellsItsBytesGoneThrough(t *testing.T) {
 		if total == 0 || last != total {
 			t.Errorf("run %d: ended at %d of %d", run, last, total)
 		}
+	}
+}
+
+// One photo deleted by mistake comes back by its name; another deleted
+// stays out, named.
+func TestOneDeletedPhotoComesBackByName(t *testing.T) {
+	card := t.TempDir()
+	write(t, card, "DCIM/A.JPG", exifPhoto("2019:07:14 10:00:00", "a"))
+	write(t, card, "DCIM/B.JPG", exifPhoto("2019:07:15 10:00:00", "b"))
+	root := t.TempDir()
+	catalog, err := OpenCatalog(filepath.Join(root, "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalog.Close()
+	folder, err := ReadFolder(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fits := func(int64) error { return nil }
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits}, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"A.JPG", "B.JPG"} {
+		if err := os.Remove(filepath.Join(root, "ron", "2019", "07", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	back := ImportOptions{Fits: fits, Asked: Asked{BringBack: []string{"a.jpg"}}}
+	done, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, back, nil)
+	if err != nil || done.Placed != 1 || done.BroughtBack != 1 || len(done.DeletedNames) != 1 || done.DeletedNames[0] != "B.JPG" {
+		t.Errorf("%+v, %v; want A back, B left out by name", done, err)
+	}
+	mustExist(t, filepath.Join(root, "ron", "2019", "07", "A.JPG"))
+	if _, err := Import(context.Background(), folder, root, catalog, Options{Profile: "ron"}, ImportOptions{Fits: fits, Asked: Asked{BringBack: []string{"C.JPG"}}}, nil); !errors.As(err, new(UnknownNameError)) {
+		t.Errorf("a name not on the card: %v", err)
 	}
 }

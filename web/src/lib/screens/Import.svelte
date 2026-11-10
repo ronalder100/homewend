@@ -100,7 +100,7 @@
 				// What was given before the window closed goes on with it.
 				redates = im.redates ?? [];
 				choice = im.choice ?? null;
-				bringBack = !!im.bring_back;
+				bringBack = im.bring_back ?? [];
 			}
 		});
 		lookCards();
@@ -151,7 +151,7 @@
 		redates = [];
 		link = false;
 		choice = null;
-		bringBack = false;
+		bringBack = [];
 		start(() => planImport({ dir, profile }));
 	}
 
@@ -160,8 +160,17 @@
 	// twice.
 	let redates = $state<Redate[]>([]);
 	let dating = $state(false);
-	// Photos deleted from the library come in again only when asked.
-	let bringBack = $state(false);
+	// Photos deleted from the library come in again only when ticked, by
+	// name, or all.
+	let bringBack = $state<string[]>([]);
+	function back(name: string) {
+		bringBack = bringBack.includes(name) ? bringBack.filter((n) => n !== name) : [...bringBack, name];
+		lookAgain();
+	}
+	function backAll(on: boolean) {
+		bringBack = on ? ['all'] : [];
+		lookAgain();
+	}
 
 	// What the person has said so far, for the next look or the copy.
 	const asking = (): ImportAsk => ({ dir: im!.dir!, profile: im!.profile || profile, redates, choice, bring_back: bringBack });
@@ -357,11 +366,26 @@
 			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
 		</p>
 		{#if plan.deleted > 0}
-			<!-- The card still holds what was deleted from the library: it stays out unless asked back. -->
-			<label class="note back">
-				<input type="checkbox" bind:checked={bringBack} onchange={lookAgain} />
-				{bringBack ? text.bringingBack(plan.deleted) : text.deletedStayOut(plan.deleted)}
-			</label>
+			<!-- The card still holds what was deleted from the library: it stays out
+			     unless ticked back, one by its name or all. -->
+			{@const all = bringBack.includes('all')}
+			{@const named = [...bringBack.filter((n) => n !== 'all'), ...(plan.deleted_names ?? [])]}
+			<section class="years deleted">
+				<header>
+					<h2>{text.deletedHead(plan.deleted)}</h2>
+					<label class="back"><input type="checkbox" checked={all} onchange={() => backAll(!all)} />{text.bringAllBack}</label>
+				</header>
+				{#each named as n (n)}
+					<label class="year back">
+						<span class="name mono"
+							><input type="checkbox" checked={all || bringBack.includes(n)} disabled={all} onchange={() => back(n)} />{n}</span
+						>
+					</label>
+				{/each}
+				{#if plan.deleted - plan.brought_back > (plan.deleted_names?.length ?? 0)}
+					<div class="year"><span class="name">{text.othersMore(plan.deleted - plan.brought_back - (plan.deleted_names?.length ?? 0))}</span></div>
+				{/if}
+			</section>
 		{/if}
 		{#if plan.groups.length > 0}
 			<!-- I4: one row per group, with why; a project is one row, not its folders. -->
@@ -453,7 +477,8 @@
 				<div><b>{done.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
 				{#if done.undated > 0}<div><b>{done.undated.toLocaleString('en')}</b><span>{text.importUndated}</span></div>{/if}
 				{#if done.redated > 0}<div><b>{done.redated.toLocaleString('en')}</b><span>{text.importRedated}</span></div>{/if}
-				{#if done.deleted > 0}<div><b>{done.deleted.toLocaleString('en')}</b><span>{im.bring_back ? text.importDeletedBack : text.importDeletedOut}</span></div>{/if}
+				{#if done.brought_back > 0}<div><b>{done.brought_back.toLocaleString('en')}</b><span>{text.importDeletedBack}</span></div>{/if}
+				{#if done.deleted > done.brought_back}<div><b>{(done.deleted - done.brought_back).toLocaleString('en')}</b><span>{text.importDeletedOut}</span></div>{/if}
 				{#if done.unreadable > 0}<div class="warn"><b>{done.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			</div>
 		{/if}

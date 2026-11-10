@@ -402,10 +402,10 @@ func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
 // A dry run says the deleted brought back in the conditional, as its other
 // lines; the copy in the present.
 func TestDeletedBroughtBackAreSaidInTheRunsTense(t *testing.T) {
-	c := library.Counts{Deleted: 2, Outcome: library.OutcomeNew}
+	c := library.Counts{Deleted: 2, BroughtBack: 2, Outcome: library.OutcomeNew}
 	for dry, want := range map[bool]string{true: "would come in again", false: "come in again"} {
 		out := captured(t, func() {
-			sayImport(&printer{out: look{}}, importWords{dryRun: dry, bringBack: true}, c, 0, "fresh")
+			sayImport(&printer{out: look{}}, importWords{dryRun: dry}, c, 0, "fresh")
 		})
 		if !strings.Contains(out, want) || (!dry && strings.Contains(out, "would")) {
 			t.Errorf("dry %v: %q, want %q", dry, out, want)
@@ -428,5 +428,16 @@ func TestIncludeTakesTheFolderByItsName(t *testing.T) {
 	}
 	if got := includeFolder(dir, "Backup", "Backup"); got != "Backup" {
 		t.Errorf("with Backup/ inside: %q, want that folder", got)
+	}
+}
+
+// The deleted left out are named, for one to be brought back by its name.
+func TestDeletedLeftOutAreNamed(t *testing.T) {
+	c := library.Counts{Deleted: 12, DeletedNames: []string{"DSCF0010.JPG"}, Outcome: library.OutcomeDeleted}
+	out := captured(t, func() { sayImport(&printer{out: look{}}, importWords{}, c, 0, "") })
+	for _, want := range []string{"12 deleted", "DSCF0010.JPG", "and 11 more", "--bring-back NAME"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("%q missing:\n%s", want, out)
+		}
 	}
 }

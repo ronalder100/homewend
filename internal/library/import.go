@@ -81,6 +81,10 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 	if err != nil {
 		return done, err
 	}
+	back, err := how.bringsBack(f)
+	if err != nil {
+		return done, err
+	}
 	// What a stopped run left here was never placed: it starts again.
 	if err := os.RemoveAll(arrivals(root)); err != nil {
 		return done, err
@@ -163,8 +167,8 @@ func Import(ctx context.Context, f Folder, root string, catalog *Catalog, opt Op
 			// The arrivals were emptied, so it is no move left halfway
 			// either. It stays out unless asked back; brought back, it is
 			// new, in this profile.
-			done.Deleted++
-			if !how.BringBack {
+			done.deleted(item.Path, back(item.Path))
+			if !back(item.Path) {
 				// Its twin further on is deleted too, not a photo in.
 				delete(seen, hash)
 				continue

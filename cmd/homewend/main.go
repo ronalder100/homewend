@@ -827,12 +827,11 @@ func importCommand(args []string) int {
 			where = "import others card"
 		}
 		out.say("  " + out.out.paint(text[where], faintColour, false))
+		var names []string
 		for _, o := range plan.Others {
-			out.say("    " + out.out.paint(o.Name, faintColour, false))
+			names = append(names, o.Name)
 		}
-		if plan.OthersMore > 0 {
-			out.say("    " + out.out.paint(fmt.Sprintf(text["import others more"], plan.OthersMore), faintColour, false))
-		}
+		sayNames(out, names, plan.OthersMore)
 	}
 	sayImport(out, w, plan.Counts, 0, fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes)))
 	return exitOK
@@ -846,7 +845,8 @@ func importArgs(args []string) importWords {
 	flags := newFlags("import")
 	dry := flags.Bool("dry-run", false, "only tell what would happen")
 	link := flags.Bool("link", false, "a second name on the library's disk instead of a copy")
-	back := flags.Bool("bring-back", false, "bring in again the photos deleted from the library")
+	var back listFlags
+	flags.Var(&back, "bring-back", "NAMES: photos deleted from the library brought in again, or all")
 	profile := flags.String("profile", "", "whose photos: the library's folder they go in")
 	asJSON := flags.Bool("json", false, "one JSON object per line")
 	var dates, include listFlags
@@ -857,7 +857,7 @@ func importArgs(args []string) importWords {
 	if flags.NArg() > 0 {
 		flags.Parse(flags.Args()[1:])
 	}
-	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: *back, more: dir != "" && flags.NArg() > 0}
+	return importWords{dir: dir, dryRun: *dry, link: *link, profile: *profile, json: *asJSON, dates: dates, include: include, bringBack: back, more: dir != "" && flags.NArg() > 0}
 }
 
 // listFlags are a flag given again and again: each --date, "NAMES=WHEN" as
@@ -911,8 +911,9 @@ type importWords struct {
 	profile string
 	dates   listFlags
 	include listFlags // group folders that stay out by themselves, brought in
-	// bringBack brings in again what someone deleted from the library
-	bringBack bool
+	// bringBack are the photos deleted from the library to bring in again,
+	// by name, or "all"; each --bring-back holds names split by commas
+	bringBack listFlags
 	card      bool // a card was found, no folder named
 	json      bool
 	more      bool // more than one folder
@@ -921,7 +922,15 @@ type importWords struct {
 // asked is what the person said on the command line, as the engine hears
 // it: the dates given, the groups included, the deleted brought back.
 func (w importWords) asked(redates []library.Redate) library.Asked {
-	return library.Asked{Redates: redates, Choice: w.choice(), BringBack: w.bringBack}
+	var back []string
+	for _, v := range w.bringBack {
+		for _, name := range strings.Split(v, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				back = append(back, name)
+			}
+		}
+	}
+	return library.Asked{Redates: redates, Choice: w.choice(), BringBack: back}
 }
 
 // choice is the groups --include brings in besides those that come in by
@@ -1043,6 +1052,17 @@ func importCopy(w importWords, args []string) int {
 	return exitOK
 }
 
+// sayNames lists names under the line before them, faint, and how many
+// more there are past them.
+func sayNames(out *printer, names []string, more int) {
+	for _, n := range names {
+		out.say("    " + out.out.paint(n, faintColour, false))
+	}
+	if more > 0 {
+		out.say("    " + out.out.paint(fmt.Sprintf(text["import others more"], more), faintColour, false))
+	}
+}
+
 // sayImport says how a look (a dry run) or its copy went, one way for
 // both: the groups that stay out with why and how to bring one in, what is
 // in, moved, twice, undated (a copy's), left to another profile, deleted,
@@ -1079,11 +1099,13 @@ func sayImport(out *printer, w importWords, c library.Counts, undated int, fresh
 	if c.NotRedated > 0 {
 		out.say("  " + out.out.paint(fmt.Sprintf(text["not redated"], c.NotRedated), warnColour, false))
 	}
-	switch {
-	case c.Deleted > 0 && w.bringBack:
-		out.say("  " + counted(c.Deleted, w.key("deleted back")))
-	case c.Deleted > 0:
-		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(c.Deleted, "deleted")), faintColour, false))
+	if c.BroughtBack > 0 {
+		out.say("  " + counted(c.BroughtBack, w.key("deleted back")))
+	}
+	// Those left out by name: one deleted by mistake is brought back by it.
+	if left := c.Deleted - c.BroughtBack; left > 0 {
+		out.say("  " + out.out.paint(fmt.Sprintf(text["import deleted"], counted(left, "deleted")), faintColour, false))
+		sayNames(out, c.DeletedNames, left-len(c.DeletedNames))
 	}
 	if c.Unreadable > 0 {
 		out.say("  " + out.out.paint(counted(c.Unreadable, "import unreadable"), warnColour, false))

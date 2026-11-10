@@ -219,8 +219,10 @@ export interface Counts {
 	/** Moved to a date given; given one but filed in another profile. */
 	redated: number;
 	not_redated: number;
-	/** Deleted from the library: counted always, in again only when brought back. */
+	/** Deleted from the library; of them, brought back; those left out by name. */
 	deleted: number;
+	brought_back: number;
+	deleted_names?: string[];
 	unreadable: number;
 	outcome: Outcome;
 }
@@ -261,8 +263,8 @@ export interface ImportAsk {
 	choice?: Choice | null;
 	/** Hard links, not copies. */
 	link?: boolean;
-	/** Bring in again what someone deleted from the library. */
-	bring_back?: boolean;
+	/** Photos deleted from the library to bring in again, by name, or "all". */
+	bring_back?: string[];
 }
 
 /** Where the window's import stands: the look at a folder, then the copy. */

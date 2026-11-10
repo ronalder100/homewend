@@ -124,7 +124,7 @@ Examples:
 
 Usage:
   homewend import [DIR] [--profile NAME] [--link] [--include FOLDER]
-                  [--bring-back] [--json]
+                  [--bring-back NAMES] [--json]
   homewend import --dry-run [DIR] [--json]
 
 Without DIR, the card that is in: a disk with a camera's DCIM folder on it,
@@ -161,8 +161,10 @@ Flags:
   --include FOLDER
                   bring in a folder that stays out by itself, named as
                   --dry-run lists it ("." for DIR itself). Repeatable
-  --bring-back    bring in again the photos deleted from the library: by
-                  default a card that still holds them leaves them out
+  --bring-back NAMES
+                  bring in again photos deleted from the library, by name
+                  as the run lists them, or all: by default a card that
+                  still holds them leaves them out. Repeatable
   --json          one JSON object per line, for scripts
 
 Examples:
@@ -171,6 +173,7 @@ Examples:
   homewend import /media/card
   homewend import ~/Pictures/old-laptop --link
   homewend import ~/Backup --include Scans
+  homewend import --bring-back DSCF0010.JPG
   homewend import --date DSCF0004.JPG,DSCF0005.JPG=2026-09-14T10:20`,
 
 	"help verify": `homewend verify — count a library again
@@ -364,7 +367,7 @@ Examples:
 	"deleted back one":     "1 deleted from the library comes in again",
 	"deleted back dry":     "%d deleted from the library would come in again",
 	"deleted back dry one": "1 deleted from the library would come in again",
-	"import deleted":       "%s · to bring back: --bring-back",
+	"import deleted":       "%s · to bring one back: --bring-back NAME, or all",
 	"deleted":              "%d deleted from the library stay out",
 	"deleted one":          "1 deleted from the library stays out",
 	"import others card":   "Not photos, left on the card:",
