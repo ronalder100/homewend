@@ -866,10 +866,10 @@ func importCommand(args []string) int {
 		out.say(out.out.result(fmt.Sprintf(text["result import"], mediaCount(plan.Photos, plan.Videos), size(plan.Bytes))))
 	case newOut:
 		out.say(out.out.summary(text["result plan left out"]))
-	case len(leftOut) > 0:
-		out.say(out.out.result(text["result import none"]))
 	case plan.Deleted > 0:
 		out.say(out.out.result(text["result import deleted"]))
+	case len(leftOut) > 0:
+		out.say(out.out.result(text["result import none"]))
 	case plan.InLibrary+plan.Twins > 0 && plan.Unreadable > 0:
 		out.say(out.out.summary(text["result import none read"]))
 	case plan.InLibrary+plan.Twins > 0:
