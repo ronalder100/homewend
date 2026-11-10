@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -115,8 +116,9 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	done, err := library.Import(ctx, folder, root, catalog, opt, how, emit)
 	if done.Placed > 0 {
 		// Kept even when the run ends short: its photos are in the profile.
-		if kept := rememberProfile(profile); kept != nil && err == nil {
-			err = kept
+		// Not kept, the photos are in all the same: said, not failed.
+		if kept := rememberProfile(profile); kept != nil {
+			log.Printf("import: profile %s not kept: %v", profile, kept)
 		}
 	}
 	// A card taken out halfway, during a copy or between two, is not a run

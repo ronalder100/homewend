@@ -42,8 +42,9 @@ func (s Settings) ProfileFor(id string) string {
 	return name
 }
 
-// ProfileNames are the profiles there are: those of the accounts, those
-// named in the settings, and those imported into.
+// ProfileNames are the profiles there are: those of the accounts and those
+// named in the settings first, the one an import offers first; then those
+// only imported into, a friend's card once.
 func ProfileNames(accounts []AccountInfo, s Settings) []string {
 	seen := map[string]bool{}
 	var names []string
@@ -59,10 +60,12 @@ func ProfileNames(accounts []AccountInfo, s Settings) []string {
 	for _, p := range s.Profiles {
 		add(p)
 	}
+	slices.Sort(names)
+	named := len(names)
 	for _, p := range s.Imported {
 		add(p)
 	}
-	slices.Sort(names)
+	slices.Sort(names[named:])
 	return names
 }
 
@@ -91,18 +94,15 @@ func SetProfile(id, profile string) error {
 	return SaveSettings(s)
 }
 
-// rememberProfile keeps profile among the profiles, when it is not one
-// yet: a card imported with no account names it once.
+// rememberProfile keeps profile among those imported into: a card
+// imported with no account names it once, and its folder is still offered
+// when the account whose profile it was has gone.
 func rememberProfile(profile string) error {
-	accounts, err := Accounts()
-	if err != nil {
-		return err
-	}
 	s, err := LoadSettings()
 	if err != nil {
 		return err
 	}
-	if slices.Contains(ProfileNames(accounts, s), profile) {
+	if slices.Contains(s.Imported, profile) {
 		return nil
 	}
 	s.Imported = append(s.Imported, profile)
@@ -115,7 +115,7 @@ var ErrBadProfile = errors.New("a profile is a name, without / or \\, and not . 
 // ValidProfile is whether p can name a profile: a folder of the library,
 // so a plain name, never one that leads out of it or into its work folder.
 func ValidProfile(p string) bool {
-	return p != "" && p != "." && p != ".." && !strings.ContainsAny(p, "/\\") && !strings.HasPrefix(p, ".")
+	return p != "" && p != "." && p != ".." && !strings.ContainsAny(p, "/\\") && !strings.HasPrefix(p, ".") && p == strings.TrimSpace(p)
 }
 
 // Themes are the values Theme takes.

@@ -43,13 +43,11 @@
 	// screen starts at the choice. One under way, or a card out, is.
 	let choosing = $state(true);
 
-	// Whose photos they are: the profiles there are, or a name typed when
-	// there is none yet.
+	// Whose photos they are: a name typed, or the first of the profiles
+	// there are, shown in the empty field so that the list offers them all.
 	const profiles = $derived(app.overview?.profiles ?? []);
-	let profile = $state('');
-	$effect(() => {
-		if (!profile && profiles.length > 0) profile = profiles[0];
-	});
+	let typed = $state('');
+	const profile = $derived(typed.trim() || profiles[0] || '');
 
 	// How the folder is named on every screen, as the engine names it.
 	const name = $derived(im?.top ?? '');
@@ -97,7 +95,7 @@
 			// A copy under way, or waiting for its card, is where the window opens.
 			if (im?.running || im?.problem === 'taken-out') {
 				choosing = false;
-				if (im.profile) profile = im.profile;
+				if (im.profile) typed = im.profile;
 				// What was given before the window closed goes on with it.
 				redates = im.redates ?? [];
 				choice = im.choice ?? null;
@@ -298,7 +296,7 @@
 		<label class="whose">
 			{profiles.length === 0 ? text.whosePhotos : text.importGoesTo}
 			<!-- One of the profiles there are, or a new name: someone else's card. -->
-			<input bind:value={profile} list="profiles" placeholder={text.profilePlaceholder} spellcheck="false" />
+			<input bind:value={typed} list="profiles" placeholder={profiles[0] ?? text.profilePlaceholder} spellcheck="false" />
 			<datalist id="profiles">
 				{#each profiles as p (p)}<option value={p}></option>{/each}
 			</datalist>
@@ -628,6 +626,9 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+	.whose b {
+		color: var(--fg);
 	}
 	.whose input {
 		height: 32px;

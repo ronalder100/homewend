@@ -50,3 +50,15 @@ func TestSetProfileOnlyForAnAccountThatIsHere(t *testing.T) {
 		t.Errorf("profiles %v", s.Profiles)
 	}
 }
+
+// An account's profile comes before one a friend's card was imported into
+// once: the window offers the first.
+func TestAnAccountsProfileComesFirst(t *testing.T) {
+	got := ProfileNames([]AccountInfo{{Profile: "ron"}}, Settings{Imported: []string{"anna", "ron"}})
+	if len(got) != 2 || got[0] != "ron" || got[1] != "anna" {
+		t.Errorf("%q, want ron then anna", got)
+	}
+	if ValidProfile("ron ") || ValidProfile(" ron") {
+		t.Error("a name with spaces around it would be a second ron")
+	}
+}
