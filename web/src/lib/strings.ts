@@ -6,6 +6,14 @@
 /** n things, the noun in the singular for one: 1 photo, 2,354 photos. */
 const count = (n: number, one: string, many = one + 's') => `${n.toLocaleString('en')} ${n === 1 ? one : many}`;
 
+/** A span of time as a person says it: 70 seconds, 3 minutes, 2 days. */
+function between(seconds: number): string {
+	if (seconds < 120) return count(seconds, 'second');
+	if (seconds < 7200) return count(Math.round(seconds / 60), 'minute');
+	if (seconds < 172800) return count(Math.round(seconds / 3600), 'hour');
+	return count(Math.round(seconds / 86400), 'day');
+}
+
 export const text = {
 	brand: 'Homewend',
 	menu: 'Show or hide the sidebar',
@@ -235,6 +243,21 @@ export const text = {
 	importFree: 'free on the library\'s disk',
 	importNoRoom: 'There is not enough room on the library\'s disk.',
 	byYearImport: 'By year.',
+	anyDatesWrong: 'Any dates wrong?',
+	anyDatesWrongLead: 'A camera whose clock was reset dates its photos wrong. Tick them and give them the right date.',
+	backToPlan: 'Back to the plan',
+	photosPicked: (n: number) => `${count(n, 'photo')} picked`,
+	cameraSays: 'The camera says',
+	takenOn: 'They were taken on',
+	goInto: 'They go into ',
+	keepingBetween: (seconds: number) => `, keeping the ${between(seconds)} between them`,
+	xmpBeside: (name: string) =>
+		`The photos stay as they are: the new date is written in a .xmp file beside each copy (${name}.xmp), which Immich, digiKam and darktable read.`,
+	useThisDate: 'Use this date',
+	cancel: 'Cancel',
+	datesGiven: (n: number) => `${count(n, 'photo')} with a date you gave.`,
+	notRedated: (n: number) => `${count(n, 'is', 'are')} filed in another profile: their date is given from there.`,
+	planRedated: (n: number) => `${count(n, 'photo')} already in your library will move to the date you gave.`,
 	monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 	byYearImportLegend: 'photos · videos',
 	leftOut: 'Left out.',
@@ -263,6 +286,7 @@ export const text = {
 	importDone: (n: number) => (n === 0 ? 'Nothing new came in.' : `${count(n, 'photo and video', 'photos and videos')} copied and verified.`),
 	importDoneLead: 'They are in your library, each one read back and compared.',
 	importPlaced: 'copied now',
+	importRedated: 'with the date you gave',
 	importUndated: 'with no date the camera wrote',
 	canTakeOut: (name: string) => `You can take out ${name}.`,
 	nothingChanged: 'Nothing on it was changed.',

@@ -18,12 +18,14 @@
 		stopImport,
 		type Card,
 		type ImportPlan,
+		type Redate,
 		type ImportState
 	} from '#lib/api.js';
 	import { bytes } from '#lib/format.js';
 	import { text } from '#lib/strings.js';
 	import PrimaryButton from '#lib/components/PrimaryButton.svelte';
 	import SecondaryButton from '#lib/components/SecondaryButton.svelte';
+	import ImportDates from './ImportDates.svelte';
 
 	let im = $state<ImportState | null>(null);
 	let cards = $state<Card[]>([]);
@@ -112,7 +114,11 @@
 		}
 	});
 	const carryOn = () =>
-		start(() => (im!.kind === 'plan' ? planImport(im!.dir!, im!.profile!) : startImport(im!.dir!, im!.profile!)));
+		start(() =>
+			im!.kind === 'plan'
+				? planImport(im!.dir!, im!.profile!, im!.redates)
+				: startImport(im!.dir!, im!.profile!, false, im!.redates)
+		);
 
 	async function start(call: () => Promise<ImportState>) {
 		choosing = false;
@@ -129,7 +135,23 @@
 		if (!profile) return;
 		// The room left is read again for each card: an import before took some.
 		getLibrary().then((l) => (free = l.free), () => {});
+		redates = [];
 		start(() => planImport(dir, profile));
+	}
+
+	// Dates given to photos a reset clock dated wrong (I3b): kept here
+	// until the copy, and looked at again with them, which reads nothing
+	// twice.
+	let redates = $state<Redate[]>([]);
+	let dating = $state(false);
+	function give(names: string[], when: string) {
+		// A photo given a date again keeps only the last.
+		const others = redates
+			.map((r) => ({ ...r, names: r.names.filter((n) => !names.includes(n)) }))
+			.filter((r) => r.names.length > 0);
+		redates = [...others, { names, when }];
+		dating = false;
+		start(() => planImport(im!.dir!, im!.profile || profile, redates));
 	}
 	async function chooseFolder() {
 		const picked = await window.shell?.chooseFolder();
@@ -214,11 +236,13 @@
 		<div class="track"><b style:width="{share * 100}%"></b></div>
 		{#if im.of > 0}<div class="numbers"><div><b>{text.nOf(im.n, im.of)}</b><span>{text.filesRead}</span></div></div>{/if}
 		<div class="actions"><SecondaryButton onclick={() => stopImport().then((s) => ((im = s), (choosing = true)))}>{text.importStop}</SecondaryButton></div>
+	{:else if view === 'plan' && plan && im && dating}
+		<ImportDates files={plan.files} {redates} onuse={give} onback={() => (dating = false)} />
 	{:else if view === 'plan' && plan && im}
 		<!-- I3: what comes in, by year; what stays out. -->
 		<span class="pill">{name}</span>
 		<h1>{text.toCopy(plan.photos, plan.videos)}</h1>
-		{#if plan.photos + plan.videos === 0}<p class="lead">{text.nothingNewLead}</p>{:else if plan.in_library > 0}<p class="lead">{text.toCopyLead}</p>{/if}
+		{#if plan.photos + plan.videos === 0}<p class="lead">{plan.redated > 0 ? text.planRedated(plan.redated) : text.nothingNewLead}</p>{:else if plan.in_library > 0}<p class="lead">{text.toCopyLead}</p>{/if}
 		<div class="numbers">
 			<div><b>{bytes(plan.bytes)}</b><span>{text.importToCopy}</span></div>
 			<div><b>{plan.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
@@ -241,12 +265,19 @@
 		{#if !fits && !link}<p class="problem"><TriangleAlert size={16} />{text.importNoRoom}</p>{/if}
 		<div class="actions">
 			<PrimaryButton
-				disabled={(!fits && !link) || plan.photos + plan.videos === 0}
-				onclick={() => start(() => startImport(im!.dir!, profile, link && !!im!.canLink))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
+				disabled={(!fits && !link) || plan.photos + plan.videos + plan.redated === 0}
+				onclick={() => start(() => startImport(im!.dir!, im!.profile || profile, link && !!im!.canLink, redates))}>{link ? text.linkIn : text.copyAndVerify}</PrimaryButton
 			>
 			<SecondaryButton onclick={() => (choosing = true)}>{text.back}</SecondaryButton>
 		</div>
 		<p class="whose">{text.importGoesTo} <b>{im.profile || profile}</b></p>
+		<!-- A camera whose clock was reset: its photos given their day before the copy. -->
+		<p class="note">
+			{#if redates.length > 0}{text.datesGiven(redates.reduce((n, r) => n + r.names.length, 0))}
+				{#if plan.not_redated > 0}<span class="warnText">{text.notRedated(plan.not_redated)}</span>{/if}
+			{/if}
+			<button class="link" onclick={() => (dating = true)}>{text.anyDatesWrong}</button>
+		</p>
 		{@render byYear(plan.years)}
 		{#if plan.others.length > 0}
 			<section class="years">
@@ -296,6 +327,7 @@
 				<div><b>{done.placed.toLocaleString('en')}</b><span>{text.importPlaced}</span></div>
 				<div><b>{done.in_library.toLocaleString('en')}</b><span>{text.importInLibrary}</span></div>
 				{#if done.undated > 0}<div><b>{done.undated.toLocaleString('en')}</b><span>{text.importUndated}</span></div>{/if}
+				{#if done.redated > 0}<div><b>{done.redated.toLocaleString('en')}</b><span>{text.importRedated}</span></div>{/if}
 				{#if done.unreadable > 0}<div class="warn"><b>{done.unreadable.toLocaleString('en')}</b><span>{text.importUnreadable}</span></div>{/if}
 			</div>
 		{/if}
@@ -335,7 +367,15 @@
 		align-items: flex-start;
 		gap: 16px;
 		padding: 48px 40px 40px;
+	}
+	/* The page scrolls whole, its scrollbar at the window's edge; what is
+	   read stays a column a line can be followed across. Picking dates
+	   takes more: the photos and the panel beside them. */
+	.page > :global(*) {
 		max-width: 760px;
+	}
+	.page > :global(.dates) {
+		max-width: 1200px;
 	}
 	h1 {
 		font-size: var(--text-title-1);
@@ -532,6 +572,13 @@
 	}
 	.note {
 		color: var(--muted);
+	}
+	.link {
+		color: var(--accent);
+		font-weight: 600;
+	}
+	.warnText {
+		color: var(--warn);
 	}
 	.note b {
 		color: var(--fg);

@@ -163,14 +163,35 @@ export interface Card {
 	name: string;
 }
 
+/** Photos whose camera had the date wrong, and the date they were taken:
+ *  the first of them by the camera's clock takes it, the others keep their
+ *  distance from it. */
+export interface Redate {
+	/** Paths below the folder. */
+	names: string[];
+	/** A clock, written as UTC: "2025-09-14T10:21:00Z" is 10:21 where it was taken. */
+	when: string;
+}
+
+/** A photo or video of the folder, as its camera dated it. */
+export interface ImportFile {
+	path: string;
+	/** The camera's clock, as UTC; none, no date. */
+	taken?: string;
+	video?: boolean;
+}
+
 export interface ImportPlan {
 	photos: number;
 	videos: number;
 	bytes: number;
 	in_library: number;
-	redated: number;
 	twins: number;
 	unreadable: number;
+	/** Those a date given moves; those another profile holds, left to it. */
+	redated: number;
+	not_redated: number;
+	files: ImportFile[];
 	/** Newest first; "" is the photos with no date. */
 	years: { year: string; photos: number; videos: number; months?: { month: number; photos: number; videos: number }[] }[];
 	/** What stays out, by the folder it sits in. */
@@ -194,6 +215,7 @@ export interface ImportState {
 	dir?: string;
 	/** Whose photos they are, for a copy taken up again. */
 	profile?: string;
+	redates?: Redate[];
 	/** Whether dir was a card when the run began. */
 	card?: boolean;
 	kind?: 'plan' | 'import';
@@ -215,9 +237,10 @@ export interface ImportState {
 }
 
 export const getCards = () => call<Card[]>('GET', '/api/cards');
-export const planImport = (dir: string, profile: string) =>
-	call<ImportState>('POST', '/api/import/plan', { dir, profile });
-export const startImport = (dir: string, profile: string, link = false) =>
-	call<ImportState>('POST', '/api/import', { dir, profile, link });
+export const planImport = (dir: string, profile: string, redates: Redate[] = []) =>
+	call<ImportState>('POST', '/api/import/plan', { dir, profile, redates });
+export const startImport = (dir: string, profile: string, link = false, redates: Redate[] = []) =>
+	call<ImportState>('POST', '/api/import', { dir, profile, link, redates });
+export const importThumbUrl = (path: string) => `/api/import/thumb?${q({ file: path })}`;
 export const getImport = () => call<ImportState>('GET', '/api/import');
 export const stopImport = () => call<ImportState>('POST', '/api/import/stop');
