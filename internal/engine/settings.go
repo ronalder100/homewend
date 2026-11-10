@@ -26,6 +26,9 @@ type Settings struct {
 	// Profiles names the profile of each account, by id: the folder of the
 	// library its photos go in. An account not named here goes in ProfileFor's.
 	Profiles map[string]string `json:"profiles,omitempty"`
+	// Imported are the profiles a card or a folder was imported into that
+	// no account has: named once, found again at the next import.
+	Imported []string `json:"imported_profiles,omitempty"`
 }
 
 // ProfileFor is the profile of the account id: the one chosen, or the
@@ -39,8 +42,8 @@ func (s Settings) ProfileFor(id string) string {
 	return name
 }
 
-// ProfileNames are the profiles there are: those of the accounts, and those
-// named in the settings.
+// ProfileNames are the profiles there are: those of the accounts, those
+// named in the settings, and those imported into.
 func ProfileNames(accounts []AccountInfo, s Settings) []string {
 	seen := map[string]bool{}
 	var names []string
@@ -54,6 +57,9 @@ func ProfileNames(accounts []AccountInfo, s Settings) []string {
 		add(a.Profile)
 	}
 	for _, p := range s.Profiles {
+		add(p)
+	}
+	for _, p := range s.Imported {
 		add(p)
 	}
 	slices.Sort(names)
@@ -82,6 +88,24 @@ func SetProfile(id, profile string) error {
 		s.Profiles = map[string]string{}
 	}
 	s.Profiles[id] = profile
+	return SaveSettings(s)
+}
+
+// rememberProfile keeps profile among the profiles, when it is not one
+// yet: a card imported with no account names it once.
+func rememberProfile(profile string) error {
+	accounts, err := Accounts()
+	if err != nil {
+		return err
+	}
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	if slices.Contains(ProfileNames(accounts, s), profile) {
+		return nil
+	}
+	s.Imported = append(s.Imported, profile)
 	return SaveSettings(s)
 }
 

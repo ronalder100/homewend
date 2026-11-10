@@ -22,6 +22,8 @@ type Overview struct {
 	Years    []YearCount    `json:"years"`
 	Albums   []AlbumCount   `json:"albums"`
 	Takeouts int            `json:"takeouts"`
+	// Profiles are those there are, for an import to choose among.
+	Profiles []string `json:"profiles"`
 }
 
 // ShownAccount is an account and whether the window shows its photos.
@@ -63,7 +65,9 @@ func LibraryOverview(s Settings) (Overview, error) {
 	if err != nil {
 		return Overview{}, err
 	}
-	return overview(root, accounts, s.Hidden)
+	o, err := overview(root, accounts, s.Hidden)
+	o.Profiles = ProfileNames(accounts, s)
+	return o, err
 }
 
 // shownAddresses are the addresses of the accounts shown, or nil when every

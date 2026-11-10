@@ -43,9 +43,9 @@
 	// screen starts at the choice. One under way, or a card out, is.
 	let choosing = $state(true);
 
-	// Whose photos they are: the profiles of the accounts, or a name typed
-	// when there is no account yet.
-	const profiles = $derived([...new Set((app.overview?.accounts ?? []).map((a) => a.profile))].sort());
+	// Whose photos they are: the profiles there are, or a name typed when
+	// there is none yet.
+	const profiles = $derived(app.overview?.profiles ?? []);
 	let profile = $state('');
 	$effect(() => {
 		if (!profile && profiles.length > 0) profile = profiles[0];

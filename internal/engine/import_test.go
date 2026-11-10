@@ -89,6 +89,40 @@ func TestAnImportedPhotoIsNamedByItsFolder(t *testing.T) {
 	}
 }
 
+// The profile a card is imported into with no account is found again at
+// the next import, once, and offered to the window; a library's other
+// folders are not profiles.
+func TestAnImportsProfileIsRemembered(t *testing.T) {
+	config(t)
+	root := t.TempDir()
+	if err := SetDefaultLibrary(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "Screenshots"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	card := t.TempDir()
+	if err := os.Mkdir(filepath.Join(card, "DCIM"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"A.JPG", "B.JPG"} {
+		if err := os.WriteFile(filepath.Join(card, "DCIM", name), []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Import(context.Background(), card, "ron", library.ImportOptions{}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := LoadSettings()
+	if err != nil || len(s.Imported) != 1 || s.Imported[0] != "ron" {
+		t.Fatalf("%+v, %v; want ron kept once", s, err)
+	}
+	o, err := LibraryOverview(s)
+	if err != nil || len(o.Profiles) != 1 || o.Profiles[0] != "ron" {
+		t.Errorf("profiles %q, %v; want ron alone", o.Profiles, err)
+	}
+}
+
 // A folder is named by the last part of its path; a drive's root by
 // itself, never by a lone separator.
 func TestTheTopIsNamedAfterTheFolder(t *testing.T) {

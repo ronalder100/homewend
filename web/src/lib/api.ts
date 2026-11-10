@@ -27,6 +27,8 @@ export interface Overview {
 	years: { year: string; count: number }[];
 	albums: { account: string; name: string; count: number }[];
 	takeouts: number;
+	/** Those there are, for an import to choose among. */
+	profiles: string[];
 }
 
 /** A call the engine refused; status 401 means Google signed the account out. */

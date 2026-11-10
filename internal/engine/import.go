@@ -113,6 +113,11 @@ func Import(ctx context.Context, dir, profile string, how library.ImportOptions,
 	}
 	opt := library.Options{Profile: profile, SeparateMessaging: true, Account: source}
 	done, err := library.Import(ctx, folder, root, catalog, opt, how, emit)
+	if done.Placed > 0 {
+		if err := rememberProfile(profile); err != nil {
+			return done, err
+		}
+	}
 	// A card taken out halfway, during a copy or between two, is not a run
 	// that ended or failed: it is one to resume. A stop asked for is said
 	// as a stop.
