@@ -384,24 +384,17 @@ func TestADateIsReadAsTyped(t *testing.T) {
 // Without a terminal, Google preparing is said once, not at each look: a
 // run sent to a file waits for hours. A step back after another is said.
 func TestAWaitIsSaidOnceWithoutATerminal(t *testing.T) {
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	stdout := os.Stdout
-	os.Stdout = w
-	p := &printer{out: lookFor(w)}
-	for range 3 {
-		p.event(progress.Event{Stage: progress.Waiting, Name: "job"})
-	}
-	// A retry, a part, a retry again: two failures, both said.
-	p.event(progress.Event{Stage: progress.Retry, Note: "no network"})
-	p.event(progress.Event{Stage: progress.Downloaded, N: 1, Of: 3, Total: 10})
-	p.event(progress.Event{Stage: progress.Retry, Note: "no network"})
-	os.Stdout = stdout
-	w.Close()
-	out, _ := io.ReadAll(r)
-	if n := strings.Count(string(out), signGoing+" "); n != 3 {
+	out := captured(t, func() {
+		p := &printer{out: look{}}
+		for range 3 {
+			p.event(progress.Event{Stage: progress.Waiting, Name: "job"})
+		}
+		// A retry, a part, a retry again: two failures, both said.
+		p.event(progress.Event{Stage: progress.Retry, Note: "no network"})
+		p.event(progress.Event{Stage: progress.Downloaded, N: 1, Of: 3, Total: 10})
+		p.event(progress.Event{Stage: progress.Retry, Note: "no network"})
+	})
+	if n := strings.Count(out, signGoing+" "); n != 3 {
 		t.Errorf("said %d times, want the wait once and each retry:\n%s", n, out)
 	}
 }
